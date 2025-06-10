@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AiWinLab - Купить монеты</title>
+    <style>
+        body {
+            font-family: 'Verdana', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
+            background-size: cover;
+            color: #ff6200;
+            min-height: 100vh;
+            max-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+        }
+        .header {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo h1 {
+            font-size: 28px;
+            margin: 0;
+            text-shadow: 0 0 10px #ff6200;
+        }
+        .back-btn {
+            background: #ff6200;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .back-btn:hover {
+            background: #e05600;
+        }
+        .buy-coins-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 10px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+        .title {
+            font-size: 24px;
+            margin: 0;
+            animation: fadeIn 1s ease-in-out;
+        }
+        .coin-packages {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 700px;
+        }
+        .coin-package {
+            background: #ffffff;
+            color: #000000;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+            animation: slideUp 0.5s ease forwards;
+            animation-delay: calc(var(--order) * 0.2s);
+            opacity: 0;
+        }
+        .coin-package:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 98, 0, 0.5);
+        }
+        .coin-amount {
+            font-size: 22px;
+            color: #ff6200;
+        }
+        .coin-image {
+            width: 40px;
+            height: 40px;
+            background: url('https://img.icons8.com/fluency/48/star.png') no-repeat center;
+            background-size: contain;
+        }
+        .coin-price {
+            font-size: 16px;
+            color: #555555;
+        }
+        .buy-btn {
+            background: #ff6200;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .buy-btn:hover {
+            background: #e05600;
+            transform: scale(1.1);
+        }
+        .status {
+            margin-top: 10px;
+            color: #ff0000;
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 900px) {
+            .coin-packages {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 600px) {
+            .coin-packages {
+                grid-template-columns: 1fr;
+            }
+            .logo h1 {
+                font-size: 24px;
+            }
+            .title {
+                font-size: 20px;
+            }
+            .coin-amount {
+                font-size: 20px;
+            }
+            .coin-image {
+                width: 30px;
+                height: 30px;
+                background: url('https://img.icons8.com/fluency/48/star.png') no-repeat center;
+                background-size: contain;
+            }
+            .coin-price {
+                font-size: 14px;
+            }
+            .buy-btn, .back-btn {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+            .buy-coins-container {
+                gap: 10px;
+                padding: 5px;
+            }
+            .coin-package {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <h1>AiWinLab</h1>
+        </div>
+        <button class="back-btn" onclick="window.location.href='index.html'">Назад</button>
+    </div>
+    <div class="buy-coins-container">
+        <h2 class="title">Купить монеты</h2>
+        <div class="coin-packages">
+            <div class="coin-package" style="--order: 1;">
+                <div class="coin-amount">10 монет</div>
+                <div class="coin-image"></div>
+                <div class="coin-price">200 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(10, 200)">Купить</button>
+            </div>
+            <div class="coin-package" style="--order: 2;">
+                <div class="coin-amount">25 монет</div>
+                <div class="coin-image"></div>
+                <div class="coin-price">500 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(25, 500)">Купить</button>
+            </div>
+            <div class="coin-package" style="--order: 3;">
+                <div class="coin-amount">50 монет</div>
+                <div class="coin-image"></div>
+                <div class="coin-price">1000 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(50, 1000)">Купить</button>
+            </div>
+            <div class="coin-package" style="--order: 4;">
+                <div class="coin-amount">100 монет</div>
+                <div class="coin-image"></div>
+                <div class="coin-price">2000 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(100, 2000)">Купить</button>
+            </div>
+        </div>
+        <div class="status" id="status">Ожидание оплаты...</div>
+    </div>
+
+    <script>
+        
+    // Проверка наличия Telegram Web App или использование браузерного режима
+    const isTelegram = window.Telegram?.WebApp;
+
+    async function buyCoins(amount, stars) {
+        if (!isTelegram && !confirm('Тестирование в браузере. Продолжить симуляцию?')) {
+            return;
+        }
+
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('status').textContent = 'Симуляция оплаты...';
+
+        setTimeout(() => {
+            let coins = parseInt(localStorage.getItem('coins')) || 0;
+            coins += amount;
+            localStorage.setItem('coins', coins);
+
+            if (isTelegram) {
+                window.Telegram.WebApp.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
+            } else {
+                alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
+            }
+            window.location.href = 'index.html';
+        }, 2000); // Задержка 2 секунды для имитации
+    }
+
+    // Инициализация Telegram Web App, если доступен
+    if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+    }
+
+    </script>
+</body>
+</html>
