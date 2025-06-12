@@ -1,8 +1,9 @@
 {
-  "routes": [
+  "redirects": [
     {
-      "src": "/(.*)",
-      "dest": "/redirect.html"
+      "source": "/(.*)",
+      "destination": "/client/buy-coins.html",
+      "permanent": false
     }
   ]
 }
