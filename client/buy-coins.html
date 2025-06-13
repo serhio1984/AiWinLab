@@ -220,19 +220,18 @@
         document.getElementById('status').style.display = 'block';
         document.getElementById('status').textContent = 'Симуляция оплаты...';
 
-        setTimeout(() => {
-            let coins = parseInt(localStorage.getItem('coins')) || 0;
-            coins += amount;
-            localStorage.setItem('coins', coins);
+       setTimeout(() => {
+    let coins = parseInt(localStorage.getItem('coins')) || 0;
+    coins += amount;
+    localStorage.setItem('coins', coins);
 
-            if (isTelegram) {
-                window.Telegram.WebApp.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-            } else {
-                alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-            }
-            window.location.href = 'index.html';
-        }, 2000); // Задержка 2 секунды для имитации
+    if (isTelegram) {
+        window.Telegram.WebApp.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
+    } else {
+        alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
     }
+    // window.location.href = '/client/welcome.html'; // Альтернативный путь
+}, 2000);
 
     // Инициализация Telegram Web App, если доступен
     if (window.Telegram?.WebApp) {
