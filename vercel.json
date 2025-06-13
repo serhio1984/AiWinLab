@@ -1,9 +1,8 @@
 {
-  "redirects": [
+  "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/client/buy-coins.html",
-      "permanent": false
+      "destination": "/client/buy-coins.html"
     }
   ]
 }
