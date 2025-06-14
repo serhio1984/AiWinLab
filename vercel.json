@@ -1,8 +1,12 @@
 {
-       "rewrites": [
-         {
-           "source": "/(.*)",
-           "destination": "/client/welcome.html"
-         }
-       ]
-     }
+  "rewrites": [
+    {
+      "source": "/client/admin.html",
+      "destination": "/client/admin.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/client/welcome.html"
+    }
+  ]
+}
