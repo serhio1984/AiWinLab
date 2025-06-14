@@ -70,27 +70,22 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .start-btn {
+        .buy-btn {
             background: #ff6200;
             color: #ffffff;
             border: none;
-            padding: 20px 40px;
-            border-radius: 15px;
-            font-size: 28px;
-            font-weight: bold;
+            padding: 20px 40px; /* Увеличенные размеры */
+            border-radius: 5px;
+            font-size: 28px; /* Увеличенный шрифт */
+            font-weight: bold; /* Сохранение жирного шрифта */
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5); /* Тень кнопки */
-            animation: bounce 1.5s infinite;
+            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
         }
-        .start-btn:hover {
+        .buy-btn:hover {
             background: #e05600;
             transform: scale(1.1);
             box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
-        }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
         }
         @media (max-width: 600px) {
             .logo h1 {
@@ -103,10 +98,10 @@
                 font-size: 28px;
                 margin-right: 10px;
             }
-            .start-btn {
-                font-size: 22px;
-                padding: 15px 30px;
-                border-radius: 12px;
+            .buy-btn {
+                font-size: 18px; /* Адаптированный шрифт для мобильных */
+                padding: 12px 24px; /* Адаптированные размеры для мобильных */
+                border-radius: 4px;
             }
             .welcome-container {
                 gap: 30px;
