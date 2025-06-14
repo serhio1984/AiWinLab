@@ -4,9 +4,6 @@
       "source": "/client/admin.html",
       "destination": "/client/admin.html"
     },
-    {
-      "source": "/(.*)",
-      "destination": "/client/welcome.html"
-    }
+    
   ]
 }
