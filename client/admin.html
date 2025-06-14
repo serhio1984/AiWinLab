@@ -172,6 +172,7 @@
                 <input type="text" id="predictionText" placeholder="Напр. Победа Manchester City">
             </div>
             <button class="buy-btn" onclick="addPrediction()">Добавить</button>
+            <button class="buy-btn" onclick="publishPredictions()">Публикация</button>
         </div>
         <div class="predictions-list" id="predictionsList">
             <h3>Существующие прогнозы</h3>
@@ -190,109 +191,119 @@
             </table>
         </div>
     </div>
-    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
-    // Загрузка существующих прогнозов
-    let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-    const adminPassword = "admin123"; // Измените на безопасный пароль
+    <script>
+        // Загрузка существующих прогнозов
+        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+        const adminPassword = "admin123"; // Измените на безопасный пароль
 
-    function login() {
-        const password = document.getElementById('adminPassword').value;
-        if (password === adminPassword) {
-            document.getElementById('loginSection').classList.remove('active');
-            document.getElementById('formSection').classList.add('active');
-            document.getElementById('predictionsList').classList.add('active');
-            document.getElementById('exitBtn').style.display = 'block';
-            renderPredictions();
-        } else {
-            alert('Неверный пароль!');
+        function login() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === adminPassword) {
+                document.getElementById('loginSection').classList.remove('active');
+                document.getElementById('formSection').classList.add('active');
+                document.getElementById('predictionsList').classList.add('active');
+                document.getElementById('exitBtn').style.display = 'block';
+                renderPredictions();
+                // Очистка старых данных при первом входе (опционально)
+                if (predictions.length > 0 && confirm('Удалить старые прогнозы?')) {
+                    predictions = [];
+                    localStorage.setItem('predictions', JSON.stringify(predictions));
+                    renderPredictions();
+                }
+            } else {
+                alert('Неверный пароль!');
+            }
         }
-    }
 
-    function logout() {
-        document.getElementById('loginSection').classList.add('active');
-        document.getElementById('formSection').classList.remove('active');
-        document.getElementById('predictionsList').classList.remove('active');
-        document.getElementById('exitBtn').style.display = 'none';
-        document.getElementById('adminPassword').value = '';
-    }
+        function logout() {
+            document.getElementById('loginSection').classList.add('active');
+            document.getElementById('formSection').classList.remove('active');
+            document.getElementById('predictionsList').classList.remove('active');
+            document.getElementById('exitBtn').style.display = 'none';
+            document.getElementById('adminPassword').value = '';
+        }
 
-    function addPrediction() {
-        const tournament = document.getElementById('tournament').value;
-        const team1 = document.getElementById('team1').value;
-        const logo1 = document.getElementById('logo1').value;
-        const team2 = document.getElementById('team2').value;
-        const logo2 = document.getElementById('logo2').value;
-        const odds = parseFloat(document.getElementById('odds').value);
-        const predictionText = document.getElementById('predictionText').value;
+        function addPrediction() {
+            const tournament = document.getElementById('tournament').value;
+            const team1 = document.getElementById('team1').value;
+            const logo1 = document.getElementById('logo1').value;
+            const team2 = document.getElementById('team2').value;
+            const logo2 = document.getElementById('logo2').value;
+            const odds = parseFloat(document.getElementById('odds').value);
+            const predictionText = document.getElementById('predictionText').value;
 
-        if (tournament && team1 && team2 && logo1 && logo2 && !isNaN(odds) && predictionText) {
-            const newPrediction = {
-                id: Date.now(),
-                tournament,
-                team1,
-                logo1,
-                team2,
-                logo2,
-                odds: odds.toFixed(2),
-                isUnlocked: false,
-                predictionText
-            };
-            predictions.push(newPrediction);
+            if (tournament && team1 && team2 && logo1 && logo2 && !isNaN(odds) && predictionText) {
+                const newPrediction = {
+                    id: Date.now(),
+                    tournament,
+                    team1,
+                    logo1,
+                    team2,
+                    logo2,
+                    odds: odds.toFixed(2),
+                    isUnlocked: false,
+                    predictionText
+                };
+                predictions.push(newPrediction);
+                localStorage.setItem('predictions', JSON.stringify(predictions));
+                renderPredictions();
+                document.getElementById('tournament').value = '';
+                document.getElementById('team1').value = '';
+                document.getElementById('logo1').value = '';
+                document.getElementById('team2').value = '';
+                document.getElementById('logo2').value = '';
+                document.getElementById('odds').value = '';
+                document.getElementById('predictionText').value = '';
+            } else {
+                alert('Заполните все поля корректно!');
+            }
+        }
+
+        function renderPredictions() {
+            const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+            predictions.forEach(p => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = p.tournament;
+                row.insertCell(1).textContent = p.team1;
+                row.insertCell(2).textContent = p.team2;
+                row.insertCell(3).textContent = p.odds;
+                row.insertCell(4).textContent = p.predictionText;
+                const actionCell = row.insertCell(5);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Удалить';
+                deleteBtn.className = 'buy-btn';
+                deleteBtn.onclick = () => deletePrediction(p.id);
+                actionCell.appendChild(deleteBtn);
+            });
+        }
+
+        function deletePrediction(id) {
+            predictions = predictions.filter(p => p.id !== id); // Фильтрация для удаления
             localStorage.setItem('predictions', JSON.stringify(predictions));
             renderPredictions();
-            document.getElementById('tournament').value = '';
-            document.getElementById('team1').value = '';
-            document.getElementById('logo1').value = '';
-            document.getElementById('team2').value = '';
-            document.getElementById('logo2').value = '';
-            document.getElementById('odds').value = '';
-            document.getElementById('predictionText').value = '';
+        }
+
+        function publishPredictions() {
+            localStorage.setItem('predictions', JSON.stringify(predictions));
+            alert('Прогнозы сохранены для публикации в 00:01!');
+        }
+
+        // Инициализация с обработкой Telegram
+        document.getElementById('loginSection').classList.add('active');
+        if (window.Telegram?.WebApp) {
+            try {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+                console.log('Telegram WebApp initialized');
+            } catch (e) {
+                console.error('Telegram WebApp error:', e);
+            }
         } else {
-            alert('Заполните все поля корректно!');
+            console.log('Telegram WebApp not available, running in standalone mode');
         }
-    }
-
-    function renderPredictions() {
-        const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
-        tbody.innerHTML = '';
-        predictions.forEach(p => {
-            const row = tbody.insertRow();
-            row.insertCell(0).textContent = p.tournament;
-            row.insertCell(1).textContent = p.team1;
-            row.insertCell(2).textContent = p.team2;
-            row.insertCell(3).textContent = p.odds;
-            row.insertCell(4).textContent = p.predictionText;
-            const actionCell = row.insertCell(5);
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Удалить';
-            deleteBtn.className = 'buy-btn';
-            deleteBtn.onclick = () => deletePrediction(p.id);
-            actionCell.appendChild(deleteBtn);
-        });
-    }
-
-    function deletePrediction(id) {
-        predictions = predictions.filter(p => p.id !== id);
-        localStorage.setItem('predictions', JSON.stringify(predictions));
-        renderPredictions();
-    }
-
-    // Инициализация Telegram и логина
-    if (window.Telegram?.WebApp) {
-        try {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            console.log('Telegram WebApp initialized');
-        } catch (e) {
-            console.error('Telegram WebApp error:', e);
-        }
-    } else {
-        console.log('Telegram WebApp not available, running in standalone mode');
-    }
-    document.getElementById('loginSection').classList.add('active');
-    document.getElementById('exitBtn').style.display = 'none';
-</script>
+        document.getElementById('exitBtn').style.display = 'none';
+    </script>
 </body>
 </html>
