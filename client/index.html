@@ -340,14 +340,13 @@
             renderPredictions();
         }
 
-        // Проверка времени и обновление прогнозов (временное изменение для теста)
+        // Проверка времени и обновление прогнозов (изменено на 19:00 EEST)
         function checkTimeAndUpdate() {
             const now = new Date();
             const hours = now.getHours();
             const minutes = now.getMinutes();
 
-            // Временное изменение для теста на 18:42 EEST (текущее время)
-            if (hours === 18 && minutes === 42) {
+            if (hours === 19 && minutes === 0) { // 19:00 EEST
                 predictions = JSON.parse(localStorage.getItem('predictions')) || [];
                 renderPredictions();
                 console.log('Прогнозы обновлены в 19:00');
