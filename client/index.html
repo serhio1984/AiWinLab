@@ -81,18 +81,21 @@
             flex: 1;
             text-align: left;
         }
-        .buy-coins-btn {
+        .buy-btn {
             background: #ff6200;
             color: #ffffff;
             border: none;
-            padding: 6px 12px;
+            padding: 8px 16px;
             border-radius: 5px;
             font-size: 14px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
         }
-        .buy-coins-btn:hover {
+        .buy-btn:hover {
             background: #e05600;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
         }
         .predictions {
             width: 100%;
@@ -111,7 +114,7 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s;
             font-weight: bold;
-            height: 150px; /* Увеличено для отображения прогноза */
+            height: 150px;
             box-sizing: border-box;
             position: relative;
         }
@@ -165,25 +168,20 @@
             top: 50%;
             transform: translateY(-50%);
         }
-        .unlock-btn {
+        .buy-btn.unlock-btn {
             position: absolute;
             bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background: #ff6200;
-            color: #ffffff;
-            border: none;
             padding: 4px 8px;
-            border-radius: 5px;
             font-size: 12px;
-            cursor: pointer;
-            transition: background 0.2s;
             display: none;
         }
-        .unlock-btn:hover {
+        .buy-btn.unlock-btn:hover {
             background: #e05600;
+            transform: scale(1.1) translateX(-50%);
         }
-        .prediction.locked .unlock-btn {
+        .prediction.locked .buy-btn.unlock-btn {
             display: block;
         }
         .prediction-text {
@@ -200,7 +198,7 @@
                 grid-template-columns: 1fr;
             }
             .prediction {
-                height: 130px; /* Увеличено для мобильных */
+                height: 130px;
             }
             .logo h1 {
                 font-size: 20px;
@@ -224,11 +222,11 @@
             .balance {
                 font-size: 14px;
             }
-            .buy-coins-btn {
+            .buy-btn {
                 font-size: 12px;
                 padding: 5px 10px;
             }
-            .unlock-btn {
+            .buy-btn.unlock-btn {
                 font-size: 10px;
                 padding: 3px 6px;
             }
@@ -321,7 +319,7 @@
                         <div class="team-row"><img src="${p.logo2}" alt="${p.team2}"> ${p.team2}</div>
                     </div>
                     <span class="odds">${p.odds}</span>
-                    <button class="unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
+                    <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
                     <div class="prediction-text">${p.predictionText || ''}</div>
                 `;
                 predictionsContainer.appendChild(div);
