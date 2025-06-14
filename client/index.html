@@ -340,10 +340,27 @@
             renderPredictions();
         }
 
+        // Проверка времени и обновление прогнозов (временное изменение для теста)
+        function checkTimeAndUpdate() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+
+            // Временное изменение для теста на 18:42 EEST (текущее время)
+            if (hours === 18 && minutes === 42) {
+                predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+                renderPredictions();
+                console.log('Прогнозы обновлены в 18:42');
+            }
+        }
+
+        // Проверка каждую минуту
+        setInterval(checkTimeAndUpdate, 60000);
+
         // Инициализация
         initializeCoins();
         loadUserData();
-        renderPredictions();
+        checkTimeAndUpdate(); // Проверка при загрузке
     </script>
 </body>
 </html>
