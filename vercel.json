@@ -1,9 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/client/admin.html",
+      "source": "/(.*)",
       "destination": "/client/admin.html"
-    },
-    
+    }
   ]
 }
