@@ -1,8 +1,8 @@
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/client/buy-coins.html"
-    }
-  ]
-}
+       "rewrites": [
+         {
+           "source": "/(.*)",
+           "destination": "/client/welcome.html"
+         }
+       ]
+     }
