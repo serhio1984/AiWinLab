@@ -347,18 +347,18 @@
             renderPredictions();
         }
 
-        // Проверка времени и обновление прогнозов (временное изменение на 20:35 EEST)
+        // Проверка времени и обновление прогнозов
         function checkTimeAndUpdate() {
             const now = new Date();
             const hours = now.getHours();
             const minutes = now.getMinutes();
             console.log('Current time:', hours, ':', minutes); // Отладка времени
 
-            if (hours === 20 && minutes === 35) { // 20:35 EEST для теста
+            if (hours === 0 && minutes === 1) { // 00:01 EEST
                 predictions = JSON.parse(localStorage.getItem('predictions')) || [];
                 console.log('Loaded predictions from localStorage:', predictions); // Отладка данных
                 renderPredictions();
-                console.log('Прогнозы обновлены в 20:35');
+                console.log('Прогнозы обновлены в 00:01');
             }
         }
 
