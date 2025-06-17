@@ -257,8 +257,20 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         // Загрузка существующих прогнозов с отладкой
-        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-        console.log('Initial predictions from localStorage:', predictions); // Отладка
+       let predictions = JSON.parse(localStorage.getItem('predictions')) || [
+    {
+        id: Date.now(),
+        tournament: "UEFA Champions League",
+        team1: "Manchester City",
+        logo1: "https://upload.wikimedia.org/wikipedia/ru/thumb/0/0b/Manchester_City_FC.svg/1200px-Manchester_City_FC.svg.png",
+        team2: "Real Madrid",
+        logo2: "https://upload.wikimedia.org/wikipedia/ru/thumb/9/98/Real_Madrid_Logo.svg/1200px-Real_Madrid_Logo.svg.png",
+        odds: "1.80",
+        isUnlocked: false,
+        predictionText: "Победа Manchester City"
+    }
+];
+console.log('Initial predictions from localStorage:', predictions);
 
         // Загрузка баланса и состояния прогнозов
         let coins = parseInt(localStorage.getItem('coins')) || 0;
