@@ -255,125 +255,132 @@
     </div>
     <div class="predictions" id="predictions"></div>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Загрузка существующих прогнозов с отладкой
-       let predictions = JSON.parse(localStorage.getItem('predictions')) || [
-    {
-        id: Date.now(),
-        tournament: "UEFA Champions League",
-        team1: "Manchester City",
-        logo1: "https://upload.wikimedia.org/wikipedia/ru/thumb/0/0b/Manchester_City_FC.svg/1200px-Manchester_City_FC.svg.png",
-        team2: "Real Madrid",
-        logo2: "https://upload.wikimedia.org/wikipedia/ru/thumb/9/98/Real_Madrid_Logo.svg/1200px-Real_Madrid_Logo.svg.png",
-        odds: "1.80",
-        isUnlocked: false,
-        predictionText: "Победа Manchester City"
-    }
-];
-console.log('Initial predictions from localStorage:', predictions);
+<script>
+    // Загрузка существующих прогнозов с тестовыми данными
+    let predictions = JSON.parse(localStorage.getItem('predictions')) || [
+        {
+            id: Date.now(),
+            tournament: "UEFA Champions League",
+            team1: "Manchester City",
+            logo1: "https://upload.wikimedia.org/wikipedia/ru/thumb/0/0b/Manchester_City_FC.svg/1200px-Manchester_City_FC.svg.png",
+            team2: "Real Madrid",
+            logo2: "https://upload.wikimedia.org/wikipedia/ru/thumb/9/98/Real_Madrid_Logo.svg/1200px-Real_Madrid_Logo.svg.png",
+            odds: "1.80",
+            isUnlocked: false,
+            predictionText: "Победа Manchester City"
+        }
+    ];
+    console.log('Initial predictions from localStorage:', predictions);
 
-        // Загрузка баланса и состояния прогнозов
-        let coins = parseInt(localStorage.getItem('coins')) || 0;
-        let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
-        predictions.forEach(p => {
-            if (unlockedPredictions.includes(p.id)) p.isUnlocked = true;
-        });
+    // Загрузка баланса и состояния прогнозов
+    let coins = parseInt(localStorage.getItem('coins')) || 0;
+    let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
+    predictions.forEach(p => {
+        if (unlockedPredictions.includes(p.id)) p.isUnlocked = true;
+    });
 
-        const coinBalance = document.getElementById('coinBalance');
-        const predictionsContainer = document.getElementById('predictions');
-        const userProfilePic = document.getElementById('userProfilePic');
-        const userName = document.getElementById('userName');
+    const coinBalance = document.getElementById('coinBalance');
+    const predictionsContainer = document.getElementById('predictions');
+    const userProfilePic = document.getElementById('userProfilePic');
+    const userName = document.getElementById('userName');
 
-        // Функция для загрузки данных пользователя
-        function loadUserData() {
-            if (window.Telegram?.WebApp) {
-                const user = window.Telegram.WebApp.initDataUnsafe.user;
-                if (user) {
-                    if (user.first_name) {
-                        userName.textContent = user.first_name;
-                    } else {
-                        userName.textContent = 'Гость';
-                    }
-                    if (user.photo_url) {
-                        userProfilePic.src = user.photo_url;
-                    } else {
-                        userProfilePic.src = 'https://via.placeholder.com/50?text=User';
-                    }
+    // Функция для загрузки данных пользователя
+    function loadUserData() {
+        if (window.Telegram?.WebApp) {
+            const user = window.Telegram.WebApp.initDataUnsafe.user;
+            if (user) {
+                if (user.first_name) {
+                    userName.textContent = user.first_name;
+                } else {
+                    userName.textContent = 'Гость';
                 }
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
-            } else {
-                userName.textContent = 'Гость (Тест)';
-                userProfilePic.src = 'https://via.placeholder.com/50?text=User';
+                if (user.photo_url) {
+                    userProfilePic.src = user.photo_url;
+                } else {
+                    userProfilePic.src = 'https://via.placeholder.com/50?text=User';
+                }
             }
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        } else {
+            userName.textContent = 'Гость (Тест)';
+            userProfilePic.src = 'https://via.placeholder.com/50?text=User';
         }
+    }
 
-        // Выдача 5 монет новому пользователю
-        function initializeCoins() {
-            if (!localStorage.getItem('visited')) {
-                coins = 5;
-                localStorage.setItem('coins', coins);
-                localStorage.setItem('visited', 'true');
-            }
-        }
-
-        // Отображение прогнозов с отладкой
-        function renderPredictions() {
-            coinBalance.textContent = coins;
-            predictionsContainer.innerHTML = '';
-            console.log('Rendering predictions:', predictions); // Отладка
-            if (predictions.length === 0) {
-                predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
-                console.log('No predictions to render.');
-            } else {
-                predictions.forEach(p => {
-                    const div = document.createElement('div');
-                    div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
-                    div.setAttribute('data-id', p.id);
-                    div.innerHTML = `
-                        <div class="teams">
-                            <span class="tournament">${p.tournament || 'Нет турнира'}</span>
-                            <div class="team-row"><img src="${p.logo1 || 'https://via.placeholder.com/30'}" alt="${p.team1 || 'Команда 1'}"> ${p.team1 || 'Команда 1'}</div>
-                            <div class="team-row"><img src="${p.logo2 || 'https://via.placeholder.com/30'}" alt="${p.team2 || 'Команда 2'}"> ${p.team2 || 'Команда 2'}</div>
-                        </div>
-                        <span class="odds">${p.odds || '0.00'}</span>
-                        <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
-                        <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
-                    `;
-                    predictionsContainer.appendChild(div);
-                });
-            }
-        }
-
-        // Разблокировка прогноза
-        function unlockPrediction(id, button) {
-            if (coins < 1) {
-                alert('Недостаточно монет! Купите ещё за Telegram Stars.');
-                return;
-            }
-            coins--;
-            unlockedPredictions.push(id);
-            predictions.find(p => p.id === id).isUnlocked = true;
+    // Выдача 5 монет новому пользователю
+    function initializeCoins() {
+        if (!localStorage.getItem('visited')) {
+            coins = 5;
             localStorage.setItem('coins', coins);
-            localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
-            renderPredictions();
+            localStorage.setItem('visited', 'true');
         }
+    }
 
-        // Проверка времени и обновление прогнозов
-        Initial predictions from localStorage: Array(1)0: {id: 1750195028227, tournament: 'UEFA Champions League', team1: 'Manchester City', logo1: 'https://upload.wikimedia.org/wikipedia/ru/thumb/0/…ter_City_FC.svg/1200px-Manchester_City_FC.svg.png', team2: 'Real Madrid', …}length: 1[[Prototype]]: Array(0)
-telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_ready 
-telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_expand 
-index.html:367 Current time: 0 : 17
-50:1 
-            
-            
-           Failed to load resource: net::ERR_NAME_NOT_RESOLVED
-6Unchecked runtime.lastError: The message port closed before a response was received.
-index.html:367 Current time: 0 : 18
-index.html:367 Current time: 0 : 19
-index.html:367 Current time: 0 : 20
-index.html:367 Current time: 0 : 21
-index.html:367 Current time: 0 : 22
-    </script>
+    // Отображение прогнозов сразу при загрузке
+    function renderPredictions() {
+        coinBalance.textContent = coins;
+        predictionsContainer.innerHTML = '';
+        console.log('Rendering predictions:', predictions); // Отладка
+        if (predictions.length === 0) {
+            predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+            console.log('No predictions to render.');
+        } else {
+            predictions.forEach(p => {
+                const div = document.createElement('div');
+                div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
+                div.setAttribute('data-id', p.id);
+                div.innerHTML = `
+                    <div class="teams">
+                        <span class="tournament">${p.tournament || 'Нет турнира'}</span>
+                        <div class="team-row"><img src="${p.logo1 || 'https://via.placeholder.com/30'}" alt="${p.team1 || 'Команда 1'}"> ${p.team1 || 'Команда 1'}</div>
+                        <div class="team-row"><img src="${p.logo2 || 'https://via.placeholder.com/30'}" alt="${p.team2 || 'Команда 2'}"> ${p.team2 || 'Команда 2'}</div>
+                    </div>
+                    <span class="odds">${p.odds || '0.00'}</span>
+                    <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
+                    <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
+                `;
+                predictionsContainer.appendChild(div);
+            });
+        }
+    }
+
+    // Разблокировка прогноза
+    function unlockPrediction(id, button) {
+        if (coins < 1) {
+            alert('Недостаточно монет! Купите ещё за Telegram Stars.');
+            return;
+        }
+        coins--;
+        unlockedPredictions.push(id);
+        predictions.find(p => p.id === id).isUnlocked = true;
+        localStorage.setItem('coins', coins);
+        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
+        renderPredictions();
+    }
+
+    // Проверка времени для будущего расписания
+    function checkTimeAndUpdate() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        console.log('Current time:', hours, ':', minutes); // Отладка времени
+
+        if (hours === 0 && minutes === 1) { // 00:01 EEST
+            predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+            console.log('Loaded predictions from localStorage:', predictions); // Отладка данных
+            renderPredictions();
+            console.log('Прогнозы обновлены в 00:01');
+        }
+    }
+
+    // Проверка каждую минуту
+    setInterval(checkTimeAndUpdate, 60000);
+
+    // Инициализация
+    initializeCoins();
+    loadUserData();
+    renderPredictions(); // Вызов рендеринга сразу при загрузке
+</script>
 </body>
 </html>
