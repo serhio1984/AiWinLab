@@ -360,27 +360,20 @@ console.log('Initial predictions from localStorage:', predictions);
         }
 
         // Проверка времени и обновление прогнозов
-        function checkTimeAndUpdate() {
-            const now = new Date();
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            console.log('Current time:', hours, ':', minutes); // Отладка времени
-
-            if (hours === 0 && minutes === 1) { // 00:01 EEST
-                predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-                console.log('Loaded predictions from localStorage:', predictions); // Отладка данных
-                renderPredictions();
-                console.log('Прогнозы обновлены в 00:01');
-            }
-        }
-
-        // Проверка каждую минуту
-        setInterval(checkTimeAndUpdate, 60000);
-
-        // Инициализация
-        initializeCoins();
-        loadUserData();
-        checkTimeAndUpdate(); // Проверка при загрузке
+        Initial predictions from localStorage: Array(1)0: {id: 1750195028227, tournament: 'UEFA Champions League', team1: 'Manchester City', logo1: 'https://upload.wikimedia.org/wikipedia/ru/thumb/0/…ter_City_FC.svg/1200px-Manchester_City_FC.svg.png', team2: 'Real Madrid', …}length: 1[[Prototype]]: Array(0)
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_ready 
+telegram-web-app.js:135 [Telegram.WebView] > postEvent web_app_expand 
+index.html:367 Current time: 0 : 17
+50:1 
+            
+            
+           Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+6Unchecked runtime.lastError: The message port closed before a response was received.
+index.html:367 Current time: 0 : 18
+index.html:367 Current time: 0 : 19
+index.html:367 Current time: 0 : 20
+index.html:367 Current time: 0 : 21
+index.html:367 Current time: 0 : 22
     </script>
 </body>
 </html>
