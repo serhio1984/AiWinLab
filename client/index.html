@@ -256,7 +256,7 @@
     <div class="predictions" id="predictions"></div>
    
     // Загрузка прогнозов с сервера
-   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // Загрузка прогнозов с сервера
     let predictions = [];
@@ -271,18 +271,16 @@
         }
     }
 
-    // Обновление прогнозов после публикации
+    // Обновление прогнозов с использованием GET
     async function updatePredictions() {
         try {
-            const response = await fetch('/api/predictions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([])
-            });
-            const result = await response.json();
-            predictions = result.predictions || [];
-            console.log('Updated predictions from server:', predictions);
-            renderPredictions();
+            const response = await fetch('/api/predictions');
+            const updatedPredictions = await response.json() || [];
+            if (JSON.stringify(predictions) !== JSON.stringify(updatedPredictions)) {
+                predictions = updatedPredictions;
+                console.log('Updated predictions from server:', predictions);
+                renderPredictions();
+            }
         } catch (error) {
             console.error('Error updating predictions:', error);
         }
