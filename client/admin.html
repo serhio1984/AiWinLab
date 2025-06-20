@@ -285,14 +285,21 @@
             renderPredictions();
         }
 
-        async function publishPredictions() {
-    const response = await fetch('/api/predictions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(predictions)
-    });
-    const result = await response.json();
-    alert('Прогнозы сохранены для публикации в 00:01!');
+       async function publishPredictions() {
+    console.log('Attempting to publish predictions:', predictions);
+    try {
+        const response = await fetch('/api/predictions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(predictions)
+        });
+        const result = await response.json();
+        console.log('Server response:', result);
+        alert('Прогнозы сохранены для публикации в 00:01!');
+    } catch (error) {
+        console.error('Error publishing predictions:', error);
+    }
+}
 }
         }
 
