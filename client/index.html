@@ -256,21 +256,18 @@
     <div class="predictions" id="predictions"></div>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-    // Загрузка существующих прогнозов с тестовыми данными
-    let predictions = JSON.parse(localStorage.getItem('predictions')) || [
-        {
-            id: Date.now(),
-            tournament: "UEFA Champions League",
-            team1: "Manchester City",
-            logo1: "https://upload.wikimedia.org/wikipedia/ru/thumb/0/0b/Manchester_City_FC.svg/1200px-Manchester_City_FC.svg.png",
-            team2: "Real Madrid",
-            logo2: "https://upload.wikimedia.org/wikipedia/ru/thumb/9/98/Real_Madrid_Logo.svg/1200px-Real_Madrid_Logo.svg.png",
-            odds: "1.80",
-            isUnlocked: false,
-            predictionText: "Победа Manchester City"
+    // Загрузка прогнозов с сервера
+    let predictions = [];
+    async function loadPredictions() {
+        try {
+            const response = await fetch('/api/predictions');
+            predictions = await response.json() || [];
+            console.log('Loaded predictions from server:', predictions);
+            renderPredictions();
+        } catch (error) {
+            console.error('Error loading predictions:', error);
         }
-    ];
-    console.log('Initial predictions from localStorage:', predictions);
+    }
 
     // Загрузка баланса и состояния прогнозов
     let coins = parseInt(localStorage.getItem('coins')) || 0;
@@ -359,28 +356,10 @@
         renderPredictions();
     }
 
-    // Проверка времени для будущего расписания
-    function checkTimeAndUpdate() {
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes();
-        console.log('Current time:', hours, ':', minutes); // Отладка времени
-
-        if (hours === 0 && minutes === 1) { // 00:01 EEST
-            predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-            console.log('Loaded predictions from localStorage:', predictions); // Отладка данных
-            renderPredictions();
-            console.log('Прогнозы обновлены в 00:01');
-        }
-    }
-
-    // Проверка каждую минуту
-    setInterval(checkTimeAndUpdate, 60000);
-
     // Инициализация
     initializeCoins();
     loadUserData();
-    renderPredictions(); // Вызов рендеринга сразу при загрузке
+    loadPredictions(); // Вызов загрузки и рендеринга при старте
 </script>
 </body>
 </html>

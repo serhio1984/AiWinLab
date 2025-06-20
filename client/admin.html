@@ -285,9 +285,15 @@
             renderPredictions();
         }
 
-        function publishPredictions() {
-            localStorage.setItem('predictions', JSON.stringify(predictions));
-            alert('Прогнозы сохранены для публикации в 19:00!');
+        async function publishPredictions() {
+    const response = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(predictions)
+    });
+    const result = await response.json();
+    alert('Прогнозы сохранены для публикации в 00:01!');
+}
         }
 
         // Инициализация с обработкой Telegram
