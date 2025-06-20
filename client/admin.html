@@ -224,41 +224,25 @@
             document.getElementById('adminPassword').value = '';
         }
 
-        function addPrediction() {
-            const tournament = document.getElementById('tournament').value;
-            const team1 = document.getElementById('team1').value;
-            const logo1 = document.getElementById('logo1').value;
-            const team2 = document.getElementById('team2').value;
-            const logo2 = document.getElementById('logo2').value;
-            const odds = parseFloat(document.getElementById('odds').value);
-            const predictionText = document.getElementById('predictionText').value;
+       function addPrediction() {
+    const tournament = document.getElementById('tournament').value;
+    const team1 = document.getElementById('team1').value;
+    const logo1 = document.getElementById('logo1').value;
+    const team2 = document.getElementById('team2').value;
+    const logo2 = document.getElementById('logo2').value;
+    const odds = document.getElementById('odds').value;
+    const predictionText = document.getElementById('predictionText').value;
 
-            if (tournament && team1 && team2 && logo1 && logo2 && !isNaN(odds) && predictionText) {
-                const newPrediction = {
-                    id: Date.now(),
-                    tournament,
-                    team1,
-                    logo1,
-                    team2,
-                    logo2,
-                    odds: odds.toFixed(2),
-                    isUnlocked: false,
-                    predictionText
-                };
-                predictions.push(newPrediction);
-                localStorage.setItem('predictions', JSON.stringify(predictions));
-                renderPredictions();
-                document.getElementById('tournament').value = '';
-                document.getElementById('team1').value = '';
-                document.getElementById('logo1').value = '';
-                document.getElementById('team2').value = '';
-                document.getElementById('logo2').value = '';
-                document.getElementById('odds').value = '';
-                document.getElementById('predictionText').value = '';
-            } else {
-                alert('Заполните все поля корректно!');
-            }
-        }
+    if (tournament && team1 && team2 && odds && predictionText) {
+        const id = Date.now(); // Уникальный id на основе времени
+        const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
+        predictions.push(prediction);
+        renderPredictions();
+        clearForm();
+    } else {
+        alert('Заполните все поля!');
+    }
+}
 
         function renderPredictions() {
             const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
