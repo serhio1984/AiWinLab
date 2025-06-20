@@ -254,7 +254,9 @@
         <button class="buy-btn" onclick="window.location.href='/client/buy-coins.html'">Купить монеты</button>
     </div>
     <div class="predictions" id="predictions"></div>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+   
+    // Загрузка прогнозов с сервера
+   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // Загрузка прогнозов с сервера
     let predictions = [];
@@ -266,6 +268,23 @@
             renderPredictions();
         } catch (error) {
             console.error('Error loading predictions:', error);
+        }
+    }
+
+    // Обновление прогнозов после публикации
+    async function updatePredictions() {
+        try {
+            const response = await fetch('/api/predictions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([])
+            });
+            const result = await response.json();
+            predictions = result.predictions || [];
+            console.log('Updated predictions from server:', predictions);
+            renderPredictions();
+        } catch (error) {
+            console.error('Error updating predictions:', error);
         }
     }
 
@@ -314,11 +333,11 @@
         }
     }
 
-    // Отображение прогнозов сразу при загрузке
+    // Отображение прогнозов
     function renderPredictions() {
         coinBalance.textContent = coins;
         predictionsContainer.innerHTML = '';
-        console.log('Rendering predictions:', predictions); // Отладка
+        console.log('Rendering predictions:', predictions);
         if (predictions.length === 0) {
             predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
             console.log('No predictions to render.');
@@ -359,7 +378,8 @@
     // Инициализация
     initializeCoins();
     loadUserData();
-    loadPredictions(); // Вызов загрузки и рендеринга при старте
+    loadPredictions();
+    setInterval(updatePredictions, 5000); // Обновление каждые 5 секунд
 </script>
 </body>
 </html>
