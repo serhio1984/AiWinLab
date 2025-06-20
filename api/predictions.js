@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 export default function handler(req, res) {
-  const filePath = path.join(process.cwd(), 'client', 'data.json');
+  const filePath = path.join(process.cwd(), 'data.json');
   let data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
   if (req.method === 'GET') {
