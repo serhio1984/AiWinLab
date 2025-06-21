@@ -333,31 +333,40 @@
 
     // Отображение прогнозов
     function renderPredictions() {
-        coinBalance.textContent = coins;
-        predictionsContainer.innerHTML = '';
-        console.log('Rendering predictions:', predictions);
-        if (predictions.length === 0) {
-            predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
-            console.log('No predictions to render.');
-        } else {
-            predictions.forEach(p => {
-                const div = document.createElement('div');
-                div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
-                div.setAttribute('data-id', p.id);
-                div.innerHTML = `
-                    <div class="teams">
-                        <span class="tournament">${p.tournament || 'Нет турнира'}</span>
-                        <div class="team-row"><img src="${p.logo1 || 'https://via.placeholder.com/30'}" alt="${p.team1 || 'Команда 1'}"> ${p.team1 || 'Команда 1'}</div>
-                        <div class="team-row"><img src="${p.logo2 || 'https://via.placeholder.com/30'}" alt="${p.team2 || 'Команда 2'}"> ${p.team2 || 'Команда 2'}</div>
-                    </div>
-                    <span class="odds">${p.odds || '0.00'}</span>
-                    <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
-                    <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
-                `;
-                predictionsContainer.appendChild(div);
-            });
-        }
+    coinBalance.textContent = coins;
+    predictionsContainer.innerHTML = '';
+    console.log('Rendering predictions with details:', predictions.map(p => ({
+        id: p.id,
+        tournament: p.tournament,
+        team1: p.team1,
+        logo1: p.logo1,
+        team2: p.team2,
+        logo2: p.logo2,
+        odds: p.odds,
+        predictionText: p.predictionText
+    })));
+    if (predictions.length === 0) {
+        predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+        console.log('No predictions to render.');
+    } else {
+        predictions.forEach(p => {
+            const div = document.createElement('div');
+            div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
+            div.setAttribute('data-id', p.id);
+            div.innerHTML = `
+                <div class="teams">
+                    <span class="tournament">${p.tournament || 'Нет турнира'}</span>
+                    <div class="team-row"><img src="${p.logo1 || 'https://dummyimage.com/30x30/000000/ffffff'}" alt="${p.team1 || 'Команда 1'}"> ${p.team1 || 'Команда 1'}</div>
+                    <div class="team-row"><img src="${p.logo2 || 'https://dummyimage.com/30x30/000000/ffffff'}" alt="${p.team2 || 'Команда 2'}"> ${p.team2 || 'Команда 2'}</div>
+                </div>
+                <span class="odds">${p.odds || '0.00'}</span>
+                <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
+                <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
+            `;
+            predictionsContainer.appendChild(div);
+        });
     }
+}
 
     // Разблокировка прогноза
     function unlockPrediction(id, button) {
