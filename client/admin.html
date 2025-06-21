@@ -243,7 +243,15 @@
         alert('Заполните все поля!');
     }
 }
-
+function clearForm() {
+        document.getElementById('tournament').value = '';
+        document.getElementById('team1').value = '';
+        document.getElementById('logo1').value = '';
+        document.getElementById('team2').value = '';
+        document.getElementById('logo2').value = '';
+        document.getElementById('odds').value = '';
+        document.getElementById('predictionText').value = '';
+    }
         function renderPredictions() {
             const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
             tbody.innerHTML = '';
