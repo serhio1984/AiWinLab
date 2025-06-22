@@ -193,7 +193,8 @@
     </div>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        // Загрузка существующих прогнозов
+        
+// Загрузка существующих прогнозов
 let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
 const adminPassword = "admin123"; // Измените на безопасный пароль
 
@@ -237,6 +238,7 @@ function addPrediction() {
         const id = Date.now(); // Уникальный id на основе времени
         const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
         predictions.push(prediction);
+        localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
         renderPredictions();
         clearForm();
     } else {
@@ -283,9 +285,8 @@ function deletePrediction(id) {
     predictions = predictions.filter(p => p.id !== id); // Фильтрация для удаления
     localStorage.setItem('predictions', JSON.stringify(predictions));
     renderPredictions();
-    publishPredictions(); // Автоматическая публикация после удаления
+    // Не вызываем publishPredictions() автоматически
 }
-
 
 function editPrediction(id) {
     const prediction = predictions.find(p => p.id === id);
@@ -313,6 +314,7 @@ function editPrediction(id) {
                 const index = predictions.findIndex(p => p.id === id);
                 if (index !== -1) {
                     predictions[index] = updatedPrediction;
+                    localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
                     renderPredictions();
                     clearForm();
                     // Восстанавливаем оригинальную функцию addPrediction
