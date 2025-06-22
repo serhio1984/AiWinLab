@@ -7,13 +7,10 @@ export default function handler(req, res) {
   } else if (req.method === 'POST') {
     const newPredictions = req.body;
     console.log('Received new predictions:', newPredictions);
-    newPredictions.forEach(newPrediction => {
-      if (!data.predictions.some(p => p.id === newPrediction.id)) {
-        data.predictions.push(newPrediction);
-        console.log('Added new prediction:', newPrediction);
-      } else {
-        console.log('Prediction with id', newPrediction.id, 'already exists, skipping');
-      }
+    // Очищаем существующие данные и добавляем новые
+    data.predictions = newPredictions.map(newPrediction => {
+      const existingPrediction = data.predictions.find(p => p.id === newPrediction.id);
+      return existingPrediction ? { ...existingPrediction, ...newPrediction } : newPrediction;
     });
     console.log('Updated data:', data);
     res.status(200).json({ message: 'Predictions saved', predictions: data.predictions });
