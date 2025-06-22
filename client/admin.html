@@ -283,6 +283,8 @@ function deletePrediction(id) {
     predictions = predictions.filter(p => p.id !== id); // Фильтрация для удаления
     localStorage.setItem('predictions', JSON.stringify(predictions));
     renderPredictions();
+    publishPredictions(); // Автоматическая публикация после удаления
+}
 }
 
 function editPrediction(id) {
