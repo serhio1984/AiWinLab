@@ -345,20 +345,6 @@ function renderPredictions() {
     }
 }
 
-    // Разблокировка прогноза
-    function unlockPrediction(id, button) {
-        if (coins < 1) {
-            alert('Недостаточно монет! Купите ещё за Telegram Stars.');
-            return;
-        }
-        coins--;
-        unlockedPredictions.push(id);
-        predictions.find(p => p.id === id).isUnlocked = true;
-        localStorage.setItem('coins', coins);
-        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
-        renderPredictions();
-    }
-
     // Инициализация
     initializeCoins();
     loadUserData();
