@@ -259,83 +259,59 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // Загрузка прогнозов с сервера
-    let predictions = [];
-    async function loadPredictions() {
-        try {
-            const response = await fetch('/api/predictions');
-            predictions = await response.json() || [];
-            console.log('Loaded predictions from server:', predictions);
-            renderPredictions();
-        } catch (error) {
-            console.error('Error loading predictions:', error);
-        }
+   // Загрузка прогнозов с сервера
+let predictions = [];
+async function loadPredictions() {
+    try {
+        const response = await fetch('/api/predictions');
+        const serverPredictions = await response.json() || [];
+        predictions = serverPredictions.map(p => ({
+            ...p,
+            isUnlocked: unlockedPredictions.includes(p.id)
+        }));
+        console.log('Loaded predictions from server:', predictions);
+        renderPredictions();
+    } catch (error) {
+        console.error('Error loading predictions:', error);
     }
+}
 
-    // Обновление прогнозов с использованием GET
-    async function updatePredictions() {
-        try {
-            const response = await fetch('/api/predictions');
-            const updatedPredictions = await response.json() || [];
-            if (JSON.stringify(predictions) !== JSON.stringify(updatedPredictions)) {
-                predictions = updatedPredictions;
-                console.log('Updated predictions from server:', predictions);
-                renderPredictions();
-            }
-        } catch (error) {
-            console.error('Error updating predictions:', error);
-        }
+// Обновление прогнозов с использованием GET
+async function updatePredictions() {
+    try {
+        const response = await fetch('/api/predictions');
+        const updatedPredictions = await response.json() || [];
+        predictions = updatedPredictions.map(p => ({
+            ...p,
+            isUnlocked: unlockedPredictions.includes(p.id)
+        }));
+        console.log('Updated predictions from server:', predictions);
+        renderPredictions();
+    } catch (error) {
+        console.error('Error updating predictions:', error);
     }
+}
 
-    // Загрузка баланса и состояния прогнозов
-    let coins = parseInt(localStorage.getItem('coins')) || 0;
-    let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
-    predictions.forEach(p => {
-        if (unlockedPredictions.includes(p.id)) p.isUnlocked = true;
-    });
-
-    const coinBalance = document.getElementById('coinBalance');
-    const predictionsContainer = document.getElementById('predictions');
-    const userProfilePic = document.getElementById('userProfilePic');
-    const userName = document.getElementById('userName');
-
-    // Функция для загрузки данных пользователя
-    function loadUserData() {
-        if (window.Telegram?.WebApp) {
-            const user = window.Telegram.WebApp.initDataUnsafe.user;
-            if (user) {
-                if (user.first_name) {
-                    userName.textContent = user.first_name;
-                } else {
-                    userName.textContent = 'Гость';
-                }
-                if (user.photo_url) {
-                    userProfilePic.src = user.photo_url;
-                } else {
-                    userProfilePic.src = 'https://via.placeholder.com/50?text=User';
-                }
-            }
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-        } else {
-            userName.textContent = 'Гость (Тест)';
-            userProfilePic.src = 'https://via.placeholder.com/50?text=User';
-        }
+// Разблокировка прогноза
+function unlockPrediction(id, button) {
+    if (coins < 1) {
+        alert('Недостаточно монет! Купите ещё за Telegram Stars.');
+        return;
     }
+    coins--;
+    unlockedPredictions.push(id);
+    const prediction = predictions.find(p => p.id === id);
+    if (prediction) prediction.isUnlocked = true;
+    localStorage.setItem('coins', coins);
+    localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
+    renderPredictions();
+}
 
-    // Выдача 5 монет новому пользователю
-    function initializeCoins() {
-        if (!localStorage.getItem('visited')) {
-            coins = 5;
-            localStorage.setItem('coins', coins);
-            localStorage.setItem('visited', 'true');
-        }
-    }
-
-    // Отображение прогнозов
-    function renderPredictions() {
+// Отображение прогнозов
+function renderPredictions() {
     coinBalance.textContent = coins;
     predictionsContainer.innerHTML = '';
-    console.log('Rendering predictions with details:', predictions.map(p => ({
+    console.log('Rendering predictions with details:', JSON.stringify(predictions.map(p => ({
         id: p.id,
         tournament: p.tournament,
         team1: p.team1,
@@ -343,8 +319,9 @@
         team2: p.team2,
         logo2: p.logo2,
         odds: p.odds,
-        predictionText: p.predictionText
-    })));
+        predictionText: p.predictionText,
+        isUnlocked: p.isUnlocked
+    }), null, 2));
     if (predictions.length === 0) {
         predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
         console.log('No predictions to render.');
@@ -360,8 +337,8 @@
                     <div class="team-row"><img src="${p.logo2 || 'https://dummyimage.com/30x30/000000/ffffff'}" alt="${p.team2 || 'Команда 2'}"> ${p.team2 || 'Команда 2'}</div>
                 </div>
                 <span class="odds">${p.odds || '0.00'}</span>
-                <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
                 <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
+                <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
             `;
             predictionsContainer.appendChild(div);
         });
