@@ -259,7 +259,6 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // Загрузка прогнозов с сервера
-   // Загрузка прогнозов с сервера
 let predictions = [];
 async function loadPredictions() {
     try {
@@ -289,6 +288,48 @@ async function updatePredictions() {
         renderPredictions();
     } catch (error) {
         console.error('Error updating predictions:', error);
+    }
+}
+
+// Загрузка баланса и состояния прогнозов
+let coins = parseInt(localStorage.getItem('coins')) || 0;
+let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
+
+// Выдача 5 монет новому пользователю
+function initializeCoins() {
+    if (!localStorage.getItem('visited')) {
+        coins = 5;
+        localStorage.setItem('coins', coins);
+        localStorage.setItem('visited', 'true');
+    }
+}
+
+const coinBalance = document.getElementById('coinBalance');
+const predictionsContainer = document.getElementById('predictions');
+const userProfilePic = document.getElementById('userProfilePic');
+const userName = document.getElementById('userName');
+
+// Функция для загрузки данных пользователя
+function loadUserData() {
+    if (window.Telegram?.WebApp) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        if (user) {
+            if (user.first_name) {
+                userName.textContent = user.first_name;
+            } else {
+                userName.textContent = 'Гость';
+            }
+            if (user.photo_url) {
+                userProfilePic.src = user.photo_url;
+            } else {
+                userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+            }
+        }
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+    } else {
+        userName.textContent = 'Гость (Тест)';
+        userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
     }
 }
 
@@ -345,11 +386,11 @@ function renderPredictions() {
     }
 }
 
-    // Инициализация
-    initializeCoins();
-    loadUserData();
-    loadPredictions();
-    setInterval(updatePredictions, 5000); // Обновление каждые 5 секунд
+// Инициализация
+initializeCoins();
+loadUserData();
+loadPredictions();
+setInterval(updatePredictions, 5000); // Обновление каждые 5 секунд
 </script>
 </body>
 </html>
