@@ -311,17 +311,17 @@ function unlockPrediction(id, button) {
 function renderPredictions() {
     coinBalance.textContent = coins;
     predictionsContainer.innerHTML = '';
-   console.log('Rendering predictions with details:', JSON.stringify(predictions.map(p => ({
-    id: p.id,
-    tournament: p.tournament,
-    team1: p.team1,
-    logo1: p.logo1,
-    team2: p.team2,
-    logo2: p.logo2,
-    odds: p.odds,
-    predictionText: p.predictionText,
-    isUnlocked: p.isUnlocked
-}), null, 2));
+    console.log('Rendering predictions with details:', JSON.stringify(predictions.map(p => ({
+        id: p.id,
+        tournament: p.tournament,
+        team1: p.team1,
+        logo1: p.logo1,
+        team2: p.team2,
+        logo2: p.logo2,
+        odds: p.odds,
+        predictionText: p.predictionText,
+        isUnlocked: p.isUnlocked
+    })), null, 2));
     if (predictions.length === 0) {
         predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
         console.log('No predictions to render.');
