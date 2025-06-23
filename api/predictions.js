@@ -1,6 +1,6 @@
 const { MongoClient } = require('mongodb');
 
-// Замени <db_password> на твой пароль
+// Используй эту строку с твоим паролем
 const uri = "mongodb+srv://buslovserg:hBkrsnN5RoYzcug8@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
