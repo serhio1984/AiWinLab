@@ -1,12 +1,14 @@
 const { MongoClient } = require('mongodb');
 
-// Используй эту строку с твоим паролем
-const uri = "mongodb+srv://buslovserg:hBkrsnN5RoYzcug8@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// Используй эту строку с новым паролем
+const uri = "mongodb+srv://newuser:Cpk4i3aA9!FkMj7
+@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 async function connectToDatabase() {
   try {
-    console.log('Attempting to connect to MongoDB with URI:', uri);
+    console.log('Starting connection attempt to MongoDB...');
+    console.log('Using URI:', uri);
     await client.connect();
     console.log('Connected to MongoDB Atlas successfully');
     return client.db('predictionsDB'); // Название базы данных
@@ -17,6 +19,7 @@ async function connectToDatabase() {
 }
 
 export default async function handler(req, res) {
+  console.log('Handler started for method:', req.method);
   let db;
   try {
     db = await connectToDatabase();
