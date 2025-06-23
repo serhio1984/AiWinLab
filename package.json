@@ -1,25 +1,7 @@
 {
-  "type": "module",
-  "name": "aiwinlab",
+  "name": "your-project",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/serhio1984/AiWinLab.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/serhio1984/AiWinLab/issues"
-  },
-  "homepage": "https://github.com/serhio1984/AiWinLab#readme",
-  "dependencies": {
-    "mongodb": "^6.17.0"
-  },
-  "devDependencies": {},
-  "description": ""
+    "start": "node api/predictions.js"
+  }
 }
