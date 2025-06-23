@@ -236,6 +236,7 @@ function addPrediction() {
 
     if (tournament && team1 && team2 && odds && predictionText) {
         const id = Date.now(); // Уникальный id на основе времени
+        console.log('Adding new prediction with id:', id); // Отладка
         const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
         predictions.push(prediction);
         localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
@@ -250,8 +251,8 @@ function clearForm() {
     document.getElementById('tournament').value = '';
     document.getElementById('team1').value = '';
     document.getElementById('logo1').value = '';
-    document.getElementById('team2').value = '';
     document.getElementById('logo2').value = '';
+    document.getElementById('team2').value = '';
     document.getElementById('odds').value = '';
     document.getElementById('predictionText').value = '';
 }
@@ -298,7 +299,8 @@ function editPrediction(id) {
         document.getElementById('logo2').value = prediction.logo2;
         document.getElementById('odds').value = prediction.odds;
         document.getElementById('predictionText').value = prediction.predictionText;
-        // Заменяем функцию addPrediction на updatePrediction для редактирования
+        // Сохраняем оригинальную функцию перед заменой
+        const originalAddPrediction = window.addPrediction;
         window.addPrediction = () => {
             if (tournament && team1 && team2 && odds && predictionText) {
                 const updatedPrediction = {
@@ -317,8 +319,8 @@ function editPrediction(id) {
                     localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
                     renderPredictions();
                     clearForm();
-                    // Восстанавливаем оригинальную функцию addPrediction
-                    window.addPrediction = addPrediction;
+                    // Восстанавливаем оригинальную функцию
+                    window.addPrediction = originalAddPrediction;
                 }
             } else {
                 alert('Заполните все поля!');
