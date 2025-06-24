@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "node api/predictions.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.17.0"
   }
 }
