@@ -42,7 +42,10 @@ export default async function handler(req, res) {
       res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Connection or Handler Error:', error.message, 'Stack:', error.stack);
+    console.error('Detailed Error - Type:', error.name, 'Message:', error.message, 'Stack:', error.stack);
+    if (error.name === 'MongoNetworkError') {
+      console.error('Network-specific error details:', error);
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
     if (connection) {
