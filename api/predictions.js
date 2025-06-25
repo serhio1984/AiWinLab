@@ -1,17 +1,27 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// Используй эту строку с новым паролем, TLS и временно tlsInsecure
-const uri = "mongodb+srv://newuser:<new_password>@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true&tlsInsecure=true";
-const client = new MongoClient(uri);
+// Используй новую строку с паролем и регионом eu-west-1
+const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000
+});
 
 export default async function handler(req, res) {
   console.log('Handler started for method:', req.method);
-  const client = new MongoClient(uri);
+  let connection;
 
   try {
     console.log('Starting connection attempt to MongoDB...');
-    const connection = await client.connect();
+    connection = await client.connect();
     console.log('Connected to MongoDB Atlas successfully');
+    await connection.db("admin").command({ ping: 1 }); // Проверка подключения
+    console.log("Pinged your deployment. Connection confirmed!");
     const db = connection.db('predictionsDB');
     const collection = db.collection('predictions');
 
@@ -39,7 +49,9 @@ export default async function handler(req, res) {
     console.error('Handler Error:', error.message, 'Stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
-    await client.close();
-    console.log('Connection closed');
+    if (connection) {
+      await connection.close();
+      console.log('Connection closed');
+    }
   }
 }
