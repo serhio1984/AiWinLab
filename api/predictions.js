@@ -1,7 +1,8 @@
 const { MongoClient } = require('mongodb');
 
-// Используй эту строку с новым паролем
-const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// Используй эту строку с новым паролем, TLS и временно tlsInsecure
+const uri = "mongodb+srv://newuser:<new_password>@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true&tlsInsecure=true";
+const client = new MongoClient(uri);
 
 export default async function handler(req, res) {
   console.log('Handler started for method:', req.method);
