@@ -1,8 +1,7 @@
 const { MongoClient } = require('mongodb');
 
 // Используй эту строку с новым паролем
-const uri = "mongodb+srv://newuser:Cpk4i3aA9!FkMj7
-@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 async function connectToDatabase() {
@@ -34,7 +33,7 @@ export default async function handler(req, res) {
       console.log('Processing POST request');
       const newPredictions = req.body;
       console.log('Received new predictions:', newPredictions);
-      await collection.deleteMany({}); // Очищаем все существующие данные
+      await collection.deleteMany({}); // Очищаем все данные
       if (newPredictions.length > 0) {
         await collection.insertMany(newPredictions); // Вставляем новые
       }
