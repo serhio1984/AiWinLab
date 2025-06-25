@@ -11,7 +11,7 @@ const client = new MongoClient(uri, {
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
   tls: {
-    minVersion: 'TLSv1.2' // Принудительное использование TLS 1.2
+    minVersion: 'TLSv1.2'
   }
 });
 
@@ -20,11 +20,11 @@ export default async function handler(req, res) {
   let connection;
 
   try {
-    console.log('Starting connection attempt to MongoDB...');
+    console.log('Attempting to connect to MongoDB with URI:', uri);
     connection = await client.connect();
-    console.log('Connected to MongoDB Atlas successfully');
+    console.log('MongoDB client connected successfully');
     await connection.db("admin").command({ ping: 1 }); // Проверка подключения
-    console.log("Pinged your deployment. Connection confirmed!");
+    console.log("Pinged deployment successfully, connection confirmed!");
     const db = connection.db('predictionsDB');
     const collection = db.collection('predictions');
 
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Handler Error:', error.message, 'Stack:', error.stack);
+    console.error('Connection or Handler Error:', error.message, 'Stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
     if (connection) {
