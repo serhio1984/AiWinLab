@@ -1,7 +1,7 @@
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 // Используй новую строку с паролем и регионом eu-west-1
-const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster09r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
+const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
