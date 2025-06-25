@@ -1,5 +1,5 @@
 {
-  "name": "your-project",
+  "name": "ai-win",
   "version": "1.0.0",
   "scripts": {
     "start": "node api/predictions.js"
