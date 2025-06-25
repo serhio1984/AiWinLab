@@ -2,31 +2,18 @@ const { MongoClient } = require('mongodb');
 
 // Используй эту строку с новым паролем
 const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const client = new MongoClient(uri);
-
-async function connectToDatabase() {
-  try {
-    console.log('Starting connection attempt to MongoDB...');
-    console.log('Using URI:', uri);
-    const connection = await client.connect();
-    console.log('Connected to MongoDB Atlas successfully');
-    return connection.db('predictionsDB'); // Название базы данных
-  } catch (error) {
-    console.error('MongoDB Connection Error:', error.message, 'Stack:', error.stack);
-    throw new Error('Failed to connect to MongoDB: ' + error.message);
-  }
-}
-
-let db; // Глобальная переменная для переиспользования подключения
 
 export default async function handler(req, res) {
   console.log('Handler started for method:', req.method);
-  if (!db) {
-    db = await connectToDatabase();
-  }
-  const collection = db.collection('predictions');
+  const client = new MongoClient(uri);
 
   try {
+    console.log('Starting connection attempt to MongoDB...');
+    const connection = await client.connect();
+    console.log('Connected to MongoDB Atlas successfully');
+    const db = connection.db('predictionsDB');
+    const collection = db.collection('predictions');
+
     if (req.method === 'GET') {
       console.log('Processing GET request');
       const predictions = await collection.find().toArray();
@@ -50,5 +37,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Handler Error:', error.message, 'Stack:', error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    await client.close();
+    console.log('Connection closed');
   }
 }
