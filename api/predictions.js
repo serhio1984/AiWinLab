@@ -1,6 +1,6 @@
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// Используй новую строку с паролем и регионом eu-west-1
+// Используй актуальную строку с паролем и регионом eu-north-1
 const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
 const client = new MongoClient(uri, {
   serverApi: {
@@ -9,7 +9,10 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
   serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000
+  connectTimeoutMS: 10000,
+  tls: {
+    minVersion: 'TLSv1.2' // Принудительное использование TLS 1.2
+  }
 });
 
 export default async function handler(req, res) {
