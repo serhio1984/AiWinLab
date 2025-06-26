@@ -1,13 +1,17 @@
-const { MongoClient } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// Используй полную строку с паролем и регионом eu-north-1
-const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&replicaSet=atlas-xyz123&authSource=admin&tls=true";
+// Используй новую строку с паролем и регионом eu-west-1
+const uri = "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
 const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
   tls: {
-    minVersion: 'TLSv1.2',
-    rejectUnauthorized: false // Временное отключение строгой проверки сертификатов
+    minVersion: 'TLSv1.2'
   }
 });
 
@@ -19,6 +23,8 @@ export default async function handler(req, res) {
     console.log('Attempting to connect to MongoDB with URI:', uri);
     connection = await client.connect();
     console.log('MongoDB client connected successfully');
+    await connection.db("admin").command({ ping: 1 }); // Проверка подключения
+    console.log("Pinged your deployment. Connection confirmed!");
     const db = connection.db('predictionsDB');
     const collection = db.collection('predictions');
 
