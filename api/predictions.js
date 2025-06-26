@@ -6,7 +6,8 @@ const client = new MongoClient(uri, {
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
   tls: {
-    minVersion: 'TLSv1.2'
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: false // Временное отключение строгой проверки сертификатов
   }
 });
 
