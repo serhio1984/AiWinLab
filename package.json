@@ -1,12 +1,12 @@
 {
   "name": "ai-win",
   "version": "1.0.0",
-  
   "scripts": {
     "start": "node api/predictions.js"
   },
   "dependencies": {
-    "mongodb": "^6.8.0"
+    "mongodb": "^6.8.0",
+    "express": "^4.18.2"
   },
   "engines": {
     "node": "18.x"
