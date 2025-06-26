@@ -282,15 +282,17 @@ async function updatePredictions() {
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        const updatedPredictions = await response.json() || [];
-        predictions = updatedPredictions.map(p => ({
+        const serverPredictions = await response.json();
+        predictions = Array.isArray(serverPredictions) ? serverPredictions.map(p => ({
             ...p,
             isUnlocked: unlockedPredictions.includes(p.id)
-        }));
+        })) : [];
         console.log('Updated predictions from server:', predictions);
         renderPredictions();
     } catch (error) {
         console.error('Error updating predictions:', error);
+        predictions = []; // Устанавливаем пустой массив при ошибке
+        renderPredictions();
     }
 }
 
