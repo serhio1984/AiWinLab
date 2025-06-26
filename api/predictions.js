@@ -3,9 +3,9 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
 app.use(express.json()); // Для обработки JSON-данных
-app.use(express.static('.')); // Обслуживание статических файлов (admin.html, index.html)
+app.use(express.static('.')); // Обслуживание статических файлов
 
-const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGODB_URI; // Только из окружения, без резервной строки
 console.log('Using MONGODB_URI:', uri); // Отладочный лог
 
 const client = new MongoClient(uri, {
@@ -13,9 +13,6 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  },
-  tls: {
-    rejectUnauthorized: false // Временный обход строгой проверки SSL
   }
 });
 
@@ -32,13 +29,12 @@ async function run() {
   }
 }
 
-// Инициализация подключения при старте сервера
 run().catch(console.error);
 
 async function handler(req, res) {
   console.log('Handler started for method:', req.method);
   try {
-    await run(); // Повторное использование подключения
+    await run();
     const db = client.db('predictionsDB');
     const collection = db.collection('predictions');
 
