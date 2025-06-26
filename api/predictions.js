@@ -14,7 +14,9 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-  tls: true // Явно указываем поддержку TLS
+  tls: { // Временный обход проверки сертификатов
+    rejectUnauthorized: false
+  }
 });
 
 async function run() {
