@@ -1,4 +1,8 @@
+const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+
+const app = express();
+app.use(express.json()); // Для обработки JSON-данных в теле POST-запросов
 
 // Используем строку без явного tls, так как mongodb+srv подразумевает TLS
 const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
@@ -60,4 +64,11 @@ async function handler(req, res) {
   }
 }
 
-module.exports = handler;
+// Настройка маршрута
+app.all('/api/predictions', handler);
+
+// Прослушивание порта, указанного Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
