@@ -14,9 +14,13 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-  tls: { // Временный обход проверки сертификатов
-    rejectUnauthorized: false
-  }
+  tls: { // Явные параметры TLS
+    minVersion: 'TLSv1.2',
+    maxVersion: 'TLSv1.3'
+  },
+  maxPoolSize: 10, // Ограничение пула соединений
+  minPoolSize: 2,  // Минимальное количество соединений в пуле
+  connectTimeoutMS: 30000 // Увеличение времени ожидания подключения
 });
 
 async function run() {
