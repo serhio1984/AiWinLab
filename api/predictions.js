@@ -1,7 +1,6 @@
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// Используй новую строку с паролем и регионом eu-west-1
-const uri = "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
+const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -23,7 +22,7 @@ export default async function handler(req, res) {
     console.log('Attempting to connect to MongoDB with URI:', uri);
     connection = await client.connect();
     console.log('MongoDB client connected successfully');
-    await connection.db("admin").command({ ping: 1 }); // Проверка подключения
+    await connection.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connection confirmed!");
     const db = connection.db('predictionsDB');
     const collection = db.collection('predictions');
@@ -37,9 +36,9 @@ export default async function handler(req, res) {
       console.log('Processing POST request');
       const newPredictions = req.body;
       console.log('Received new predictions:', newPredictions);
-      await collection.deleteMany({}); // Очищаем все данные
+      await collection.deleteMany({});
       if (newPredictions.length > 0) {
-        await collection.insertMany(newPredictions); // Вставляем новые
+        await collection.insertMany(newPredictions);
       }
       const updatedPredictions = await collection.find().toArray();
       console.log('POST - Updated data in DB:', updatedPredictions);

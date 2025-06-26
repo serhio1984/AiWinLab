@@ -1,0 +1,17 @@
+databases:
+  - name: mongodb
+    databaseName: predictionsDB
+    user: buslovserg222
+    password: GJCSaQLQGYFOf45w
+services:
+  - type: web
+    name: ai-win
+    env: node
+    buildCommand: npm install
+    startCommand: node api/predictions.js
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
