@@ -7,30 +7,36 @@ app.use(express.static('.')); // Обслуживание статических
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 console.log('Using MONGODB_URI:', uri); // Отладочный лог
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  },
-  serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000,
-  tls: {
-    rejectUnauthorized: false // Временный обход строгой проверки SSL
   }
 });
 
+async function run() {
+  try {
+    console.log('Attempting to connect to MongoDB...');
+    await client.connect();
+    console.log('MongoDB client connected successfully');
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. Connection confirmed!");
+  } catch (error) {
+    console.error('Connection error:', error);
+    throw error; // Передаем ошибку дальше
+  }
+}
+
+// Инициализация подключения при старте сервера
+run().catch(console.error);
+
 async function handler(req, res) {
   console.log('Handler started for method:', req.method);
-  let connection;
-
   try {
-    console.log('Attempting to connect to MongoDB with URI:', uri);
-    connection = await client.connect();
-    console.log('MongoDB client connected successfully');
-    await connection.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. Connection confirmed!");
-    const db = connection.db('predictionsDB');
+    await run(); // Повторное использование подключения
+    const db = client.db('predictionsDB');
     const collection = db.collection('predictions');
 
     if (req.method === 'GET') {
@@ -50,8 +56,6 @@ async function handler(req, res) {
   } catch (error) {
     console.error('Detailed Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
-  } finally {
-    if (connection) await connection.close();
   }
 }
 
