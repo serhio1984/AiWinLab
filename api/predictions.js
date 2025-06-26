@@ -5,8 +5,8 @@ const app = express();
 app.use(express.json()); // Для обработки JSON-данных
 app.use(express.static('.')); // Обслуживание статических файлов (admin.html, index.html)
 
-const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-console.log('Using MONGODB_URI:', uri); // Добавляем отладочный лог
+const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+console.log('Using MONGODB_URI:', uri); // Отладочный лог
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -15,7 +15,7 @@ const client = new MongoClient(uri, {
   },
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000
-  // Убраны все явные настройки TLS, полагаемся на mongodb+srv
+  // Пропускаем явные настройки TLS, полагаемся на mongodb+srv
 });
 
 async function handler(req, res) {
