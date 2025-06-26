@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json()); // Для обработки JSON-данных
 app.use(express.static('.')); // Обслуживание статических файлов
 
-const uri = process.env.MONGODB_URI; // Только из окружения, без резервной строки
+const uri = process.env.MONGODB_URI; // Только из окружения
 console.log('Using MONGODB_URI:', uri); // Отладочный лог
 
 const client = new MongoClient(uri, {
@@ -14,9 +14,7 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-  tls: { // Вставляем временный обход здесь
-    rejectUnauthorized: false
-  }
+  tls: true // Явно указываем поддержку TLS
 });
 
 async function run() {
