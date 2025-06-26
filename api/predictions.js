@@ -6,7 +6,8 @@ app.use(express.json()); // Для обработки JSON-данных
 app.use(express.static('.')); // Обслуживание статических файлов
 
 const uri = process.env.MONGODB_URI; // Только из окружения
-console.log('Using MONGODB_URI:', uri); // Отладочный лог
+console.log('Raw MONGODB_URI from environment:', uri); // Отладочный лог сырой строки
+if (!uri) console.log('MONGODB_URI is undefined or empty'); // Проверка пустоты
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -14,10 +15,7 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-  tls: { // Явные параметры TLS
-    minVersion: 'TLSv1.2',
-    maxVersion: 'TLSv1.3'
-  },
+  tls: true, // Явно указываем поддержку TLS
   maxPoolSize: 10,
   minPoolSize: 2,
   connectTimeoutMS: 30000
@@ -31,7 +29,7 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connection confirmed!");
   } catch (error) {
-    console.error('Connection error:', error);
+    console.error('Connection error details:', error);
     throw error;
   }
 }
@@ -60,7 +58,7 @@ async function handler(req, res) {
       res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Detailed Error:', error);
+    console.error('Detailed Error in handler:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 }
