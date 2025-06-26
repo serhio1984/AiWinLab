@@ -3,7 +3,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
 app.use(express.json()); // Для обработки JSON-данных
-app.use(express.static('.')); // Обслуживание статических файлов (admin.html)
+app.use(express.static('.')); // Обслуживание статических файлов (admin.html, index.html)
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, {
@@ -14,7 +14,9 @@ const client = new MongoClient(uri, {
   },
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
-  tls: true
+  tls: {
+    rejectUnauthorized: false // Временный обход строгой проверки SSL
+  }
 });
 
 async function handler(req, res) {

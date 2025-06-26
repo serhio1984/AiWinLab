@@ -279,6 +279,9 @@ async function loadPredictions() {
 async function updatePredictions() {
     try {
         const response = await fetch('/api/predictions');
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
         const updatedPredictions = await response.json() || [];
         predictions = updatedPredictions.map(p => ({
             ...p,
