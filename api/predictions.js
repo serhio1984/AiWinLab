@@ -2,9 +2,9 @@ const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
-app.use(express.json()); // Для обработки JSON-данных в теле POST-запросов
+app.use(express.json()); // Для обработки JSON-данных
+app.use(express.static('.')); // Обслуживание статических файлов (admin.html)
 
-// Используем строку без явного tls, так как mongodb+srv подразумевает TLS
 const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, {
   serverApi: {
@@ -14,7 +14,7 @@ const client = new MongoClient(uri, {
   },
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
-  tls: true // Явно указываем TLS через опции
+  tls: true
 });
 
 async function handler(req, res) {
@@ -31,43 +31,29 @@ async function handler(req, res) {
     const collection = db.collection('predictions');
 
     if (req.method === 'GET') {
-      console.log('Processing GET request');
       const predictions = await collection.find().toArray();
-      console.log('GET - Predictions retrieved:', predictions);
       res.status(200).json(predictions);
     } else if (req.method === 'POST') {
-      console.log('Processing POST request');
       const newPredictions = req.body;
-      console.log('Received new predictions:', newPredictions);
       await collection.deleteMany({});
       if (newPredictions.length > 0) {
         await collection.insertMany(newPredictions);
       }
       const updatedPredictions = await collection.find().toArray();
-      console.log('POST - Updated data in DB:', updatedPredictions);
       res.status(200).json({ message: 'Predictions saved', predictions: updatedPredictions });
     } else {
-      console.log('Method not allowed:', req.method);
       res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Detailed Error - Type:', error.name, 'Message:', error.message, 'Stack:', error.stack);
-    if (error.name === 'MongoNetworkError') {
-      console.error('Network-specific error details:', error);
-    }
+    console.error('Detailed Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
-    if (connection) {
-      await connection.close();
-      console.log('Connection closed');
-    }
+    if (connection) await connection.close();
   }
 }
 
-// Настройка маршрута
 app.all('/api/predictions', handler);
 
-// Прослушивание порта, указанного Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
