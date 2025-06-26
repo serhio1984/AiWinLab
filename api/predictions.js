@@ -18,9 +18,9 @@ const client = new MongoClient(uri, {
     minVersion: 'TLSv1.2',
     maxVersion: 'TLSv1.3'
   },
-  maxPoolSize: 10, // Ограничение пула соединений
-  minPoolSize: 2,  // Минимальное количество соединений в пуле
-  connectTimeoutMS: 30000 // Увеличение времени ожидания подключения
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  connectTimeoutMS: 30000
 });
 
 async function run() {
