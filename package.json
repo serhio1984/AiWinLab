@@ -1,14 +1,15 @@
 {
-  "name": "ai-win",
+  "name": "AiWinLab",
   "version": "1.0.0",
+  "main": "api/predictions.js",
   "scripts": {
     "start": "node api/predictions.js"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "mongodb": "^6.17.0"
-  },
   "engines": {
     "node": "20.x"
+  },
+  "dependencies": {
+    "express": "^4.x.x",
+    "mongodb": "^6.x.x" // Убедитесь, что версия актуальна
   }
 }
