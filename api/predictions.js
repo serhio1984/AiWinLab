@@ -13,6 +13,9 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
+  },
+  tls: {
+    rejectUnauthorized: false // Временный обход строгой проверки SSL
   }
 });
 
@@ -25,7 +28,7 @@ async function run() {
     console.log("Pinged your deployment. Connection confirmed!");
   } catch (error) {
     console.error('Connection error:', error);
-    throw error; // Передаем ошибку дальше
+    throw error;
   }
 }
 
@@ -61,7 +64,7 @@ async function handler(req, res) {
 
 app.all('/api/predictions', handler);
 
-const PORT = process.env.PORT || 10000; // Соответствует логам
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
