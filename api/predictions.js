@@ -1,7 +1,7 @@
-import { MongoClient, ServerApiVersion } from 'mongodb';
+const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// Используй новую строку с паролем и регионом eu-west-1
-const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
+// Используем строку без явного tls, так как mongodb+srv подразумевает TLS
+const uri = process.env.MONGODB_URI || "mongodb+srv://buslovserg222:GJCSaQLQGYFOf45w@cluster0.detso80.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -10,12 +10,10 @@ const client = new MongoClient(uri, {
   },
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
-  tls: {
-    minVersion: 'TLSv1.2'
-  }
+  tls: true // Явно указываем TLS через опции
 });
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   console.log('Handler started for method:', req.method);
   let connection;
 
@@ -61,3 +59,5 @@ export default async function handler(req, res) {
     }
   }
 }
+
+module.exports = handler;
