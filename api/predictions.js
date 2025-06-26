@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb');
 
-// Используй актуальную строку с паролем и регионом eu-north-1
-const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&tls=true";
+// Используй полную строку с паролем и регионом eu-north-1
+const uri = "mongodb+srv://buslovserg123:wc7SWelCVuFYnOo6@cluster0.9r8g5mf.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0&replicaSet=atlas-xyz123&authSource=admin&tls=true";
 const client = new MongoClient(uri, {
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 10000,
