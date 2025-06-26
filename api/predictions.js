@@ -13,10 +13,8 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
   serverSelectionTimeoutMS: 5000,
-  connectTimeoutMS: 10000,
-  tls: {
-    rejectUnauthorized: false // Временный обход строгой проверки SSL
-  }
+  connectTimeoutMS: 10000
+  // Убраны explicit TLS settings, так как mongodb+srv автоматически использует TLS
 });
 
 async function handler(req, res) {
