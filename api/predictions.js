@@ -5,17 +5,14 @@ const app = express();
 app.use(express.json());
 app.use(express.static('.'));
 
-// 🔧 Строка подключения
 const uri = process.env.MONGODB_URI;
 console.log('Raw MONGODB_URI:', uri);
 if (!uri) console.log('MONGODB_URI is undefined');
 
-// 🔧 Создаём клиент MongoDB
 const client = new MongoClient(uri, {
   serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 
-// 🔧 Подключаемся один раз при запуске
 let collection;
 async function run() {
   try {
@@ -33,7 +30,6 @@ async function run() {
 }
 run();
 
-// 🔧 Обработчик
 app.all('/api/predictions', async (req, res) => {
   console.log('Handler for:', req.method);
 
@@ -62,7 +58,6 @@ app.all('/api/predictions', async (req, res) => {
   }
 });
 
-// 🔧 Запуск сервера
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server on port ${PORT}`);
