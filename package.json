@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "api/predictions.js",
   "scripts": {
-    "start": "node api/predictions.js"
+    "start":  "node api/test-connection.js"
   },
   "engines": {
     "node": "20.x"
