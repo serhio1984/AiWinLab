@@ -2,34 +2,27 @@ const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 const app = express();
-app.use(express.json()); // Для обработки JSON-данных
-app.use(express.static('.')); // Обслуживание статических файлов
+app.use(express.json());
+app.use(express.static('.'));
 
-const uri = process.env.MONGODB_URI; // Только из окружения
-console.log('Raw MONGODB_URI from environment:', uri); // Отладочный лог сырой строки
-if (!uri) console.log('MONGODB_URI is undefined or empty'); // Проверка пустоты
+const uri = process.env.MONGODB_URI;
+console.log('Raw MONGODB_URI:', uri);
+if (!uri) console.log('MONGODB_URI is undefined');
 
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-  tls: true, // Явно указываем поддержку TLS
-  maxPoolSize: 10,
-  minPoolSize: 2,
-  connectTimeoutMS: 30000
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
+  maxPoolSize: 10, minPoolSize: 2, connectTimeoutMS: 30000
 });
 
 async function run() {
   try {
-    console.log('Attempting to connect to MongoDB...');
+    console.log('Connecting to MongoDB...');
     await client.connect();
-    console.log('MongoDB client connected successfully');
+    console.log('Connected successfully');
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. Connection confirmed!");
+    console.log("Ping confirmed!");
   } catch (error) {
-    console.error('Connection error details:', error);
+    console.error('Connection error:', error);
     throw error;
   }
 }
@@ -37,7 +30,7 @@ async function run() {
 run().catch(console.error);
 
 async function handler(req, res) {
-  console.log('Handler started for method:', req.method);
+  console.log('Handler for:', req.method);
   try {
     await run();
     const db = client.db('predictionsDB');
@@ -49,16 +42,14 @@ async function handler(req, res) {
     } else if (req.method === 'POST') {
       const newPredictions = req.body;
       await collection.deleteMany({});
-      if (newPredictions.length > 0) {
-        await collection.insertMany(newPredictions);
-      }
+      if (newPredictions.length > 0) await collection.insertMany(newPredictions);
       const updatedPredictions = await collection.find().toArray();
-      res.status(200).json({ message: 'Predictions saved', predictions: updatedPredictions });
+      res.status(200).json({ message: 'Saved', predictions: updatedPredictions });
     } else {
       res.status(405).json({ message: 'Method not allowed' });
     }
   } catch (error) {
-    console.error('Detailed Error in handler:', error);
+    console.error('Handler error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 }
@@ -67,5 +58,5 @@ app.all('/api/predictions', handler);
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server on port ${PORT}`);
 });
