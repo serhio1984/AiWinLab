@@ -1,5 +1,6 @@
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
@@ -30,6 +31,7 @@ async function run() {
 }
 run();
 
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'welcome.html')));
 app.all('/api/predictions', async (req, res) => {
   console.log('Handler for:', req.method);
 
