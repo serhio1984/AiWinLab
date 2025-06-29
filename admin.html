@@ -108,23 +108,11 @@
             color: #ffffff;
         }
         @media (max-width: 600px) {
-            .logo h1 {
-                font-size: 24px;
-            }
-            .admin-container {
-                padding: 15px;
-            }
-            .form-group input, .form-group select {
-                font-size: 12px;
-            }
-            .buy-btn {
-                font-size: 12px;
-                padding: 5px 10px;
-            }
-            .predictions-list th, .predictions-list td {
-                font-size: 12px;
-                padding: 8px;
-            }
+            .logo h1 { font-size: 24px; }
+            .admin-container { padding: 15px; }
+            .form-group input, .form-group select { font-size: 12px; }
+            .buy-btn { font-size: 12px; padding: 5px 10px; }
+            .predictions-list th, .predictions-list td { font-size: 12px; padding: 8px; }
         }
     </style>
 </head>
@@ -193,172 +181,160 @@
     </div>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        
-// Загрузка существующих прогнозов
-let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-const adminPassword = "admin123"; // Измените на безопасный пароль
+        // Глобальные переменные
+        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'; // Безопасный доступ через переменную окружения
 
-function login() {
-    const password = document.getElementById('adminPassword').value;
-    if (password === adminPassword) {
-        document.getElementById('loginSection').classList.remove('active');
-        document.getElementById('formSection').classList.add('active');
-        document.getElementById('predictionsList').classList.add('active');
-        document.getElementById('exitBtn').style.display = 'block';
-        renderPredictions();
-        // Очистка старых данных при первом входе (опционально)
-        if (predictions.length > 0 && confirm('Удалить старые прогнозы?')) {
-            predictions = [];
-            localStorage.setItem('predictions', JSON.stringify(predictions));
-            renderPredictions();
+        function login() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === adminPassword) {
+                document.getElementById('loginSection').classList.remove('active');
+                document.getElementById('formSection').classList.add('active');
+                document.getElementById('predictionsList').classList.add('active');
+                document.getElementById('exitBtn').style.display = 'block';
+                renderPredictions();
+            } else {
+                alert('Неверный пароль!');
+            }
         }
-    } else {
-        alert('Неверный пароль!');
-    }
-}
 
-function logout() {
-    document.getElementById('loginSection').classList.add('active');
-    document.getElementById('formSection').classList.remove('active');
-    document.getElementById('predictionsList').classList.remove('active');
-    document.getElementById('exitBtn').style.display = 'none';
-    document.getElementById('adminPassword').value = '';
-}
+        function logout() {
+            document.getElementById('loginSection').classList.add('active');
+            document.getElementById('formSection').classList.remove('active');
+            document.getElementById('predictionsList').classList.remove('active');
+            document.getElementById('exitBtn').style.display = 'none';
+            document.getElementById('adminPassword').value = '';
+        }
 
-function addPrediction() {
-    const tournament = document.getElementById('tournament').value;
-    const team1 = document.getElementById('team1').value;
-    const logo1 = document.getElementById('logo1').value;
-    const team2 = document.getElementById('team2').value;
-    const logo2 = document.getElementById('logo2').value;
-    const odds = document.getElementById('odds').value;
-    const predictionText = document.getElementById('predictionText').value;
+        function addPrediction() {
+            const tournament = document.getElementById('tournament').value;
+            const team1 = document.getElementById('team1').value;
+            const logo1 = document.getElementById('logo1').value;
+            const team2 = document.getElementById('team2').value;
+            const logo2 = document.getElementById('logo2').value;
+            const odds = document.getElementById('odds').value;
+            const predictionText = document.getElementById('predictionText').value;
 
-    if (tournament && team1 && team2 && odds && predictionText) {
-        const id = Date.now(); // Уникальный id на основе времени
-        console.log('Adding new prediction with id:', id); // Отладка
-        const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
-        predictions.push(prediction);
-        localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
-        renderPredictions();
-        clearForm();
-    } else {
-        alert('Заполните все поля!');
-    }
-}
-
-function clearForm() {
-    document.getElementById('tournament').value = '';
-    document.getElementById('team1').value = '';
-    document.getElementById('logo1').value = '';
-    document.getElementById('logo2').value = '';
-    document.getElementById('team2').value = '';
-    document.getElementById('odds').value = '';
-    document.getElementById('predictionText').value = '';
-}
-
-function renderPredictions() {
-    const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
-    tbody.innerHTML = '';
-    predictions.forEach(p => {
-        const row = tbody.insertRow();
-        row.insertCell(0).textContent = p.tournament;
-        row.insertCell(1).textContent = p.team1;
-        row.insertCell(2).textContent = p.team2;
-        row.insertCell(3).textContent = p.odds;
-        row.insertCell(4).textContent = p.predictionText;
-        const actionCell = row.insertCell(5);
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Удалить';
-        deleteBtn.className = 'buy-btn';
-        deleteBtn.onclick = () => deletePrediction(p.id);
-        actionCell.appendChild(deleteBtn);
-        const editBtn = document.createElement('button');
-        editBtn.textContent = 'Редактировать';
-        editBtn.className = 'buy-btn';
-        editBtn.style.marginLeft = '5px';
-        editBtn.onclick = () => editPrediction(p.id);
-        actionCell.appendChild(editBtn);
-    });
-}
-
-function deletePrediction(id) {
-    predictions = predictions.filter(p => p.id !== id); // Фильтрация для удаления
-    localStorage.setItem('predictions', JSON.stringify(predictions));
-    renderPredictions();
-    // Не вызываем publishPredictions() автоматически
-}
-
-function editPrediction(id) {
-    const prediction = predictions.find(p => p.id === id);
-    if (prediction) {
-        document.getElementById('tournament').value = prediction.tournament;
-        document.getElementById('team1').value = prediction.team1;
-        document.getElementById('logo1').value = prediction.logo1;
-        document.getElementById('team2').value = prediction.team2;
-        document.getElementById('logo2').value = prediction.logo2;
-        document.getElementById('odds').value = prediction.odds;
-        document.getElementById('predictionText').value = prediction.predictionText;
-        // Сохраняем оригинальную функцию перед заменой
-        const originalAddPrediction = window.addPrediction;
-        window.addPrediction = () => {
             if (tournament && team1 && team2 && odds && predictionText) {
-                const updatedPrediction = {
-                    id: prediction.id,
-                    tournament: document.getElementById('tournament').value,
-                    team1: document.getElementById('team1').value,
-                    logo1: document.getElementById('logo1').value,
-                    team2: document.getElementById('team2').value,
-                    logo2: document.getElementById('logo2').value,
-                    odds: document.getElementById('odds').value,
-                    predictionText: document.getElementById('predictionText').value
-                };
-                const index = predictions.findIndex(p => p.id === id);
-                if (index !== -1) {
-                    predictions[index] = updatedPrediction;
-                    localStorage.setItem('predictions', JSON.stringify(predictions)); // Сохраняем сразу
-                    renderPredictions();
-                    clearForm();
-                    // Восстанавливаем оригинальную функцию
-                    window.addPrediction = originalAddPrediction;
-                }
+                const id = Date.now();
+                console.log('Adding new prediction with id:', id);
+                const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText, isUnlocked: true };
+                predictions.push(prediction);
+                localStorage.setItem('predictions', JSON.stringify(predictions));
+                renderPredictions();
+                clearForm();
             } else {
                 alert('Заполните все поля!');
             }
-        };
-    }
-}
+        }
 
-async function publishPredictions() {
-    console.log('Attempting to publish predictions:', predictions);
-    try {
-        const response = await fetch('https://aiwinlab.onrender.com/api/predictions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(predictions)
-        });
-        const result = await response.json();
-        console.log('Server response:', result);
-        alert('Прогнозы сохранены для публикации в 00:01!');
-    } catch (error) {
-        console.error('Error publishing predictions:', error);
-    }
-}
+        function clearForm() {
+            document.getElementById('tournament').value = '';
+            document.getElementById('team1').value = '';
+            document.getElementById('logo1').value = '';
+            document.getElementById('logo2').value = '';
+            document.getElementById('team2').value = '';
+            document.getElementById('odds').value = '';
+            document.getElementById('predictionText').value = '';
+        }
 
-// Инициализация с обработкой Telegram
-document.getElementById('loginSection').classList.add('active');
-if (window.Telegram?.WebApp) {
-    try {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        console.log('Telegram WebApp initialized');
-    } catch (e) {
-        console.error('Telegram WebApp error:', e);
-    }
-} else {
-    console.log('Telegram WebApp not available, running in standalone mode');
-}
-document.getElementById('exitBtn').style.display = 'none';
+        function renderPredictions() {
+            const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+            predictions.forEach(p => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = p.tournament;
+                row.insertCell(1).textContent = p.team1;
+                row.insertCell(2).textContent = p.team2;
+                row.insertCell(3).textContent = p.odds;
+                row.insertCell(4).textContent = p.predictionText;
+                const actionCell = row.insertCell(5);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Удалить';
+                deleteBtn.className = 'buy-btn';
+                deleteBtn.onclick = () => deletePrediction(p.id);
+                actionCell.appendChild(deleteBtn);
+                const editBtn = document.createElement('button');
+                editBtn.textContent = 'Редактировать';
+                editBtn.className = 'buy-btn';
+                editBtn.style.marginLeft = '5px';
+                editBtn.onclick = () => editPrediction(p.id);
+                actionCell.appendChild(editBtn);
+            });
+        }
+
+        function deletePrediction(id) {
+            predictions = predictions.filter(p => p.id !== id);
+            localStorage.setItem('predictions', JSON.stringify(predictions));
+            renderPredictions();
+        }
+
+        function editPrediction(id) {
+            const prediction = predictions.find(p => p.id === id);
+            if (prediction) {
+                document.getElementById('tournament').value = prediction.tournament;
+                document.getElementById('team1').value = prediction.team1;
+                document.getElementById('logo1').value = prediction.logo1;
+                document.getElementById('team2').value = prediction.team2;
+                document.getElementById('logo2').value = prediction.logo2;
+                document.getElementById('odds').value = prediction.odds;
+                document.getElementById('predictionText').value = prediction.predictionText;
+                const originalAdd = addPrediction;
+                addPrediction = () => {
+                    if (tournament && team1 && team2 && odds && predictionText) {
+                        const updated = {
+                            id, tournament: document.getElementById('tournament').value,
+                            team1: document.getElementById('team1').value,
+                            logo1: document.getElementById('logo1').value,
+                            team2: document.getElementById('team2').value,
+                            logo2: document.getElementById('logo2').value,
+                            odds: document.getElementById('odds').value,
+                            predictionText: document.getElementById('predictionText').value,
+                            isUnlocked: true
+                        };
+                        const index = predictions.findIndex(p => p.id === id);
+                        if (index !== -1) {
+                            predictions[index] = updated;
+                            localStorage.setItem('predictions', JSON.stringify(predictions));
+                            renderPredictions();
+                            clearForm();
+                            addPrediction = originalAdd;
+                        }
+                    } else {
+                        alert('Заполните все поля!');
+                    }
+                };
+            }
+        }
+
+        async function publishPredictions() {
+            console.log('Attempting to publish:', predictions);
+            try {
+                const response = await fetch('/api/predictions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(predictions)
+                });
+                const result = await response.json();
+                console.log('Server response:', result);
+                if (response.ok) alert('Прогнозы сохранены для публикации в 00:01!');
+                else alert('Ошибка: ' + result.message);
+            } catch (error) {
+                console.error('Error publishing:', error);
+                alert('Ошибка подключения к серверу');
+            }
+        }
+
+        // Инициализация
+        document.getElementById('loginSection').classList.add('active');
+        if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            console.log('Telegram WebApp initialized');
+        } else {
+            console.log('Running in standalone mode');
+        }
+        document.getElementById('exitBtn').style.display = 'none';
     </script>
 </body>
 </html>
