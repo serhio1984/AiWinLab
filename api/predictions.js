@@ -31,7 +31,7 @@ async function run() {
 }
 run();
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'welcome.html')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
 app.all('/api/predictions', async (req, res) => {
   console.log('Handler for:', req.method);
 
