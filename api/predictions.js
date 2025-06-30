@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, '..'))); // Служим файлы из корня проекта
 
 const uri = process.env.MONGODB_URI;
 console.log('Raw MONGODB_URI:', uri);
@@ -32,6 +32,7 @@ async function run() {
 run();
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
+app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
 app.all('/api/predictions', async (req, res) => {
   console.log('Handler for:', req.method);
 
