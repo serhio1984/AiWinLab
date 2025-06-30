@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static('.'));
+app.use(express.static(path.join(__dirname)));
 
 const uri = process.env.MONGODB_URI;
 console.log('Raw MONGODB_URI:', uri);
