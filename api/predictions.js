@@ -4,7 +4,7 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..'))); // Служим файлы из корня проекта
+app.use(express.static(path.join(__dirname, '..'))); // Служим файлы из корня, но с приоритетом маршрутов
 
 const uri = process.env.MONGODB_URI;
 console.log('Raw MONGODB_URI:', uri);
@@ -31,6 +31,7 @@ async function run() {
 }
 run();
 
+// Явный маршрут для корня
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
 app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
 app.all('/api/predictions', async (req, res) => {
