@@ -10,12 +10,15 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../welcome.html'));
 });
 
-// ✅ Затем отдаём статику, включая index.html и прочее
+// ✅ Затем отдаём статику, включая index.html и buy-coins.html
 app.use(express.static(path.join(__dirname, '..')));
 
-// ✅ Явный маршрут на index.html
+// ✅ Явные маршруты
 app.get('/index.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
+});
+app.get('/buy-coins.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../buy-coins.html'));
 });
 
 // ✅ MongoDB подключение
