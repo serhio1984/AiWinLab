@@ -5,21 +5,14 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// ✅ Сначала маршрут для стартовой страницы welcome.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../welcome.html'));
-});
+// ✅ Маршруты для страниц
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
+app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
+app.get('/buy-coins.html', (req, res) => res.sendFile(path.join(__dirname, '../buy-coins.html')));
+app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, '../admin.html')));
 
-// ✅ Затем отдаём статику, включая index.html и buy-coins.html
+// ✅ Статические файлы
 app.use(express.static(path.join(__dirname, '..')));
-
-// ✅ Явные маршруты
-app.get('/index.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html'));
-});
-app.get('/buy-coins.html', (req, res) => {
-  res.sendFile(path.join(__dirname, '../buy-coins.html'));
-});
 
 // ✅ MongoDB подключение
 const uri = process.env.MONGODB_URI;
