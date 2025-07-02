@@ -128,6 +128,7 @@
             <h2>Вход в админ-панель</h2>
             <input type="password" id="adminPassword" placeholder="Введите пароль">
             <button class="buy-btn" onclick="login()">Войти</button>
+            <div id="loginStatus" style="margin-top: 10px; color: #ff0000;"></div>
         </div>
         <div class="form-section" id="formSection">
             <h2>Добавить прогноз</h2>
@@ -183,18 +184,40 @@
     <script>
         // Глобальные переменные
         let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
-        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'; // Безопасный доступ через переменную окружения
 
-        function login() {
+        // Инициализация
+        document.getElementById('loginSection').classList.add('active');
+        document.getElementById('exitBtn').style.display = 'none';
+
+        async function login() {
             const password = document.getElementById('adminPassword').value;
-            if (password === adminPassword) {
-                document.getElementById('loginSection').classList.remove('active');
-                document.getElementById('formSection').classList.add('active');
-                document.getElementById('predictionsList').classList.add('active');
-                document.getElementById('exitBtn').style.display = 'block';
-                renderPredictions();
-            } else {
-                alert('Неверный пароль!');
+            const loginStatus = document.getElementById('loginStatus');
+            if (!password) {
+                loginStatus.textContent = 'Введите пароль!';
+                return;
+            }
+            try {
+                console.log('Attempting login with password:', password);
+                const response = await fetch('/api/check-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const result = await response.json();
+                console.log('Server response:', result);
+                if (result.success) {
+                    document.getElementById('loginSection').classList.remove('active');
+                    document.getElementById('formSection').classList.add('active');
+                    document.getElementById('predictionsList').classList.add('active');
+                    document.getElementById('exitBtn').style.display = 'block';
+                    renderPredictions();
+                    loginStatus.textContent = '';
+                } else {
+                    loginStatus.textContent = result.message || 'Ошибка входа!';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginStatus.textContent = 'Ошибка подключения: ' + error.message;
             }
         }
 
@@ -204,6 +227,7 @@
             document.getElementById('predictionsList').classList.remove('active');
             document.getElementById('exitBtn').style.display = 'none';
             document.getElementById('adminPassword').value = '';
+            document.getElementById('loginStatus').textContent = '';
         }
 
         function addPrediction() {
@@ -243,11 +267,11 @@
             tbody.innerHTML = '';
             predictions.forEach(p => {
                 const row = tbody.insertRow();
-                row.insertCell(0).textContent = p.tournament;
-                row.insertCell(1).textContent = p.team1;
-                row.insertCell(2).textContent = p.team2;
-                row.insertCell(3).textContent = p.odds;
-                row.insertCell(4).textContent = p.predictionText;
+                row.insertCell(0).textContent = p.tournament || 'Нет данных';
+                row.insertCell(1).textContent = p.team1 || 'Нет данных';
+                row.insertCell(2).textContent = p.team2 || 'Нет данных';
+                row.insertCell(3).textContent = p.odds || '0.00';
+                row.insertCell(4).textContent = p.predictionText || 'Нет данных';
                 const actionCell = row.insertCell(5);
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Удалить';
@@ -272,26 +296,25 @@
         function editPrediction(id) {
             const prediction = predictions.find(p => p.id === id);
             if (prediction) {
-                document.getElementById('tournament').value = prediction.tournament;
-                document.getElementById('team1').value = prediction.team1;
-                document.getElementById('logo1').value = prediction.logo1;
-                document.getElementById('team2').value = prediction.team2;
-                document.getElementById('logo2').value = prediction.logo2;
-                document.getElementById('odds').value = prediction.odds;
-                document.getElementById('predictionText').value = prediction.predictionText;
+                document.getElementById('tournament').value = prediction.tournament || '';
+                document.getElementById('team1').value = prediction.team1 || '';
+                document.getElementById('logo1').value = prediction.logo1 || '';
+                document.getElementById('team2').value = prediction.team2 || '';
+                document.getElementById('logo2').value = prediction.logo2 || '';
+                document.getElementById('odds').value = prediction.odds || '';
+                document.getElementById('predictionText').value = prediction.predictionText || '';
                 const originalAdd = addPrediction;
                 addPrediction = () => {
+                    const tournament = document.getElementById('tournament').value;
+                    const team1 = document.getElementById('team1').value;
+                    const logo1 = document.getElementById('logo1').value;
+                    const team2 = document.getElementById('team2').value;
+                    const logo2 = document.getElementById('logo2').value;
+                    const odds = document.getElementById('odds').value;
+                    const predictionText = document.getElementById('predictionText').value;
+
                     if (tournament && team1 && team2 && odds && predictionText) {
-                        const updated = {
-                            id, tournament: document.getElementById('tournament').value,
-                            team1: document.getElementById('team1').value,
-                            logo1: document.getElementById('logo1').value,
-                            team2: document.getElementById('team2').value,
-                            logo2: document.getElementById('logo2').value,
-                            odds: document.getElementById('odds').value,
-                            predictionText: document.getElementById('predictionText').value,
-                            isUnlocked: true
-                        };
+                        const updated = { id, tournament, team1, logo1, team2, logo2, odds, predictionText, isUnlocked: true };
                         const index = predictions.findIndex(p => p.id === id);
                         if (index !== -1) {
                             predictions[index] = updated;
@@ -317,16 +340,18 @@
                 });
                 const result = await response.json();
                 console.log('Server response:', result);
-                if (response.ok) alert('Прогнозы сохранены для публикации в 00:01!');
-                else alert('Ошибка: ' + result.message);
+                if (response.ok) {
+                    alert('Прогнозы сохранены для публикации в 00:01!');
+                } else {
+                    alert('Ошибка: ' + (result.message || 'Неизвестная ошибка'));
+                }
             } catch (error) {
                 console.error('Error publishing:', error);
-                alert('Ошибка подключения к серверу');
+                alert('Ошибка подключения к серверу: ' + error.message);
             }
         }
 
-        // Инициализация
-        document.getElementById('loginSection').classList.add('active');
+        // Инициализация Telegram WebApp
         if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -334,7 +359,6 @@
         } else {
             console.log('Running in standalone mode');
         }
-        document.getElementById('exitBtn').style.display = 'none';
     </script>
 </body>
 </html>
