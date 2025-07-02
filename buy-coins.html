@@ -137,14 +137,35 @@
             .coin-packages {
                 grid-template-columns: 1fr;
             }
-            .logo h1 { font-size: 24px; }
-            .title { font-size: 20px; }
-            .coin-amount { font-size: 20px; }
-            .coin-image { width: 30px; height: 30px; }
-            .coin-price { font-size: 14px; }
-            .buy-btn, .back-btn { font-size: 12px; padding: 6px 12px; }
-            .buy-coins-container { gap: 10px; padding: 5px; }
-            .coin-package { padding: 10px; }
+            .logo h1 {
+                font-size: 24px;
+            }
+            .title {
+                font-size: 20px;
+            }
+            .coin-amount {
+                font-size: 20px;
+            }
+            .coin-image {
+                width: 30px;
+                height: 30px;
+                background: url('https://img.icons8.com/fluency/48/star.png') no-repeat center;
+                background-size: contain;
+            }
+            .coin-price {
+                font-size: 14px;
+            }
+            .buy-btn, .back-btn {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+            .buy-coins-container {
+                gap: 10px;
+                padding: 5px;
+            }
+            .coin-package {
+                padding: 10px;
+            }
         }
     </style>
 </head>
@@ -153,7 +174,7 @@
         <div class="logo">
             <h1>AiWinLab</h1>
         </div>
-        <button class="back-btn" onclick="window.location.href='/'">Назад</button>
+        <button class="back-btn" onclick="window.location.href='/client/index.html'">Назад</button>
     </div>
     <div class="buy-coins-container">
         <h2 class="title">Купить монеты</h2>
@@ -186,41 +207,41 @@
         <div class="status" id="status">Ожидание оплаты...</div>
     </div>
 
+        
     <script>
-        // Проверка наличия Telegram Web App или использование браузерного режима
-        const isTelegram = window.Telegram?.WebApp;
+    // Проверка наличия Telegram Web App или использование браузерного режима
+    const isTelegram = window.Telegram?.WebApp;
 
-        async function buyCoins(amount, stars) {
-            if (!isTelegram && !confirm('Тестирование в браузере. Продолжить симуляцию?')) {
-                return;
+    async function buyCoins(amount, stars) {
+        if (!isTelegram && !confirm('Тестирование в браузере. Продолжить симуляцию?')) {
+            return;
+        }
+
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('status').textContent = 'Симуляция оплаты...';
+
+        console.log('Starting buyCoins with amount:', amount, 'stars:', stars);
+
+        setTimeout(() => {
+            console.log('Timeout triggered');
+            let coins = parseInt(localStorage.getItem('coins')) || 0;
+            coins += amount;
+            localStorage.setItem('coins', coins);
+            console.log('Coins updated to:', coins);
+
+            if (isTelegram) {
+                window.Telegram.WebApp.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
+            } else {
+                alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
             }
+        }, 2000);
+    }
 
-            document.getElementById('status').style.display = 'block';
-            document.getElementById('status').textContent = 'Симуляция оплаты...';
-
-            console.log('Starting buyCoins with amount:', amount, 'stars:', stars);
-
-            setTimeout(() => {
-                console.log('Timeout triggered');
-                let coins = parseInt(localStorage.getItem('coins')) || 0;
-                coins += amount;
-                localStorage.setItem('coins', coins);
-                console.log('Coins updated to:', coins);
-
-                if (isTelegram) {
-                    window.Telegram.WebApp.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-                } else {
-                    alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-                }
-                document.getElementById('status').style.display = 'none';
-            }, 2000);
-        }
-
-        // Инициализация Telegram Web App, если доступен
-        if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-        }
-    </script>
+    // Инициализация Telegram Web App, если доступен
+    if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+    }
+</script>
 </body>
 </html>
