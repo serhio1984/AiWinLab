@@ -182,26 +182,26 @@
             <div class="coin-package" style="--order: 1;">
                 <div class="coin-amount">10 монет</div>
                 <div class="coin-image"></div>
-                <div class="coin-price">200 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(10, 200)">Купить</button>
+                <div class="coin-price">20 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(10, 20)">Купить</button>
             </div>
             <div class="coin-package" style="--order: 2;">
                 <div class="coin-amount">25 монет</div>
                 <div class="coin-image"></div>
-                <div class="coin-price">500 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(25, 500)">Купить</button>
+                <div class="coin-price">50 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(25, 50)">Купить</button>
             </div>
             <div class="coin-package" style="--order: 3;">
                 <div class="coin-amount">50 монет</div>
                 <div class="coin-image"></div>
-                <div class="coin-price">1000 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(50, 1000)">Купить</button>
+                <div class="coin-price">100 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(50, 100)">Купить</button>
             </div>
             <div class="coin-package" style="--order: 4;">
                 <div class="coin-amount">100 монет</div>
                 <div class="coin-image"></div>
-                <div class="coin-price">2000 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(100, 2000)">Купить</button>
+                <div class="coin-price">200 Telegram Stars</div>
+                <button class="buy-btn" onclick="buyCoins(100, 200)">Купить</button>
             </div>
         </div>
         <div class="status" id="status">Ожидание оплаты...</div>
@@ -237,7 +237,7 @@
         }, 2000);
     }
 
-    // Инициализация Telegram Web App, если доступен
+    // Инициализация Telegram WebApp, если доступен
     if (window.Telegram?.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
