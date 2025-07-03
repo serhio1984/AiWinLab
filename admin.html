@@ -189,37 +189,39 @@
         document.getElementById('loginSection').classList.add('active');
         document.getElementById('exitBtn').style.display = 'none';
 
-        async function login() {
-            const password = document.getElementById('adminPassword').value;
-            const loginStatus = document.getElementById('loginStatus');
-            if (!password) {
-                loginStatus.textContent = 'Введите пароль!';
-                return;
-            }
-            try {
-                console.log('Attempting login with password:', password);
-                const response = await fetch('/api/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
-                });
-                const result = await response.json();
-                console.log('Server response:', result);
-                if (result.success) {
-                    document.getElementById('loginSection').classList.remove('active');
-                    document.getElementById('formSection').classList.add('active');
-                    document.getElementById('predictionsList').classList.add('active');
-                    document.getElementById('exitBtn').style.display = 'block';
-                    renderPredictions();
-                    loginStatus.textContent = '';
-                } else {
-                    loginStatus.textContent = result.message || 'Ошибка входа!';
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                loginStatus.textContent = 'Ошибка подключения: ' + error.message;
-            }
+    async function login() {
+        const password = document.getElementById('adminPassword').value;
+        const loginStatus = document.getElementById('loginStatus');
+        if (!password) {
+            loginStatus.textContent = 'Введите пароль!';
+            return;
         }
+        try {
+            console.log('Sending login request to /api/check-password with password:', password);
+            const response = await fetch('/api/check-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            console.log('Received response with status:', response.status);
+            const result = await response.json();
+            console.log('Parsed response:', result);
+            if (result.success) {
+                document.getElementById('loginSection').classList.remove('active');
+                document.getElementById('formSection').classList.add('active');
+                document.getElementById('predictionsList').classList.add('active');
+                document.getElementById('exitBtn').style.display = 'block';
+                renderPredictions();
+                loginStatus.textContent = '';
+            } else {
+                loginStatus.textContent = result.message || 'Ошибка входа!';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            loginStatus.textContent = 'Ошибка подключения: ' + error.message;
+        }
+    }
+    
 
         function logout() {
             document.getElementById('loginSection').classList.add('active');

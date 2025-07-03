@@ -14,6 +14,23 @@ app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, '../admin
 // ✅ Статические файлы
 app.use(express.static(path.join(__dirname, '..')));
 
+// ✅ Проверка пароля с отладкой
+app.post('/api/check-password', (req, res) => {
+  console.log('Received check-password request with body:', req.body);
+  const { password } = req.body;
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  if (!password) {
+    return res.status(400).json({ success: false, message: 'Пароль не указан!' });
+  }
+  if (password === adminPassword) {
+    console.log('Password check succeeded');
+    res.status(200).json({ success: true });
+  } else {
+    console.log('Password check failed');
+    res.status(401).json({ success: false, message: 'Неверный пароль!' });
+  }
+});
+
 // ✅ MongoDB подключение
 const uri = process.env.MONGODB_URI;
 console.log('Raw MONGODB_URI:', uri);
