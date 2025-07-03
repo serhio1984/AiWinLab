@@ -249,8 +249,9 @@
                     document.getElementById('status').style.display = 'none';
                 }
             } else {
-                // Резервный сценарий для версий ниже 6.2
-                const confirmed = await telegram.showConfirm(`Купить ${amount} монет за ${stars} Telegram Stars?`);
+                // Резервный сценарий для версий ниже 6.2 (только showAlert доступен)
+                telegram.showAlert(`Подтвердите покупку ${amount} монет за ${stars} Telegram Stars.`);
+                const confirmed = confirm('Подтвердить покупку в Telegram? (Для теста используйте "OK")');
                 if (confirmed) {
                     document.getElementById('status').textContent = 'Ожидание подтверждения...';
                     setTimeout(() => {
