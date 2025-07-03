@@ -5,16 +5,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// ✅ Маршруты для страниц
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
-app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
-app.get('/buy-coins.html', (req, res) => res.sendFile(path.join(__dirname, '../buy-coins.html')));
-app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, '../admin.html')));
-
-// ✅ Статические файлы
-app.use(express.static(path.join(__dirname, '..')));
-
-// ✅ Проверка пароля с отладкой
+// ✅ API-роуты (приоритет выше статических)
 app.post('/api/check-password', (req, res) => {
   console.log('Received check-password request with body:', req.body);
   const { password } = req.body;
@@ -31,33 +22,6 @@ app.post('/api/check-password', (req, res) => {
   }
 });
 
-// ✅ MongoDB подключение
-const uri = process.env.MONGODB_URI;
-console.log('Raw MONGODB_URI:', uri);
-if (!uri) console.log('MONGODB_URI is undefined');
-
-const client = new MongoClient(uri, {
-  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
-});
-
-let collection;
-async function run() {
-  try {
-    console.log('Connecting to MongoDB...');
-    await client.connect();
-    console.log('✅ Connected successfully');
-    await client.db("admin").command({ ping: 1 });
-    console.log("✅ Ping confirmed!");
-
-    const db = client.db('predictionsDB');
-    collection = db.collection('predictions');
-  } catch (error) {
-    console.error('❌ Connection error:', error);
-  }
-}
-run();
-
-// ✅ API-роут для /api/predictions
 app.all('/api/predictions', async (req, res) => {
   console.log('Handler for:', req.method);
 
@@ -85,6 +49,41 @@ app.all('/api/predictions', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
+// ✅ Маршруты для страниц
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
+app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
+app.get('/buy-coins.html', (req, res) => res.sendFile(path.join(__dirname, '../buy-coins.html')));
+app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, '../admin.html')));
+
+// ✅ Статические файлы (после API-роутов)
+app.use(express.static(path.join(__dirname, '..')));
+
+// ✅ MongoDB подключение
+const uri = process.env.MONGODB_URI;
+console.log('Raw MONGODB_URI:', uri);
+if (!uri) console.log('MONGODB_URI is undefined');
+
+const client = new MongoClient(uri, {
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
+});
+
+let collection;
+async function run() {
+  try {
+    console.log('Connecting to MongoDB...');
+    await client.connect();
+    console.log('✅ Connected successfully');
+    await client.db("admin").command({ ping: 1 });
+    console.log("✅ Ping confirmed!");
+
+    const db = client.db('predictionsDB');
+    collection = db.collection('predictions');
+  } catch (error) {
+    console.error('❌ Connection error:', error);
+  }
+}
+run();
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
