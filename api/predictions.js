@@ -4,8 +4,13 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Обслуживание статических файлов (включая index.html)
-app.use(express.static(path.join(__dirname, '../'))); // Служит файлы из корня проекта
+// Обслуживание статических файлов (включая welcome.html и buy-coins.html)
+app.use(express.static(path.join(__dirname, '../')));
+
+// Перенаправление корневого пути на welcome.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../welcome.html'));
+});
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
