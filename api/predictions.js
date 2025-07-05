@@ -1,91 +1,68 @@
 const express = require('express');
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const path = require('path');
-
 const app = express();
 app.use(express.json());
 
-// ✅ API-роуты (приоритет выше статических)
-app.post('/api/check-password', (req, res) => {
-  console.log('Received check-password request with body:', req.body);
-  const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-  if (!password) {
-    return res.status(400).json({ success: false, message: 'Пароль не указан!' });
-  }
-  if (password === adminPassword) {
-    console.log('Password check succeeded');
-    res.status(200).json({ success: true });
-  } else {
-    console.log('Password check failed');
-    res.status(401).json({ success: false, message: 'Неверный пароль!' });
-  }
-});
+const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+let db;
 
-app.all('/api/predictions', async (req, res) => {
-  console.log('Handler for:', req.method);
-
-  if (!collection) {
-    return res.status(500).json({ message: 'MongoDB not connected' });
-  }
-
-  try {
-    if (req.method === 'GET') {
-      const predictions = await collection.find().toArray();
-      res.status(200).json(predictions);
-    } else if (req.method === 'POST') {
-      const newPredictions = req.body;
-      await collection.deleteMany({});
-      if (newPredictions.length > 0) {
-        await collection.insertMany(newPredictions);
-      }
-      const updated = await collection.find().toArray();
-      res.status(200).json({ message: 'Saved', predictions: updated });
-    } else {
-      res.status(405).json({ message: 'Method not allowed' });
+async function connectDB() {
+    try {
+        await client.connect();
+        db = client.db("predictionsDB"); // Убедитесь, что имя базы совпадает
+        console.log("Connected to MongoDB");
+    } catch (error) {
+        console.error("Failed to connect to MongoDB:", error);
     }
-  } catch (error) {
-    console.error('❌ Handler error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// ✅ Маршруты для страниц
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../welcome.html')));
-app.get('/index.html', (req, res) => res.sendFile(path.join(__dirname, '../index.html')));
-app.get('/buy-coins.html', (req, res) => res.sendFile(path.join(__dirname, '../buy-coins.html')));
-app.get('/admin.html', (req, res) => res.sendFile(path.join(__dirname, '../admin.html')));
-
-// ✅ Статические файлы (после API-роутов)
-app.use(express.static(path.join(__dirname, '..')));
-
-// ✅ MongoDB подключение
-const uri = process.env.MONGODB_URI;
-console.log('Raw MONGODB_URI:', uri);
-if (!uri) console.log('MONGODB_URI is undefined');
-
-const client = new MongoClient(uri, {
-  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
-});
-
-let collection;
-async function run() {
-  try {
-    console.log('Connecting to MongoDB...');
-    await client.connect();
-    console.log('✅ Connected successfully');
-    await client.db("admin").command({ ping: 1 });
-    console.log("✅ Ping confirmed!");
-
-    const db = client.db('predictionsDB');
-    collection = db.collection('predictions');
-  } catch (error) {
-    console.error('❌ Connection error:', error);
-  }
 }
-run();
 
-const PORT = process.env.PORT || 10000;
+connectDB();
+
+app.post('/balance', async (req, res) => {
+    const { userId, action, amount } = req.body;
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+    }
+    try {
+        const usersCollection = db.collection('users');
+        if (action === 'update') {
+            if (!amount || isNaN(amount)) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
+            const user = await usersCollection.findOneAndUpdate(
+                { chatId: userId },
+                { $inc: { coins: amount }, $setOnInsert: { chatId: userId, coins: 0 } },
+                { upsert: true, returnDocument: 'after' }
+            );
+            res.json({ coins: user.value.coins });
+        } else {
+            const user = await usersCollection.findOne({ chatId: userId }) || { coins: 0 };
+            res.json({ coins: user.coins });
+        }
+    } catch (error) {
+        console.error('Ошибка получения/обновления баланса:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/predictions', async (req, res) => {
+    try {
+        const predictionsCollection = db.collection('predictions');
+        const predictions = await predictionsCollection.find().toArray();
+        res.json(predictions);
+    } catch (error) {
+        console.error('Ошибка получения прогнозов:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
+});
+
+process.on('SIGTERM', () => {
+    client.close();
+    process.exit(0);
 });
