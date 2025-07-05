@@ -286,8 +286,9 @@
         try {
             const userId = telegram?.initDataUnsafe?.user?.id;
             if (!userId) {
-                console.error('User ID not available');
-                return;
+                console.warn('User ID not available, using default test ID');
+                // Используем тестовый ID для отладки
+                userId = 'testUserId'; // Временное решение для тестирования вне Telegram
             }
 
             const predictionsResponse = await fetch('https://aiwinlab.onrender.com/api/predictions');
@@ -312,7 +313,7 @@
             const balanceData = await balanceResponse.json();
             coins = balanceData.coins || 0;
             localStorage.setItem('coins', coins);
-            updateBalance(); // Вызов функции для обновления баланса
+            updateBalance();
             renderPredictions();
         } catch (error) {
             console.error('Error loading predictions or balance:', error);
