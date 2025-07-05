@@ -4,12 +4,17 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Обслуживание статических файлов (включая welcome.html и buy-coins.html)
+// Обслуживание статических файлов
 app.use(express.static(path.join(__dirname, '../')));
 
 // Перенаправление корневого пути на welcome.html
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../welcome.html'));
+    res.sendFile(path.join(__dirname, '../welcome.html'), (err) => {
+        if (err) {
+            console.error('Error serving welcome.html:', err);
+            res.status(404).send('File not found');
+        }
+    });
 });
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
