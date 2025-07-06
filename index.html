@@ -42,6 +42,9 @@
             margin: 0;
         }
         .user-section {
+            position: absolute;
+            top: 15px;
+            right: 15px;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -50,12 +53,6 @@
             color: #ff6200;
             font-size: 14px;
             font-weight: bold;
-        }
-        .user-name {
-            color: #ff6200;
-            font-size: 14px;
-            font-weight: bold;
-            margin-left: 5px;
         }
         .user-photo {
             width: 40px;
@@ -220,9 +217,6 @@
             .user-greeting {
                 font-size: 12px;
             }
-            .user-name {
-                font-size: 12px;
-            }
             .user-photo {
                 width: 35px;
                 height: 35px;
@@ -261,7 +255,7 @@
             <p>Умные ставки. Большие выигрыши.</p>
         </div>
         <div class="user-section">
-            <span class="user-greeting">Привет, <span class="user-name" id="userName">Гость</span></span>
+            <span class="user-greeting">Привет, <span id="userName"></span></span>
             <div class="user-photo">
                 <img id="userProfilePic" src="https://via.placeholder.com/50?text=User" alt="Фото пользователя">
             </div>
@@ -281,8 +275,6 @@
             telegram.ready();
             telegram.expand();
             console.log('Telegram WebApp initialized');
-        } else {
-            console.error('Telegram WebApp not available');
         }
 
         // Загрузка прогнозов с сервера
@@ -298,7 +290,7 @@
                 const balanceResponse = await fetch('https://aiwinlab.onrender.com/balance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: telegram?.initDataUnsafe?.user?.id || 'testUserId' })
+                    body: JSON.stringify({ userId: telegram?.initDataUnsafe?.user?.id })
                 });
                 const balanceData = await balanceResponse.json();
                 coins = balanceData.coins || 0;
@@ -351,35 +343,25 @@
 
         // Функция для загрузки данных пользователя
         function loadUserData() {
-            console.log('Loading user data:', telegram?.initDataUnsafe?.user);
             if (telegram) {
                 const user = telegram.initDataUnsafe.user;
                 if (user) {
                     if (user.first_name) {
                         userName.textContent = user.first_name;
-                        console.log('User name set to:', user.first_name);
                     } else {
                         userName.textContent = 'Гость';
-                        console.log('No first_name, using default: Гость');
                     }
                     if (user.photo_url) {
                         userProfilePic.src = user.photo_url;
-                        console.log('User photo URL set to:', user.photo_url);
                     } else {
                         userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-                        console.log('No photo_url, using default avatar');
                     }
-                } else {
-                    userName.textContent = 'Гость';
-                    userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-                    console.log('No user data in initDataUnsafe');
                 }
                 telegram.ready();
                 telegram.expand();
             } else {
                 userName.textContent = 'Гость (Тест)';
                 userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-                console.log('Telegram not available, using test data');
             }
         }
 
