@@ -4,8 +4,13 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Обслуживание статических файлов (включая index.html и admin.html)
+// Обслуживание статических файлов
 app.use(express.static(path.join(__dirname, '../')));
+
+// Middleware для перенаправления корневого URL на welcome.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../welcome.html'));
+});
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
@@ -25,7 +30,7 @@ connectDB();
 
 app.post('/api/check-password', (req, res) => {
     const { password } = req.body;
-    const adminPassword = 'admin123'; // Фиксированный пароль для теста, замените на безопасный механизм
+    const adminPassword = 'admin123'; // Фиксированный пароль для теста
     if (password === adminPassword) {
         res.json({ success: true });
     } else {
@@ -64,7 +69,7 @@ app.get('/api/predictions', async (req, res) => {
     try {
         const predictionsCollection = db.collection('predictions');
         const predictions = await predictionsCollection.find().toArray();
-        console.log('Fetched predictions:', predictions); // Отладочный лог
+        console.log('Fetched predictions:', predictions);
         res.json(predictions);
     } catch (error) {
         console.error('Ошибка получения прогнозов:', error);
@@ -82,9 +87,7 @@ app.post('/api/predictions', async (req, res) => {
 
         const predictionsCollection = db.collection('predictions');
         
-        // Удаляем старые прогнозы
         await predictionsCollection.deleteMany({});
-        // Вставляем новые
         await predictionsCollection.insertMany(predictions);
 
         res.json({ success: true, message: 'Прогнозы успешно сохранены' });
