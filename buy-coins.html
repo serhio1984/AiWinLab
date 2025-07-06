@@ -216,12 +216,9 @@
         console.log('Telegram WebApp initialized');
     }
 
-    let coins = parseInt(localStorage.getItem('coins') || '0');
-
     async function buyCoins(amount, stars) {
         if (!telegram) {
-            if (!confirm('Тестирование в браузере. Продолжить симуляцию?')) return;
-            simulatePurchase(amount, stars);
+            alert('Эта функция доступна только в Telegram.');
             return;
         }
 
@@ -229,57 +226,30 @@
         document.getElementById('status').textContent = 'Инициализация оплаты...';
 
         try {
-            // Проверка поддержки метода showPopup
-            if (telegram.isVersionAtLeast('6.2')) {
-                const result = await telegram.showPopup({
-                    title: 'Подтверждение оплаты',
-                    message: `Купить ${amount} монет за ${stars} Telegram Stars?`,
-                    buttons: [{ text: 'Оплатить', type: 'destructive' }, { text: 'Отмена', type: 'cancel' }]
-                });
-
-                if (result === 'Оплатить') {
-                    document.getElementById('status').textContent = 'Ожидание подтверждения...';
-                    setTimeout(() => {
-                        coins += amount;
-                        localStorage.setItem('coins', coins);
-                        telegram.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-                        document.getElementById('status').style.display = 'none';
-                    }, 2000);
-                } else {
-                    document.getElementById('status').style.display = 'none';
-                }
+            const chatId = telegram.initDataUnsafe.user?.id || telegram.initDataUnsafe.chat?.id;
+            const response = await fetch('https://api.telegram.org/bot7731894420:AAFo4obZxbsBVZtEZHEviywt2ztuTyBS4c0/sendInvoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    title: `Покупка ${amount} монет`,
+                    description: `Оплата ${stars} Telegram Stars`,
+                    payload: JSON.stringify({ amount, stars }),
+                    currency: 'XTR', // Валюта для Telegram Stars
+                    prices: [{ label: 'Монеты', amount: stars * 100 }] // 1 Star = 100 единиц
+                })
+            });
+            const result = await response.json();
+            if (result.ok) {
+                document.getElementById('status').textContent = 'Ожидание оплаты...';
             } else {
-                // Резервный сценарий для версий ниже 6.2 (только showAlert доступен)
-                telegram.showAlert(`Подтвердите покупку ${amount} монет за ${stars} Telegram Stars.`);
-                const confirmed = confirm('Подтвердить покупку в Telegram? (Для теста используйте "OK")');
-                if (confirmed) {
-                    document.getElementById('status').textContent = 'Ожидание подтверждения...';
-                    setTimeout(() => {
-                        coins += amount;
-                        localStorage.setItem('coins', coins);
-                        telegram.showAlert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-                        document.getElementById('status').style.display = 'none';
-                    }, 2000);
-                } else {
-                    document.getElementById('status').style.display = 'none';
-                }
+                throw new Error('Ошибка инициализации оплаты');
             }
         } catch (error) {
             console.error('Payment error:', error);
             document.getElementById('status').textContent = 'Ошибка оплаты!';
             setTimeout(() => document.getElementById('status').style.display = 'none', 2000);
         }
-    }
-
-    function simulatePurchase(amount, stars) {
-        document.getElementById('status').style.display = 'block';
-        document.getElementById('status').textContent = 'Симуляция оплаты...';
-        setTimeout(() => {
-            coins += amount;
-            localStorage.setItem('coins', coins);
-            alert(`Покупка успешна! Ваш баланс: ${coins} монет.`);
-            document.getElementById('status').style.display = 'none';
-        }, 2000);
     }
 </script>
 </body>

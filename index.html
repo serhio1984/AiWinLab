@@ -267,7 +267,7 @@
     </div>
     <div class="predictions" id="predictions"></div>
     
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // Инициализация Telegram Web App
     const telegram = window.Telegram?.WebApp;
@@ -284,11 +284,10 @@
     let predictions = [];
     async function loadPredictions() {
         try {
-            const userId = telegram?.initDataUnsafe?.user?.id;
+            let userId = telegram?.initDataUnsafe?.user?.id; // Используем let вместо const
             if (!userId) {
                 console.warn('User ID not available, using default test ID');
-                // Используем тестовый ID для отладки
-                userId = 'testUserId'; // Временное решение для тестирования вне Telegram
+                userId = 'testUserId'; // Присваивание тестового ID
             }
 
             const predictionsResponse = await fetch('https://aiwinlab.onrender.com/api/predictions');
