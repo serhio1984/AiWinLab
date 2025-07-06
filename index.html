@@ -274,9 +274,11 @@
         telegram.ready(() => {
             telegram.expand();
             console.log('Telegram WebApp initialized and expanded');
+            loadPredictions(); // Вызов после инициализации
         });
     } else {
         console.log('Telegram WebApp not available');
+        loadPredictions(); // Вызов для браузера без Telegram
     }
 
     // Загрузка прогнозов с сервера
@@ -444,8 +446,7 @@
     // Инициализация
     initializeCoins();
     loadUserData();
-    loadPredictions();
-    setInterval(updatePredictions, 5000); // Обновление каждые 5 секунд
+    // loadPredictions(); // Удалён из инициализации, вызывается через telegram.ready()
 </script>
 </body>
 </html>
