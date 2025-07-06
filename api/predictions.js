@@ -1,10 +1,14 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
+const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Обслуживание статических файлов (включая index.html)
+app.use(express.static(path.join(__dirname, '../'))); // Служит файлы из корня проекта
+
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
-const client = new MongoClient(uri); // Удалена опция serverApi для упрощения
+const client = new MongoClient(uri);
 let db;
 
 async function connectDB() {
