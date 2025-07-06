@@ -282,13 +282,15 @@
     // Загрузка прогнозов с сервера
     let predictions = [];
     async function loadPredictions() {
-        try {
-            const userId = telegram?.initDataUnsafe?.user?.id;
-            if (!userId) {
-                console.error('User ID not available');
-                return;
-            }
+        const userId = telegram?.initDataUnsafe?.user?.id;
+        if (!userId) {
+            console.warn('User ID not available. Predictions may not load correctly.');
+            predictions = []; // Загружаем пустой массив как резерв
+            renderPredictions();
+            return;
+        }
 
+        try {
             const predictionsResponse = await fetch('https://aiwinlab.onrender.com/api/predictions');
             if (!predictionsResponse.ok) {
                 throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
@@ -317,7 +319,9 @@
             console.error('Error loading predictions or balance:', error);
             predictions = []; // Очищаем при ошибке
             renderPredictions();
-            alert('Ошибка загрузки данных. Проверьте подключение или обратитесь к поддержке.');
+            if (telegram) {
+                alert('Ошибка загрузки данных. Проверьте подключение или обратитесь к поддержке.');
+            }
         }
     }
 
