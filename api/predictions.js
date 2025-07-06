@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 // Обслуживание статических файлов (включая index.html)
-app.use(express.static(path.join(__dirname, '../'))); // Служит файлы из корня проекта
+app.use(express.static(path.join(__dirname, '../')));
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
@@ -54,10 +54,33 @@ app.get('/api/predictions', async (req, res) => {
     try {
         const predictionsCollection = db.collection('predictions');
         const predictions = await predictionsCollection.find().toArray();
+        console.log('Fetched predictions:', predictions); // Отладочный лог
         res.json(predictions);
     } catch (error) {
         console.error('Ошибка получения прогнозов:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/predictions', async (req, res) => {
+    try {
+        const predictions = req.body;
+
+        if (!Array.isArray(predictions)) {
+            return res.status(400).json({ success: false, message: 'Данные должны быть массивом' });
+        }
+
+        const predictionsCollection = db.collection('predictions');
+        
+        // Удаляем старые прогнозы
+        await predictionsCollection.deleteMany({});
+        // Вставляем новые
+        await predictionsCollection.insertMany(predictions);
+
+        res.json({ success: true, message: 'Прогнозы успешно сохранены' });
+    } catch (error) {
+        console.error('Ошибка сохранения прогнозов:', error);
+        res.status(500).json({ success: false, message: 'Ошибка сервера' });
     }
 });
 
