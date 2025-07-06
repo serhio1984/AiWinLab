@@ -5,22 +5,23 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Обслуживание статики — ПРИОРИТЕТ у маршрутов ниже
-app.use(express.static(path.join(__dirname, '../'), {
-    extensions: ['html']
-}));
+// Путь к корню проекта (один уровень вверх от server.js)
+const rootDir = path.join(__dirname, '..');
 
-// Явно отдаем welcome.html по корню
+// Явно отдаем welcome.html при запросе корня
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../welcome.html'), err => {
+    res.sendFile(path.join(rootDir, 'welcome.html'), err => {
         if (err) {
-            console.error('Error sending welcome.html:', err);
-            res.status(500).send('Internal Server Error');
+            console.error('Ошибка при отправке welcome.html:', err);
+            res.status(500).send('Ошибка сервера');
         }
     });
 });
 
-// MongoDB
+// Статические файлы (index.html, admin.html, .css, .js и т.п.)
+app.use(express.static(rootDir));
+
+// Подключение к MongoDB
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
 let db;
@@ -36,14 +37,13 @@ async function connectDB() {
 }
 connectDB();
 
-// Баланс: получить или обновить
+// Баланс
 app.post('/balance', async (req, res) => {
     const { userId, action, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
         const usersCollection = db.collection('users');
-
         if (action === 'update') {
             if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
 
@@ -67,25 +67,25 @@ app.post('/balance', async (req, res) => {
     }
 });
 
-// Получить прогнозы
+// Прогнозы
 app.get('/api/predictions', async (req, res) => {
     try {
         const predictionsCollection = db.collection('predictions');
         const predictions = await predictionsCollection.find().toArray();
         res.json(predictions);
     } catch (error) {
-        console.error('❌ Predictions fetch error:', error);
+        console.error('❌ Predictions error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-// Запуск сервера
+// Запуск
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// Закрытие клиента при завершении процесса
+// Корректное завершение
 process.on('SIGTERM', () => {
     client.close();
     process.exit(0);
