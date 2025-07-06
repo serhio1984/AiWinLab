@@ -3,14 +3,14 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 app.use(express.json());
 
-const uri = process.env.MONGODB_URI || "mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority";
+const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 let db;
 
 async function connectDB() {
     try {
         await client.connect();
-        db = client.db("aiwinlab"); // Укажите имя вашей базы данных
+        db = client.db("predictionsDB"); // Убедитесь, что имя базы совпадает
         console.log("Connected to MongoDB");
     } catch (error) {
         console.error("Failed to connect to MongoDB:", error);
