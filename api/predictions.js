@@ -1,25 +1,11 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const path = require('path');
-
 const app = express();
 app.use(express.json());
 
-// Путь к корню проекта (один уровень вверх от server.js)
-const rootDir = path.join(__dirname, '..');
-
-// Явно отдаем welcome.html при запросе корня
-app.get('/', (req, res) => {
-    res.sendFile(path.join(rootDir, 'welcome.html'), err => {
-        if (err) {
-            console.error('Ошибка при отправке welcome.html:', err);
-            res.status(500).send('Ошибка сервера');
-        }
-    });
-});
-
-// Статические файлы (index.html, admin.html, .css, .js и т.п.)
-app.use(express.static(rootDir));
+// Обслуживание статических файлов (включая index.html и admin.html)
+app.use(express.static(path.join(__dirname, '../')));
 
 // Подключение к MongoDB
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
@@ -107,6 +93,24 @@ app.post('/api/predictions', async (req, res) => {
     } catch (error) {
         console.error('❌ Predictions save error:', error);
         res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    }
+});
+
+// Перенаправление корневого URL на welcome.html с переходом к index.html
+app.get('/', (req, res) => {
+    // Проверяем наличие initData из Telegram Web App
+    const initData = req.query.initData || '';
+    if (initData) {
+        // Если initData присутствует, перенаправляем на index.html с параметрами
+        res.redirect(`/index.html?initData=${encodeURIComponent(initData)}`);
+    } else {
+        // Иначе отображаем welcome.html
+        res.sendFile(path.join(__dirname, '../welcome.html'), err => {
+            if (err) {
+                console.error('Ошибка при отправке welcome.html:', err);
+                res.status(500).send('Ошибка сервера');
+            }
+        });
     }
 });
 
