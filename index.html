@@ -5,20 +5,161 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AiWinLab - Прогнозы</title>
     <style>
+        body {
+            font-family: 'Verdana', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
+            background-size: cover;
+            color: #ff6200;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
         #userContainer {
             display: flex;
             align-items: center;
-            margin-bottom: 20px;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 98, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 98, 0, 0.3);
+            animation: fadeIn 1s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         #userProfilePic {
             border-radius: 50%;
             width: 50px;
             height: 50px;
+            border: 2px solid #ff6200;
+            transition: transform 0.3s ease;
+        }
+        #userProfilePic:hover {
+            transform: scale(1.1);
         }
         #userGreeting {
             margin-left: 10px;
-            font-size: 18px;
+            font-size: 20px;
+            font-weight: bold;
             color: #ff6200;
+        }
+        #userName {
+            margin-left: 5px;
+            font-size: 20px;
+            color: #ffffff;
+            text-shadow: 0 0 5px #ff6200;
+        }
+        #coinBalance {
+            font-size: 24px;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(255, 98, 0, 0.5);
+        }
+        #predictions {
+            width: 90%;
+            max-width: 800px;
+            margin: 20px 0;
+        }
+        .prediction {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(255, 98, 0, 0.3);
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .prediction.locked .prediction-text {
+            display: none;
+        }
+        .prediction.unlocked .prediction-text {
+            display: block;
+        }
+        .teams {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .team-row {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .team-row img {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+        }
+        .tournament {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .odds {
+            font-size: 16px;
+            color: #00ff00;
+            margin: 10px 0;
+            display: block;
+        }
+        .prediction-text {
+            font-size: 14px;
+            color: #ffffff;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .buy-btn, .unlock-btn {
+            background: #ff6200;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 98, 0, 0.5);
+        }
+        .buy-btn:hover, .unlock-btn:hover {
+            background: #e05600;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 98, 0, 0.7);
+        }
+        @media (max-width: 600px) {
+            #userContainer {
+                flex-direction: column;
+                text-align: center;
+            }
+            #userGreeting, #userName {
+                font-size: 16px;
+                margin: 5px 0;
+            }
+            #userProfilePic {
+                margin-bottom: 10px;
+            }
+            #coinBalance {
+                font-size: 20px;
+                padding: 8px 15px;
+            }
+            .prediction {
+                padding: 10px;
+            }
+            .tournament {
+                font-size: 16px;
+            }
+            .buy-btn, .unlock-btn {
+                font-size: 14px;
+                padding: 8px 15px;
+            }
         }
     </style>
 </head>
@@ -29,7 +170,7 @@
     </div>
     <div id="coinBalance">0</div>
     <div id="predictions"></div>
-    <button onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
+    <button class="buy-btn" onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
@@ -132,12 +273,12 @@
                 const user = telegram.initDataUnsafe.user;
                 if (user) {
                     if (user.first_name) {
-                        userName.textContent = user.first_name; // Устанавливаем имя после "Привет"
+                        userName.textContent = user.first_name;
                     } else {
                         userName.textContent = 'Гость';
                     }
                     if (user.photo_url) {
-                        userProfilePic.src = user.photo_url; // Устанавливаем аватарку
+                        userProfilePic.src = user.photo_url;
                     } else {
                         userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
                     }
