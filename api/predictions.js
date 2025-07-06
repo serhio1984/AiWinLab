@@ -40,29 +40,27 @@ connectDB();
 // Баланс
 app.post('/balance', async (req, res) => {
     const { userId, action, amount } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
-
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID required' });
+    }
     try {
         const usersCollection = db.collection('users');
         if (action === 'update') {
-            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
-
+            if (!amount || isNaN(amount)) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
             const user = await usersCollection.findOneAndUpdate(
                 { chatId: userId },
-                {
-                    $inc: { coins: amount },
-                    $setOnInsert: { chatId: userId, coins: 0 }
-                },
+                { $inc: { coins: amount }, $setOnInsert: { chatId: userId, coins: 0 } },
                 { upsert: true, returnDocument: 'after' }
             );
-
             res.json({ coins: user.value.coins });
         } else {
             const user = await usersCollection.findOne({ chatId: userId }) || { coins: 0 };
             res.json({ coins: user.coins });
         }
     } catch (error) {
-        console.error('❌ Balance error:', error);
+        console.error('Ошибка получения/обновления баланса:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
