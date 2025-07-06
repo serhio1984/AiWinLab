@@ -4,7 +4,7 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Обслуживание статических файлов (включая index.html)
+// Обслуживание статических файлов (включая index.html и admin.html)
 app.use(express.static(path.join(__dirname, '../')));
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
@@ -22,6 +22,16 @@ async function connectDB() {
 }
 
 connectDB();
+
+app.post('/api/check-password', (req, res) => {
+    const { password } = req.body;
+    const adminPassword = 'admin123'; // Фиксированный пароль для теста, замените на безопасный механизм
+    if (password === adminPassword) {
+        res.json({ success: true });
+    } else {
+        res.json({ success: false, message: 'Неверный пароль' });
+    }
+});
 
 app.post('/balance', async (req, res) => {
     const { userId, action, amount } = req.body;
