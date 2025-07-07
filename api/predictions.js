@@ -26,7 +26,7 @@ connectDB();
 // Проверка пароля для админ-панели
 app.post('/api/check-password', (req, res) => {
     const { password } = req.body;
-    const adminPassword = 'admin123'; // Фиксированный пароль для теста, замените на безопасный механизм
+    const adminPassword = 'admin123'; // Фиксированный пароль для теста
     if (password === adminPassword) {
         res.json({ success: true });
     } else {
@@ -96,15 +96,15 @@ app.post('/api/predictions', async (req, res) => {
     }
 });
 
-// Перенаправление корневого URL на welcome.html с переходом к index.html
+// Перенаправление корневого URL на welcome.html с обработкой initData
 app.get('/', (req, res) => {
-    // Проверяем наличие initData из Telegram Web App
+    console.log('Root request received with query:', req.query); // Отладочный лог
     const initData = req.query.initData || '';
     if (initData) {
-        // Если initData присутствует, перенаправляем на index.html с параметрами
+        console.log('Redirecting to index.html with initData:', initData);
         res.redirect(`/index.html?initData=${encodeURIComponent(initData)}`);
     } else {
-        // Иначе отображаем welcome.html
+        console.log('Serving welcome.html');
         res.sendFile(path.join(__dirname, '../welcome.html'), err => {
             if (err) {
                 console.error('Ошибка при отправке welcome.html:', err);
