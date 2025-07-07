@@ -266,13 +266,20 @@
         <button class="buy-btn" onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
     </div>
     <div class="predictions" id="predictions"></div>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     const telegram = window.Telegram?.WebApp;
-    const userProfilePic = document.getElementById('userProfilePic');
-    const userName = document.getElementById('userName');
-    const predictionsContainer = document.getElementById('predictions');
-    const coinBalance = document.getElementById('coinBalance');
+    if (telegram) {
+        telegram.ready(() => {
+            telegram.expand();
+            console.log('Telegram WebApp initialized and expanded');
+            loadPredictions();
+        });
+    } else {
+        console.log('Telegram WebApp not available');
+        loadPredictions();
+    }
 
     let predictions = [];
     let coins = parseInt(localStorage.getItem('coins')) || 0;
@@ -286,34 +293,40 @@
         }
     }
 
+    const coinBalance = document.getElementById('coinBalance');
+    const predictionsContainer = document.getElementById('predictions');
+    const userProfilePic = document.getElementById('userProfilePic');
+    const userName = document.getElementById('userName');
+
     function loadUserData() {
-        try {
-            if (telegram?.initDataUnsafe?.user) {
-                const user = telegram.initDataUnsafe.user;
+        if (telegram) {
+            const user = telegram.initDataUnsafe.user;
+            if (user) {
                 userName.textContent = user.first_name || 'Гость';
                 userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-            } else {
-                userName.textContent = 'Гость (Тест)';
-                userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
             }
-        } catch (error) {
-            console.error('Ошибка получения данных пользователя:', error);
-            userName.textContent = 'Гость';
+        } else {
+            userName.textContent = 'Гость (Тест)';
             userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
         }
     }
 
     async function loadPredictions() {
         const userId = telegram?.initDataUnsafe?.user?.id;
+        console.log('User ID:', userId);
         if (!userId) {
-            console.warn('User ID не найден');
-            renderPredictions([]);
+            console.warn('User ID not available. Predictions may not load correctly.');
+            predictions = [];
+            renderPredictions();
             return;
         }
 
         try {
-            const predictionsResponse = await fetch('/api/predictions');
+            const predictionsResponse = await fetch('https://aiwinlab.onrender.com/api/predictions');
+            console.log('Predictions response status:', predictionsResponse.status);
+            if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
             const serverPredictions = await predictionsResponse.json();
+            console.log('Server predictions:', serverPredictions);
             predictions = Array.isArray(serverPredictions)
                 ? serverPredictions.map(p => ({
                     ...p,
@@ -321,32 +334,53 @@
                     isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
                 }))
                 : [];
+            console.log('Processed predictions:', predictions);
 
-            const balanceResponse = await fetch('/balance', {
+            const balanceResponse = await fetch('https://aiwinlab.onrender.com/balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, action: 'get' })
             });
-
+            console.log('Balance response status:', balanceResponse.status);
+            if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
             const balanceData = await balanceResponse.json();
             coins = balanceData.coins || 0;
             localStorage.setItem('coins', coins);
             updateBalance();
             renderPredictions();
         } catch (error) {
-            console.error('Ошибка загрузки данных:', error);
+            console.error('Error loading predictions or balance:', error);
+            predictions = [];
+            renderPredictions();
+            if (telegram) alert('Ошибка загрузки данных. Проверьте подключение или обратитесь к поддержке.');
+        }
+    }
+
+    async function updatePredictions() {
+        try {
+            const response = await fetch('https://aiwinlab.onrender.com/api/predictions');
+            console.log('Update response status:', response.status);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const serverPredictions = await response.json();
+            predictions = Array.isArray(serverPredictions)
+                ? serverPredictions.map(p => ({
+                    ...p,
+                    id: Number(p.id),
+                    isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
+                }))
+                : [];
+            console.log('Updated predictions from server:', predictions);
+            renderPredictions();
+        } catch (error) {
+            console.error('Error updating predictions:', error);
             predictions = [];
             renderPredictions();
         }
     }
 
-    function updateBalance() {
-        coinBalance.textContent = coins;
-    }
-
     function unlockPrediction(id, button) {
         if (coins < 1) {
-            alert('Недостаточно монет!');
+            alert('Недостаточно монет! Купите ещё за Telegram Stars.');
             return;
         }
         coins--;
@@ -358,11 +392,27 @@
         renderPredictions();
     }
 
+    function updateBalance() {
+        coinBalance.textContent = coins;
+    }
+
     function renderPredictions() {
         updateBalance();
         predictionsContainer.innerHTML = '';
+        console.log('Rendering predictions with details:', JSON.stringify(predictions.map(p => ({
+            id: p.id,
+            tournament: p.tournament,
+            team1: p.team1,
+            logo1: p.logo1,
+            team2: p.team2,
+            logo2: p.logo2,
+            odds: p.odds,
+            predictionText: p.predictionText,
+            isUnlocked: p.isUnlocked
+        })), null, 2));
         if (predictions.length === 0) {
             predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+            console.log('No predictions to render.');
             return;
         }
 
@@ -384,22 +434,11 @@
         });
     }
 
-    // Запускаем всё после загрузки Telegram WebApp
-    if (telegram) {
-        telegram.ready(() => {
-            telegram.expand();
-            loadUserData();
-            loadPredictions();
-        });
-    } else {
-        // Для тестов в браузере
-        loadUserData();
-        loadPredictions();
-    }
+    // Установка интервала для обновлений
+    setInterval(updatePredictions, 5000); // Обновление каждые 5 секунд
 
     initializeCoins();
-    setInterval(loadPredictions, 5000);
+    loadUserData();
 </script>
-
 </body>
 </html>
