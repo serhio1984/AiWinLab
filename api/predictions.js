@@ -19,6 +19,7 @@ async function connectDB() {
         console.log("✅ Connected to MongoDB");
     } catch (error) {
         console.error("❌ MongoDB connection error:", error);
+        // Продолжаем работу даже при ошибке подключения, чтобы отображение страниц не зависело от MongoDB
     }
 }
 connectDB();
@@ -108,7 +109,7 @@ app.get('/', (req, res) => {
         res.sendFile(path.join(__dirname, '../welcome.html'), err => {
             if (err) {
                 console.error('Ошибка при отправке welcome.html:', err);
-                res.status(500).send('Ошибка сервера');
+                res.status(500).send('Ошибка сервера. Проверьте наличие welcome.html в корневой директории.');
             }
         });
     }
