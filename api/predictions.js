@@ -7,22 +7,14 @@ app.use(express.json());
 
 const rootDir = path.join(__dirname, '..');
 
-// Явно отдаем welcome.html при переходе на "/" с обработкой initData
+// Явно отдаем welcome.html при переходе на "/"
 app.get('/', (req, res) => {
-    console.log('Root request received with query:', req.query); // Отладочный лог
-    const initData = req.query.initData || '';
-    if (initData) {
-        console.log('Redirecting to index.html with initData:', initData);
-        res.redirect(`/index.html?initData=${encodeURIComponent(initData)}`);
-    } else {
-        console.log('Serving welcome.html');
-        res.sendFile(path.join(rootDir, 'welcome.html'), err => {
-            if (err) {
-                console.error('Ошибка при отправке welcome.html:', err);
-                res.status(500).send('Ошибка сервера. Проверьте наличие welcome.html в корневой директории.');
-            }
-        });
-    }
+    res.sendFile(path.join(rootDir, 'welcome.html'), err => {
+        if (err) {
+            console.error('Ошибка при отправке welcome.html:', err);
+            res.status(500).send('Ошибка сервера');
+        }
+    });
 });
 
 // Обслуживание всех остальных файлов (index.html, js, css, admin.html и т.д.)
