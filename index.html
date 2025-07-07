@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AiWinLab</title>
   <style>
-    /* Стили как у тебя — без изменений */
+    /* Стили остаются без изменений */
     body {
       font-family: 'Verdana', sans-serif;
       margin: 0;
@@ -188,7 +188,7 @@
     <div class="user-section">
       <span class="user-greeting">Привет, <span id="userName">Гость</span></span>
       <div class="user-photo">
-        <img id="userProfilePic" src="https://dummyimage.com/50x50/000000/ffffff?text=User" alt="Фото пользователя">
+        <img id="userProfilePic" src="https://dummyimage.com/50x50/000000/ffffff?text=User" alt="Фото пользователя" />
       </div>
     </div>
   </div>
@@ -228,11 +228,13 @@
     }
 
     function loadUserData() {
+      console.log('Loading user data:', telegram?.initDataUnsafe?.user); // Отладочный лог
       if (telegram?.initDataUnsafe?.user) {
         const user = telegram.initDataUnsafe.user;
         userName.textContent = user.first_name || 'Гость';
         userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
       } else {
+        console.log('No Telegram user data, using default');
         userName.textContent = 'Гость (Тест)';
         userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
       }
@@ -264,9 +266,8 @@
     }
 
     async function loadPredictions() {
-      const userId = telegram?.initDataUnsafe?.user?.id;
-      if (!userId) return;
-
+      const userId = telegram?.initDataUnsafe?.user?.id || 'default-user'; // Используем дефолтное значение
+      console.log('Loading predictions for userId:', userId); // Отладочный лог
       try {
         const response = await fetch('/api/predictions');
         const data = await response.json();
