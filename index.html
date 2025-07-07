@@ -270,16 +270,18 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     const telegram = window.Telegram?.WebApp;
-    if (telegram) {
-        telegram.ready(() => {
-            telegram.expand();
-            console.log('Telegram WebApp initialized and expanded');
-            loadPredictions();
-        });
-    } else {
-        console.log('Telegram WebApp not available');
-        loadPredictions();
-    }
+   if (telegram) {
+    telegram.ready();
+    telegram.expand();
+    console.log('Telegram WebApp initialized and expanded');
+    loadUserData(); // переместить сюда
+    loadPredictions();
+} else {
+    console.log('Telegram WebApp not available');
+    loadUserData(); // и сюда
+    loadPredictions();
+}
+
 
     let predictions = [];
     let coins = parseInt(localStorage.getItem('coins')) || 0;
