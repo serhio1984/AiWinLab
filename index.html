@@ -1,318 +1,405 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AiWinLab</title>
-  <style>
-    /* Стили остаются без изменений */
-    body {
-      font-family: 'Verdana', sans-serif;
-      margin: 0;
-      padding: 10px;
-      background: #000000;
-      color: #000000;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    .logo {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .logo h1 {
-      font-size: 24px;
-      color: #ff6200;
-      margin: 0;
-    }
-    .logo p {
-      font-size: 12px;
-      color: #ff6200;
-      margin: 0;
-    }
-    .user-section {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .user-greeting {
-      color: #ff6200;
-      font-size: 14px;
-      font-weight: bold;
-    }
-    .user-photo {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      overflow: hidden;
-    }
-    .user-photo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .balance {
-      font-size: 16px;
-      margin: 10px 0;
-      background: #ffffff;
-      padding: 8px;
-      border-radius: 6px;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .balance-coins {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .coin-icon {
-      width: 20px;
-      height: 20px;
-    }
-    .buy-btn {
-      background: #ff6200;
-      color: #ffffff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 5px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
-    }
-    .buy-btn:hover {
-      background: #e05600;
-      transform: scale(1.1);
-    }
-    .predictions {
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      flex: 1;
-    }
-    .prediction {
-      background: #ffffff;
-      padding: 10px;
-      border-radius: 10px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-      font-weight: bold;
-      height: 150px;
-      position: relative;
-    }
-    .prediction.locked {
-      opacity: 0.7;
-      cursor: pointer;
-    }
-    .prediction.unlocked {
-      opacity: 1;
-    }
-    .tournament {
-      font-size: 12px;
-      text-align: center;
-    }
-    .teams {
-      display: flex;
-      flex-direction: column;
-    }
-    .team-row {
-      display: flex;
-      align-items: center;
-      margin-bottom: 5px;
-    }
-    .team-row img {
-      width: 30px;
-      height: 30px;
-      margin-right: 8px;
-      border-radius: 50%;
-    }
-    .odds {
-      font-size: 16px;
-      padding: 4px 8px;
-      background: #ff6200;
-      color: #ffffff;
-      border-radius: 5px;
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-    .buy-btn.unlock-btn {
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 4px 8px;
-      font-size: 12px;
-      display: none;
-    }
-    .prediction.locked .buy-btn.unlock-btn {
-      display: block;
-    }
-    .prediction-text {
-      font-size: 12px;
-      text-align: center;
-      margin-top: 5px;
-      display: none;
-    }
-    .prediction.unlocked .prediction-text {
-      display: block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AiWinLab</title>
+    <style>
+        body {
+            font-family: 'Verdana', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: #000000;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .logo {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .logo h1 {
+            font-size: 24px;
+            color: #ff6200;
+            margin: 0;
+            text-shadow: none;
+        }
+        .logo p {
+            font-size: 12px;
+            color: #ff6200;
+            margin: 0;
+        }
+        .user-section {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-greeting {
+            color: #ff6200;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .user-photo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        .user-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .balance {
+            font-size: 16px;
+            margin: 10px 0;
+            background: #ffffff;
+            padding: 8px;
+            border-radius: 6px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        .balance-coins {
+            flex: 1;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .coin-icon {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+        }
+        .buy-btn {
+            background: #ff6200;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
+        }
+        .buy-btn:hover {
+            background: #e05600;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
+        }
+        .predictions {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            flex: 1;
+        }
+        .prediction {
+            background: #ffffff;
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+            font-weight: bold;
+            height: 150px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .prediction:hover {
+            transform: scale(1.01);
+        }
+        .prediction.locked {
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        .prediction.unlocked {
+            opacity: 1;
+            cursor: default;
+        }
+        .prediction img {
+            width: 30px;
+            height: 30px;
+            margin-right: 8px;
+            border-radius: 50%;
+            vertical-align: middle;
+        }
+        .tournament {
+            font-size: 12px;
+            margin-bottom: 5px;
+            margin-top: 0;
+            text-align: center;
+        }
+        .teams {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-right: 60px;
+        }
+        .team-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .odds {
+            font-size: 16px;
+            padding: 4px 8px;
+            background: #ff6200;
+            color: #ffffff;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .buy-btn.unlock-btn {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            font-size: 12px;
+            display: none;
+        }
+        .buy-btn.unlock-btn:hover {
+            background: #e05600;
+            transform: scale(1.1) translateX(-50%);
+        }
+        .prediction.locked .buy-btn.unlock-btn {
+            display: block;
+        }
+        .prediction-text {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+            display: none;
+        }
+        .prediction.unlocked .prediction-text {
+            display: block;
+        }
+        @media (max-width: 600px) {
+            .predictions {
+                grid-template-columns: 1fr;
+            }
+            .prediction {
+                height: 130px;
+            }
+            .logo h1 {
+                font-size: 20px;
+            }
+            .logo p {
+                font-size: 10px;
+            }
+            .user-greeting {
+                font-size: 12px;
+            }
+            .user-photo {
+                width: 35px;
+                height: 35px;
+            }
+            .odds {
+                font-size: 14px;
+            }
+            .tournament {
+                font-size: 10px;
+            }
+            .balance {
+                font-size: 14px;
+            }
+            .buy-btn {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+            .buy-btn.unlock-btn {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+            .prediction-text {
+                font-size: 10px;
+            }
+            .coin-icon {
+                width: 18px;
+                height: 18px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">
-      <h1>AiWinLab</h1>
-      <p>Умные ставки. Большие выигрыши.</p>
+    <div class="header">
+        <div class="logo">
+            <h1>AiWinLab</h1>
+            <p>Умные ставки. Большие выигрыши.</p>
+        </div>
+        <div class="user-section">
+            <span class="user-greeting">Привет, <span id="userName"></span></span>
+            <div class="user-photo">
+                <img id="userProfilePic" src="https://via.placeholder.com/50?text=User" alt="Фото пользователя">
+            </div>
+        </div>
     </div>
-    <div class="user-section">
-      <span class="user-greeting">Привет, <span id="userName">Гость</span></span>
-      <div class="user-photo">
-        <img id="userProfilePic" src="https://dummyimage.com/50x50/000000/ffffff?text=User" alt="Фото пользователя" />
-      </div>
+    <div class="balance">
+        <span class="balance-coins"><img src="https://cdn-icons-png.flaticon.com/128/2682/2682893.png" alt="Монета" class="coin-icon"><span id="coinBalance">0</span></span>
+        <button class="buy-btn" onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
     </div>
-  </div>
-
-  <div class="balance">
-    <span class="balance-coins">
-      <img src="https://cdn-icons-png.flaticon.com/128/2682/2682893.png" class="coin-icon" />
-      <span id="coinBalance">0</span>
-    </span>
-    <button class="buy-btn" onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
-  </div>
-
-  <div class="predictions" id="predictions"></div>
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script>
+    <div class="predictions" id="predictions"></div>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
     const telegram = window.Telegram?.WebApp;
-    const predictionsContainer = document.getElementById("predictions");
-    const coinBalance = document.getElementById("coinBalance");
-    const userName = document.getElementById("userName");
-    const userProfilePic = document.getElementById("userProfilePic");
+    const userProfilePic = document.getElementById('userProfilePic');
+    const userName = document.getElementById('userName');
+    const predictionsContainer = document.getElementById('predictions');
+    const coinBalance = document.getElementById('coinBalance');
 
     let predictions = [];
     let coins = parseInt(localStorage.getItem('coins')) || 0;
     let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
 
     function initializeCoins() {
-      if (!localStorage.getItem('visited')) {
-        coins = 5;
-        localStorage.setItem('coins', coins);
-        localStorage.setItem('visited', 'true');
-      }
-    }
-
-    function updateBalance() {
-      coinBalance.textContent = coins;
+        if (!localStorage.getItem('visited')) {
+            coins = 5;
+            localStorage.setItem('coins', coins);
+            localStorage.setItem('visited', 'true');
+        }
     }
 
     function loadUserData() {
-      console.log('Loading user data:', telegram?.initDataUnsafe?.user); // Отладочный лог
-      if (telegram?.initDataUnsafe?.user) {
-        const user = telegram.initDataUnsafe.user;
-        userName.textContent = user.first_name || 'Гость';
-        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-      } else {
-        console.log('No Telegram user data, using default');
-        userName.textContent = 'Гость (Тест)';
-        userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-      }
-    }
-
-    function renderPredictions() {
-      updateBalance();
-      predictionsContainer.innerHTML = '';
-      if (predictions.length === 0) {
-        predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
-        return;
-      }
-
-      predictions.forEach(p => {
-        const div = document.createElement('div');
-        div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
-        div.innerHTML = `
-          <div class="teams">
-            <span class="tournament">${p.tournament || 'Турнир'}</span>
-            <div class="team-row"><img src="${p.logo1}"> ${p.team1}</div>
-            <div class="team-row"><img src="${p.logo2}"> ${p.team2}</div>
-          </div>
-          <span class="odds">${p.odds}</span>
-          <div class="prediction-text">${p.predictionText}</div>
-          <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id})">Разблокировать</button>
-        `;
-        predictionsContainer.appendChild(div);
-      });
+        try {
+            if (telegram?.initDataUnsafe?.user) {
+                const user = telegram.initDataUnsafe.user;
+                userName.textContent = user.first_name || 'Гость';
+                userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+            } else {
+                userName.textContent = 'Гость (Тест)';
+                userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+            }
+        } catch (error) {
+            console.error('Ошибка получения данных пользователя:', error);
+            userName.textContent = 'Гость';
+            userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+        }
     }
 
     async function loadPredictions() {
-      const userId = telegram?.initDataUnsafe?.user?.id || 'default-user'; // Используем дефолтное значение
-      console.log('Loading predictions for userId:', userId); // Отладочный лог
-      try {
-        const response = await fetch('/api/predictions');
-        const data = await response.json();
-        predictions = data.map(p => ({
-          ...p,
-          id: Number(p.id),
-          isUnlocked: unlockedPredictions.includes(Number(p.id))
-        }));
+        const userId = telegram?.initDataUnsafe?.user?.id;
+        if (!userId) {
+            console.warn('User ID не найден');
+            renderPredictions([]);
+            return;
+        }
 
-        const balanceResponse = await fetch('/balance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, action: 'get' })
-        });
-        const balance = await balanceResponse.json();
-        coins = balance.coins || 0;
+        try {
+            const predictionsResponse = await fetch('/api/predictions');
+            const serverPredictions = await predictionsResponse.json();
+            predictions = Array.isArray(serverPredictions)
+                ? serverPredictions.map(p => ({
+                    ...p,
+                    id: Number(p.id),
+                    isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
+                }))
+                : [];
+
+            const balanceResponse = await fetch('/balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, action: 'get' })
+            });
+
+            const balanceData = await balanceResponse.json();
+            coins = balanceData.coins || 0;
+            localStorage.setItem('coins', coins);
+            updateBalance();
+            renderPredictions();
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+            predictions = [];
+            renderPredictions();
+        }
+    }
+
+    function updateBalance() {
+        coinBalance.textContent = coins;
+    }
+
+    function unlockPrediction(id, button) {
+        if (coins < 1) {
+            alert('Недостаточно монет!');
+            return;
+        }
+        coins--;
+        unlockedPredictions.push(id);
+        const prediction = predictions.find(p => Number(p.id) === Number(id));
+        if (prediction) prediction.isUnlocked = true;
         localStorage.setItem('coins', coins);
+        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
         renderPredictions();
-      } catch (error) {
-        console.error('Ошибка загрузки:', error);
-      }
     }
 
-    function unlockPrediction(id) {
-      if (coins < 1) {
-        alert('Недостаточно монет!');
-        return;
-      }
-      coins--;
-      unlockedPredictions.push(id);
-      localStorage.setItem('coins', coins);
-      localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
-      const prediction = predictions.find(p => p.id === id);
-      if (prediction) prediction.isUnlocked = true;
-      renderPredictions();
+    function renderPredictions() {
+        updateBalance();
+        predictionsContainer.innerHTML = '';
+        if (predictions.length === 0) {
+            predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+            return;
+        }
+
+        predictions.forEach(p => {
+            const div = document.createElement('div');
+            div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
+            div.setAttribute('data-id', p.id);
+            div.innerHTML = `
+                <div class="teams">
+                    <span class="tournament">${p.tournament || 'Нет турнира'}</span>
+                    <div class="team-row"><img src="${p.logo1 || 'https://dummyimage.com/30x30'}" alt="${p.team1}"> ${p.team1 || 'Команда 1'}</div>
+                    <div class="team-row"><img src="${p.logo2 || 'https://dummyimage.com/30x30'}" alt="${p.team2}"> ${p.team2 || 'Команда 2'}</div>
+                </div>
+                <span class="odds">${p.odds || '0.00'}</span>
+                <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
+                <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id}, this)">Разблокировать</button>
+            `;
+            predictionsContainer.appendChild(div);
+        });
     }
 
-    // Инициализация
-    initializeCoins();
+    // Запускаем всё после загрузки Telegram WebApp
     if (telegram) {
-      telegram.ready();
-      telegram.expand();
+        telegram.ready(() => {
+            telegram.expand();
+            loadUserData();
+            loadPredictions();
+        });
+    } else {
+        // Для тестов в браузере
+        loadUserData();
+        loadPredictions();
     }
-    loadUserData();
-    loadPredictions();
-  </script>
+
+    initializeCoins();
+    setInterval(loadPredictions, 5000);
+</script>
+
 </body>
 </html>
