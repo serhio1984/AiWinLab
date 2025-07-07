@@ -121,18 +121,20 @@
             <li style="--order: 3;">1 монета = 1 прогноз</li>
         </ul>
         <script>
-            // Получаем initData из URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const initData = urlParams.get('initData');
-            if (initData) {
-                // Если initData доступен, перенаправляем на index.html с сохранением параметров
-                window.location.href = `/index.html?initData=${encodeURIComponent(initData)}`;
-            } else {
-                // Иначе показываем кнопку для ручного перехода
-                document.body.innerHTML += '<button class="buy-btn" onclick="window.location.href=\'/index.html\'">Начать</button>';
-            }
+            // Ожидаем загрузки DOM
+            document.addEventListener('DOMContentLoaded', () => {
+                // Получаем initData из URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const initData = urlParams.get('initData');
+                if (initData) {
+                    // Если initData доступен, перенаправляем на index.html с сохранением параметров
+                    window.location.href = `/index.html?initData=${encodeURIComponent(initData)}`;
+                } else {
+                    // Иначе показываем кнопку для ручного перехода
+                    document.body.innerHTML += '<button class="buy-btn" onclick="window.location.href=\'/index.html\'">Начать</button>';
+                }
+            });
         </script>
-    </ul>
     </div>
 </body>
 </html>
