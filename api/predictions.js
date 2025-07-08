@@ -9,10 +9,12 @@ function initializeWebApp() {
         telegram.ready(() => {
             telegram.expand();
             console.log('Telegram WebApp initialized and expanded');
+            loadUserData();
             loadPredictions();
         });
     } else {
         console.log('Telegram WebApp not available');
+        loadUserData();
         loadPredictions();
     }
 }
@@ -164,8 +166,6 @@ function renderPredictions() {
 // Запуск инициализации после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
     initializeCoins();
-    loadUserData();
     initializeWebApp();
-    // Автоматическое обновление каждые 5 секунд
     setInterval(updatePredictions, 5000);
 });
