@@ -5,7 +5,11 @@ const app = express();
 app.use(express.json());
 
 // Обслуживание статических файлов (включая index.html и admin.html)
-app.use(express.static(path.join(__dirname, '../')));
+// Обслуживание статических файлов, делаем welcome.html стартовой страницей
+app.use(express.static(
+  path.join(__dirname, '../'),
+  { index: 'welcome.html' }
+));
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
