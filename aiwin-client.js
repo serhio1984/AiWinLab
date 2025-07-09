@@ -42,7 +42,6 @@ function loadUserData() {
 
     let user = telegram?.initDataUnsafe?.user;
 
-    // Если нет user из Telegram SDK — берём из localStorage
     if (!user) {
         const savedUser = localStorage.getItem('tg_user');
         if (savedUser) {
@@ -71,10 +70,8 @@ async function loadPredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
-    console.log('Starting loadPredictions');
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
-    console.log('User ID:', userId);
     if (!userId) {
         console.warn('User ID not available. Predictions may not load correctly.');
         predictions = [];
@@ -84,10 +81,8 @@ async function loadPredictions() {
 
     try {
         const predictionsResponse = await fetch('/api/predictions');
-        console.log('Predictions response status:', predictionsResponse.status);
         if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
-        console.log('Server predictions raw:', serverPredictions);
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
                 ...p,
@@ -95,17 +90,14 @@ async function loadPredictions() {
                 isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
             }))
             : [];
-        console.log('Processed predictions:', predictions);
 
         const balanceResponse = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'get' })
         });
-        console.log('Balance response status:', balanceResponse.status);
         if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
         const balanceData = await balanceResponse.json();
-        console.log('Balance data:', balanceData);
         coins = balanceData.coins || 0;
         localStorage.setItem('coins', coins);
         updateBalance();
@@ -124,14 +116,11 @@ async function updatePredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
-    console.log('Starting updatePredictions');
 
     try {
         const response = await fetch('/api/predictions');
-        console.log('Update response status:', response.status);
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         const serverPredictions = await response.json();
-        console.log('Update server predictions:', serverPredictions);
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
                 ...p,
@@ -139,7 +128,6 @@ async function updatePredictions() {
                 isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
             }))
             : [];
-        console.log('Updated predictions:', predictions);
         renderPredictions();
     } catch (error) {
         console.error('Error updating predictions:', error);
@@ -156,7 +144,8 @@ async function unlockPrediction(id, button) {
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
     const url = '/balance';
-    console.log('Sending request to:', url);
+
+    button.disabled = true;
 
     try {
         const res = await fetch(url, {
@@ -164,16 +153,11 @@ async function unlockPrediction(id, button) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
-        console.log('Unlock balance response status:', res.status);
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-        console.log('Unlock balance data:', data);
-        if (data.coins === undefined || data.coins < 0) {
-            coins = 0; // Сброс на 0 при некорректном ответе
-        } else {
-            coins = data.coins;
-        }
+        coins = typeof data.coins === 'number' ? data.coins : 0;
         localStorage.setItem('coins', coins);
 
         unlockedPredictions.push(id);
@@ -183,14 +167,11 @@ async function unlockPrediction(id, button) {
         localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
         updateBalance();
         renderPredictions();
-
     } catch (error) {
-        console.error('Ошибка при списании монеты:', error);
-        alert('Не удалось списать монету. Попробуйте ещё раз.');
-        // Восстановим монеты, если ошибка
-        coins = parseInt(localStorage.getItem('coins')) + 1 || 5;
-        localStorage.setItem('coins', coins);
-        updateBalance();
+        console.error('❌ Ошибка при списании монеты:', error);
+        alert('Ошибка при списании монеты. Попробуйте позже.');
+    } finally {
+        button.disabled = false;
     }
 }
 
@@ -209,11 +190,10 @@ function renderPredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
-    console.log('Rendering predictions, count:', predictions.length);
+
     predictionsContainer.innerHTML = '';
     if (predictions.length === 0) {
         predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
-        console.log('No predictions to render.');
         return;
     }
 
@@ -235,7 +215,6 @@ function renderPredictions() {
     });
 }
 
-// Установка интервала для обновлений
 setInterval(updatePredictions, 5000);
 
 initializeCoins();
