@@ -23,12 +23,23 @@ function initializeCoins() {
     }
 }
 
-const coinBalance = document.getElementById('coinBalance');
-const predictionsContainer = document.getElementById('predictions');
-const userProfilePic = document.getElementById('userProfilePic');
-const userName = document.getElementById('userName');
+// Получение элементов DOM после загрузки
+function getDOMElements() {
+    return {
+        coinBalance: document.getElementById('coinBalance'),
+        predictionsContainer: document.getElementById('predictions'),
+        userProfilePic: document.getElementById('userProfilePic'),
+        userName: document.getElementById('userName')
+    };
+}
 
 function loadUserData() {
+    const { userProfilePic, userName } = getDOMElements();
+    if (!userName || !userProfilePic) {
+        console.error('DOM elements not found');
+        return;
+    }
+
     if (telegram) {
         const user = telegram.initDataUnsafe.user;
         if (user) {
@@ -48,6 +59,12 @@ function loadUserData() {
 }
 
 async function loadPredictions() {
+    const { predictionsContainer } = getDOMElements();
+    if (!predictionsContainer) {
+        console.error('predictionsContainer is undefined');
+        return;
+    }
+
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
     console.log('User ID:', userId);
     if (!userId) {
@@ -93,6 +110,12 @@ async function loadPredictions() {
 }
 
 async function updatePredictions() {
+    const { predictionsContainer } = getDOMElements();
+    if (!predictionsContainer) {
+        console.error('predictionsContainer is undefined');
+        return;
+    }
+
     try {
         const response = await fetch('/api/predictions');
         console.log('Update response status:', response.status);
@@ -129,11 +152,14 @@ function unlockPrediction(id, button) {
 }
 
 function updateBalance() {
-    coinBalance.textContent = coins;
+    const { coinBalance } = getDOMElements();
+    if (coinBalance) {
+        coinBalance.textContent = coins;
+    }
 }
 
 function renderPredictions() {
-    updateBalance();
+    const { predictionsContainer } = getDOMElements();
     if (!predictionsContainer) {
         console.error('predictionsContainer is undefined');
         return;
