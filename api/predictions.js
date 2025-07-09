@@ -89,18 +89,20 @@ app.post('/balance', async (req, res) => {
 
             console.log(`🔁 Обновление баланса: ${userId}, amount: ${amount}`);
 
-            // Сначала проверим, есть ли пользователь
-            const existing = await users.findOne({ chatId: userId });
-            if (!existing) {
-                await users.insertOne({ chatId: userId, coins: 5 + amount }); // учтём изменение
-                return res.json({ coins: 5 + amount });
-            }
-
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { $inc: { coins: amount } },
-                { returnDocument: 'after' }
+                {
+                    $inc: { coins: amount },
+                    $setOnInsert: { chatId: userId, coins: 0 }
+                },
+                { upsert: true, returnDocument: 'after' }
             );
+
+            if (!result.value) {
+                const user = await users.findOne({ chatId: userId });
+                return res.json({ coins: user?.coins ?? 0 });
+            }
+
             return res.json({ coins: result.value.coins });
         }
 
