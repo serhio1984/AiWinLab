@@ -82,34 +82,44 @@ app.post('/api/check-password', (req, res) => {
 
 // 4. Баланс пользователя (Telegram Stars → монеты)
 app.post('/balance', async (req, res) => {
-    if (!db) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
+    if (!db) return res.status(503).json({ error: 'Database not available' });
+
     const { userId, action, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
         const users = db.collection('users');
+
         if (action === 'update') {
             if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { 
+                {
                     $inc: { coins: amount },
                     $setOnInsert: { chatId: userId, coins: 0 }
                 },
                 { upsert: true, returnDocument: 'after' }
             );
-            res.json({ coins: result.value.coins });
-        } else {
-            const user = await users.findOne({ chatId: userId }) || { coins: 0 };
-            res.json({ coins: user.coins });
+            return res.json({ coins: result.value.coins });
         }
+
+        // action === 'get' или не указан — проверка или первый вход
+        let user = await users.findOne({ chatId: userId });
+
+        if (!user) {
+            // Первый визит — создаём пользователя с 5 монетами
+            await users.insertOne({ chatId: userId, coins: 5 });
+            user = { coins: 5 };
+        }
+
+        return res.json({ coins: user.coins });
+
     } catch (e) {
         console.error('❌ Balance error:', e);
-        res.status(500).json({ error: 'Server error' });
+        return res.status(500).json({ error: 'Server error' });
     }
 });
+
 
 // 5. Получение прогнозов
 app.get('/api/predictions', async (req, res) => {
