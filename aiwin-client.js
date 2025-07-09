@@ -47,61 +47,15 @@ function loadUserData() {
         userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
     }
 }
-
-async function loadPredictions() {
-    const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) return;
-
-    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
-    if (!userId) {
-        console.warn('User ID not available.');
-        predictions = [];
-        renderPredictions();
+async function unlockPrediction(id) {
+    if (coins < 1) {
+        alert('Недостаточно монет!');
         return;
     }
 
-    try {
-        // Получаем прогнозы
-        const predictionsResponse = await fetch('/api/predictions');
-        if (!predictionsResponse.ok) throw new Error(`Ошибка прогноза: ${predictionsResponse.status}`);
-        const serverPredictions = await predictionsResponse.json();
-
-        predictions = Array.isArray(serverPredictions)
-            ? serverPredictions.map(p => ({
-                ...p,
-                id: Number(p.id),
-                isUnlocked: unlockedPredictions.includes(Number(p.id))
-            }))
-            : [];
-
-        // Получаем или создаём баланс
-        const balanceResponse = await fetch('/balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, action: 'get' })
-        });
-        if (!balanceResponse.ok) throw new Error(`Ошибка баланса: ${balanceResponse.status}`);
-        const balanceData = await balanceResponse.json();
-        coins = balanceData.coins || 0;
-
-        updateBalance();
-        renderPredictions();
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        predictions = [];
-        renderPredictions();
-    }
-}
-
-async function unlockPrediction(id) {
     const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
     if (!userId) {
         alert('Ошибка: пользователь не определён');
-        return;
-    }
-
-    if (coins < 1) {
-        alert('Недостаточно монет!');
         return;
     }
 
@@ -111,27 +65,28 @@ async function unlockPrediction(id) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
-        if (!response.ok) throw new Error('Ошибка запроса списания');
+        if (!response.ok) throw new Error(`Ошибка запроса списания: ${response.status}`);
         const result = await response.json();
 
-        if (typeof result.coins === 'number') {
+        if (typeof result.coins === 'number' && result.coins >= 0) {
             coins = result.coins;
-
-            // ✅ Помечаем как разблокированный
             unlockedPredictions.push(Number(id));
             localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
 
+            const prediction = predictions.find(p => Number(p.id) === Number(id));
+            if (prediction) prediction.isUnlocked = true;
+
             updateBalance();
-            predictions = predictions.map(p =>
-                p.id === Number(id) ? { ...p, isUnlocked: true } : p
-            );
             renderPredictions();
         } else {
-            alert('Не удалось списать монету.');
+            alert('Не удалось списать монету из-за некорректного баланса.');
         }
     } catch (e) {
         alert('Ошибка при списании монеты.');
-        console.error(e);
+        console.error('Ошибка списания:', e);
+        // Восстановление монет при ошибке
+        coins = parseInt(localStorage.getItem('coins')) || 0;
+        updateBalance();
     }
 }
 
