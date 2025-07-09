@@ -144,6 +144,7 @@ app.get('/api/predictions', async (req, res) => {
     }
 });
 
+
 // 7. Сохранение прогнозов
 // 7. Сохранение прогнозов
 app.post('/api/predictions', async (req, res) => {
@@ -151,26 +152,36 @@ app.post('/api/predictions', async (req, res) => {
 
     try {
         let predictions = req.body;
+
         if (!Array.isArray(predictions)) {
             return res.status(400).json({ success: false, message: 'Данные должны быть массивом' });
         }
 
-        // Удаляем поле isUnlocked из каждого прогноза
-        predictions = predictions.map(p => {
-            const { isUnlocked, ...cleaned } = p;
-            return cleaned;
-        });
+        // Удаляем поле isUnlocked из каждого прогноза и фильтруем недопустимые
+        predictions = predictions
+            .map(p => {
+                if (!p || typeof p !== 'object') return null;
+                const { isUnlocked, ...cleaned } = p;
+                return cleaned;
+            })
+            .filter(Boolean); // удаляет null / undefined
 
         const coll = db.collection('predictions');
         await coll.deleteMany({});
-        await coll.insertMany(predictions);
 
-        res.json({ success: true, message: 'Прогнозы успешно сохранены' });
+        if (predictions.length > 0) {
+            await coll.insertMany(predictions);
+            res.json({ success: true, message: 'Прогнозы успешно сохранены' });
+        } else {
+            res.json({ success: false, message: 'Нет данных для сохранения' });
+        }
+
     } catch (e) {
         console.error('❌ Predictions save error:', e);
         res.status(500).json({ success: false, message: 'Ошибка сервера' });
     }
 });
+
 
 
 // Завершение процесса
