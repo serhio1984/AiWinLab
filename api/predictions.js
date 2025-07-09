@@ -92,15 +92,20 @@ app.post('/balance', async (req, res) => {
         const users = db.collection('users');
 
         if (action === 'update') {
-            if (amount === undefined || isNaN(Number(amount))) {
-                return res.status(400).json({ error: 'Invalid amount' });
-            }
+            const numericAmount = Number(amount);
+if (isNaN(numericAmount)) {
+    return res.status(400).json({ error: 'Invalid amount' });
+}
 
-            console.log(`Updating balance for userId: ${userId}, action: ${action}, amount: ${amount}`);
-            const result = await users.findOneAndUpdate(
-                { chatId: userId },
-                {
-                    $inc: { coins: amount },
+const result = await users.findOneAndUpdate(
+    { chatId: userId },
+    {
+        $inc: { coins: numericAmount },
+        $setOnInsert: { chatId: userId, coins: 0 }
+    },
+    { upsert: true, returnDocument: 'after' }
+);
+
                     $setOnInsert: { chatId: userId, coins: 0 }
                 },
                 { upsert: true, returnDocument: 'after' }
