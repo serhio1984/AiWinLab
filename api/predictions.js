@@ -92,8 +92,8 @@ app.post('/balance', async (req, res) => {
                 { upsert: true, returnDocument: 'after' }
             );
             console.log('findOneAndUpdate result:', result); // Отладочный лог
-            if (!result.value) {
-                console.error(`No value returned for userId: ${userId}`);
+            if (!result || !result.value) {
+                console.error(`No valid value returned for userId: ${userId}, result: ${JSON.stringify(result)}`);
                 return res.status(500).json({ error: 'Failed to update balance' });
             }
             return res.json({ coins: result.value.coins });
