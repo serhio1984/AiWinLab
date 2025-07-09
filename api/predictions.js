@@ -12,8 +12,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // 1. Корневая страница — welcome.html
 app.get('/', (req, res) => {
-    const welcomePath = path.join(rootDir, 'welcome.html');
-    res.sendFile(welcomePath, err => {
+    res.sendFile(path.join(rootDir, 'welcome.html'), err => {
         if (err) {
             console.error('Ошибка при отправке welcome.html:', err);
             res.status(500).send('Ошибка сервера: ' + err.message);
@@ -65,21 +64,18 @@ client.on('disconnected', () => {
 app.post('/api/check-password', (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
     const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
-        res.json({ success: true });
-    } else {
-        res.json({ success: false, message: 'Неверный пароль' });
-    }
+    res.json({
+        success: password === ADMIN_PASSWORD,
+        message: password === ADMIN_PASSWORD ? undefined : 'Неверный пароль'
+    });
 });
 
-// 5. Баланс пользователя
 // 5. Баланс пользователя
 app.post('/balance', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     const { userId, action, amount } = req.body;
     console.log('📥 Received balance request:', { userId, action, amount });
-
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
@@ -90,22 +86,13 @@ app.post('/balance', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid amount' });
             }
 
-            console.log(`🔁 Updating balance for userId: ${userId}, amount: ${amount}`);
-
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                {
-                    $inc: { coins: amount },
-                    $setOnInsert: { chatId: userId }
-                },
-                {
-                    upsert: true,
-                    returnDocument: 'after',
-                    returnOriginal: false // 🔧 важно!
-                }
+                { $inc: { coins: amount }, $setOnInsert: { chatId: userId } },
+                { upsert: true, returnDocument: 'after', returnOriginal: false }
             );
 
-            if (!result || !result.value) {
+            if (!result?.value) {
                 console.warn(`⚠️ Update failed. Manual fallback for userId: ${userId}`);
                 const user = await users.findOne({ chatId: userId });
                 return res.json({ coins: user?.coins ?? 0 });
@@ -114,9 +101,8 @@ app.post('/balance', async (req, res) => {
             return res.json({ coins: result.value.coins });
         }
 
-        // action === 'get' или не указан
+        // action === 'get'
         let user = await users.findOne({ chatId: userId });
-
         if (!user) {
             console.log(`👤 Новый пользователь ${userId}, выдаём 5 монет`);
             await users.insertOne({ chatId: userId, coins: 5 });
@@ -131,23 +117,35 @@ app.post('/balance', async (req, res) => {
     }
 });
 
-// 6. Получение прогнозов
-app.get('/api/predictions', async (req, res) => {
+// 6. Получение прогнозов + индивидуальные разблокировки
+app.post('/api/predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     try {
-        const preds = await db.collection('predictions').find().toArray();
-        res.json(preds);
+        const predictions = await db.collection('predictions').find().toArray();
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.json(predictions.map(p => ({ ...p, isUnlocked: false })));
+        }
+
+        const unlocks = await db.collection('unlocks').findOne({ chatId: userId });
+        const unlockedIds = unlocks?.predictionIds || [];
+
+        const personalized = predictions.map(p => ({
+            ...p,
+            isUnlocked: unlockedIds.includes(p.id)
+        }));
+
+        return res.json(personalized);
     } catch (e) {
         console.error('❌ Predictions fetch error:', e);
-        res.status(500).json({ error: 'Server error' });
+        return res.status(500).json({ error: 'Server error' });
     }
 });
 
-
 // 7. Сохранение прогнозов
-// 7. Сохранение прогнозов
-app.post('/api/predictions', async (req, res) => {
+app.post('/api/save-predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     try {
@@ -157,24 +155,21 @@ app.post('/api/predictions', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Данные должны быть массивом' });
         }
 
-        // Удаляем поле isUnlocked из каждого прогноза и фильтруем недопустимые
         predictions = predictions
             .map(p => {
                 if (!p || typeof p !== 'object') return null;
                 const { isUnlocked, ...cleaned } = p;
                 return cleaned;
             })
-            .filter(Boolean); // удаляет null / undefined
+            .filter(Boolean);
 
         const coll = db.collection('predictions');
         await coll.deleteMany({});
-
         if (predictions.length > 0) {
             await coll.insertMany(predictions);
-            res.json({ success: true, message: 'Прогнозы успешно сохранены' });
-        } else {
-            res.json({ success: false, message: 'Нет данных для сохранения' });
         }
+
+        return res.json({ success: true, message: 'Прогнозы сохранены' });
 
     } catch (e) {
         console.error('❌ Predictions save error:', e);
@@ -182,7 +177,29 @@ app.post('/api/predictions', async (req, res) => {
     }
 });
 
+// 8. Разблокировка прогноза пользователем
+app.post('/api/unlock', async (req, res) => {
+    if (!db) return res.status(503).json({ error: 'Database not available' });
 
+    const { userId, predictionId } = req.body;
+    if (!userId || !predictionId) {
+        return res.status(400).json({ success: false, message: 'userId и predictionId обязательны' });
+    }
+
+    try {
+        const unlocks = db.collection('unlocks');
+        const result = await unlocks.updateOne(
+            { chatId: userId },
+            { $addToSet: { predictionIds: predictionId }, $setOnInsert: { chatId: userId } },
+            { upsert: true }
+        );
+
+        return res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Unlock error:', e);
+        return res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    }
+});
 
 // Завершение процесса
 process.on('SIGTERM', () => {
