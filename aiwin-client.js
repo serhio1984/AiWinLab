@@ -8,8 +8,8 @@ if (telegram) {
     console.log('Telegram WebApp not available');
 }
 
-let predictions = [];
 let coins = 0;
+let predictions = [];
 let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
 
 function getDOMElements() {
@@ -26,7 +26,6 @@ function loadUserData() {
     if (!userName || !userProfilePic) return;
 
     let user = telegram?.initDataUnsafe?.user;
-
     if (!user) {
         const saved = localStorage.getItem('tg_user');
         if (saved) {
@@ -61,6 +60,7 @@ async function loadPredictions() {
     }
 
     try {
+        // Загрузка прогнозов
         const predictionsResponse = await fetch('/api/predictions');
         if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
@@ -72,6 +72,7 @@ async function loadPredictions() {
             }))
             : [];
 
+        // Загрузка баланса
         const balanceResponse = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -91,28 +92,31 @@ async function loadPredictions() {
 }
 
 async function unlockPrediction(id) {
+    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
+    if (!userId) {
+        alert('Пользователь не определён');
+        return;
+    }
+
     if (coins < 1) {
         alert('Недостаточно монет!');
         return;
     }
 
-    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
-    if (!userId) {
-        alert('Пользователь не определён.');
-        return;
-    }
-
     try {
-        const response = await fetch('/balance', {
+        // Списание монеты на сервере
+        const res = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
 
-        if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
-        const data = await response.json();
-        coins = data.coins || 0;
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            throw new Error(data.error || 'Ошибка списания монет');
+        }
 
+        coins = data.coins ?? (coins - 1);
         unlockedPredictions.push(id);
         const prediction = predictions.find(p => Number(p.id) === Number(id));
         if (prediction) prediction.isUnlocked = true;
@@ -120,10 +124,9 @@ async function unlockPrediction(id) {
         localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
         updateBalance();
         renderPredictions();
-
-    } catch (err) {
-        console.error('❌ Ошибка при списании монеты:', err);
-        alert('Не удалось списать монету. Проверьте соединение или повторите позже.');
+    } catch (error) {
+        console.error('❌ Ошибка при списании монеты:', error);
+        alert('Ошибка при списании монеты: ' + error.message);
     }
 }
 
@@ -156,7 +159,7 @@ function renderPredictions() {
             </div>
             <span class="odds">${p.odds || '0.00'}</span>
             <div class="prediction-text">${p.predictionText || 'Нет прогноза'}</div>
-            <button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id})">Разблокировать</button>
+            ${p.isUnlocked ? '' : `<button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id})">Разблокировать</button>`}
         `;
         predictionsContainer.appendChild(div);
     });
