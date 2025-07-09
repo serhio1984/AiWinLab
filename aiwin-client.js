@@ -9,6 +9,7 @@ if (telegram) {
 }
 
 let coins = 0;
+let predictions = [];
 let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
 
 function getDOMElements() {
@@ -47,10 +48,54 @@ function loadUserData() {
     }
 }
 
+async function loadPredictions() {
+    const { predictionsContainer } = getDOMElements();
+    if (!predictionsContainer) return;
+
+    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
+    if (!userId) {
+        console.warn('User ID not available.');
+        predictions = [];
+        renderPredictions();
+        return;
+    }
+
+    try {
+        // Получаем прогнозы
+        const predictionsResponse = await fetch('/api/predictions');
+        if (!predictionsResponse.ok) throw new Error(`Ошибка прогноза: ${predictionsResponse.status}`);
+        const serverPredictions = await predictionsResponse.json();
+        predictions = Array.isArray(serverPredictions)
+            ? serverPredictions.map(p => ({
+                ...p,
+                id: Number(p.id),
+                isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
+            }))
+            : [];
+
+        // Получаем или создаём баланс
+        const balanceResponse = await fetch('/balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, action: 'get' })
+        });
+        if (!balanceResponse.ok) throw new Error(`Ошибка баланса: ${balanceResponse.status}`);
+        const balanceData = await balanceResponse.json();
+        coins = balanceData.coins || 0;
+
+        updateBalance();
+        renderPredictions();
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        predictions = [];
+        renderPredictions();
+    }
+}
+
 async function unlockPrediction(id) {
     const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
     if (!userId) {
-        alert('Ошибка: не удалось получить ID пользователя');
+        alert('Ошибка: пользователь не определён');
         return;
     }
 
@@ -65,66 +110,21 @@ async function unlockPrediction(id) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
+        if (!response.ok) throw new Error('Ошибка запроса списания');
+        const result = await response.json();
 
-        if (!response.ok) throw new Error('Ошибка списания монеты');
-
-        const data = await response.json();
-        coins = data.coins || 0;
-        updateBalance();
-
-        unlockedPredictions.push(id);
-        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
-
-        const prediction = predictions.find(p => Number(p.id) === Number(id));
-        if (prediction) prediction.isUnlocked = true;
-
-        renderPredictions();
-    } catch (error) {
-        console.error('Ошибка при списании монеты:', error);
-        alert('Не удалось списать монету. Попробуйте снова.');
-    }
-}
-
-async function loadPredictions() {
-    const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) return;
-
-    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
-    if (!userId) {
-        console.warn('User ID not available.');
-        predictions = [];
-        renderPredictions();
-        return;
-    }
-
-    try {
-        const [predictionsResponse, balanceResponse] = await Promise.all([
-            fetch('/api/predictions'),
-            fetch('/balance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, action: 'get' })
-            })
-        ]);
-
-        const serverPredictions = await predictionsResponse.json();
-        predictions = Array.isArray(serverPredictions)
-            ? serverPredictions.map(p => ({
-                ...p,
-                id: Number(p.id),
-                isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
-            }))
-            : [];
-
-        const balanceData = await balanceResponse.json();
-        coins = balanceData.coins || 0;
-
-        updateBalance();
-        renderPredictions();
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-        predictions = [];
-        renderPredictions();
+        if (result.coins >= 0) {
+            coins = result.coins;
+            unlockedPredictions.push(id);
+            localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
+            updateBalance();
+            renderPredictions();
+        } else {
+            alert('Не удалось списать монету. Повторите попытку.');
+        }
+    } catch (e) {
+        alert('Ошибка при списании монеты.');
+        console.error(e);
     }
 }
 
@@ -163,9 +163,9 @@ function renderPredictions() {
     });
 }
 
-let predictions = [];
-
+// Автообновление
 setInterval(loadPredictions, 5000);
 
+// Старт
 loadUserData();
 loadPredictions();
