@@ -98,18 +98,46 @@ async function loadPredictions() {
     }
 }
 
-function unlockPrediction(id) {
+async function unlockPrediction(id) {
+    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
+    if (!userId) {
+        alert('Ошибка: не удалось определить пользователя Telegram.');
+        return;
+    }
+
     if (coins < 1) {
         alert('Недостаточно монет!');
         return;
     }
-    coins--;
-    unlockedPredictions.push(id);
-    const prediction = predictions.find(p => Number(p.id) === Number(id));
-    if (prediction) prediction.isUnlocked = true;
-    localStorage.setItem('coins', coins);
-    localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
-    renderPredictions();
+
+    try {
+        // Списание 1 монеты на сервере
+        const response = await fetch('/balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, action: 'update', amount: -1 })
+        });
+
+        const result = await response.json();
+        if (!response.ok || result.error) {
+            throw new Error(result.error || 'Ошибка списания монет');
+        }
+
+        coins = result.coins;
+        unlockedPredictions.push(id);
+        const prediction = predictions.find(p => Number(p.id) === Number(id));
+        if (prediction) prediction.isUnlocked = true;
+
+        localStorage.setItem('coins', coins);
+        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
+
+        updateBalance();
+        renderPredictions();
+
+    } catch (error) {
+        console.error('Ошибка при разблокировке прогноза:', error);
+        alert('Ошибка при списании монеты. Попробуйте позже.');
+    }
 }
 
 function updateBalance() {
@@ -147,8 +175,10 @@ function renderPredictions() {
     });
 }
 
+// ⏱ Автообновление списка прогнозов
 setInterval(loadPredictions, 5000);
 
+// 🚀 Старт
 initializeCoins();
 loadUserData();
 loadPredictions();
