@@ -19,6 +19,11 @@ app.get('/', (req, res) => {
         }
     });
 });
+app.use((req, res, next) => {
+    console.log(`📦 Request for: ${req.url}`);
+    next();
+});
+
 
 // 2. Статика
 app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
