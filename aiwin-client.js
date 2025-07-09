@@ -71,6 +71,7 @@ async function loadPredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
+    console.log('Starting loadPredictions');
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
     console.log('User ID:', userId);
@@ -86,7 +87,7 @@ async function loadPredictions() {
         console.log('Predictions response status:', predictionsResponse.status);
         if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
-        console.log('Server predictions:', serverPredictions);
+        console.log('Server predictions raw:', serverPredictions);
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
                 ...p,
@@ -104,6 +105,7 @@ async function loadPredictions() {
         console.log('Balance response status:', balanceResponse.status);
         if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
         const balanceData = await balanceResponse.json();
+        console.log('Balance data:', balanceData);
         coins = balanceData.coins || 0;
         localStorage.setItem('coins', coins);
         updateBalance();
@@ -122,12 +124,14 @@ async function updatePredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
+    console.log('Starting updatePredictions');
 
     try {
         const response = await fetch('/api/predictions');
         console.log('Update response status:', response.status);
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         const serverPredictions = await response.json();
+        console.log('Update server predictions:', serverPredictions);
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
                 ...p,
@@ -135,7 +139,7 @@ async function updatePredictions() {
                 isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
             }))
             : [];
-        console.log('Updated predictions from server:', predictions);
+        console.log('Updated predictions:', predictions);
         renderPredictions();
     } catch (error) {
         console.error('Error updating predictions:', error);
@@ -158,10 +162,11 @@ async function unlockPrediction(id, button) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
-
+        console.log('Unlock balance response status:', res.status);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
+        console.log('Unlock balance data:', data);
         coins = data.coins;
         localStorage.setItem('coins', coins);
 
@@ -183,6 +188,8 @@ function updateBalance() {
     const { coinBalance } = getDOMElements();
     if (coinBalance) {
         coinBalance.textContent = coins;
+    } else {
+        console.error('coinBalance element not found');
     }
 }
 
@@ -192,18 +199,8 @@ function renderPredictions() {
         console.error('predictionsContainer is undefined');
         return;
     }
+    console.log('Rendering predictions, count:', predictions.length);
     predictionsContainer.innerHTML = '';
-    console.log('Rendering predictions with details:', JSON.stringify(predictions.map(p => ({
-        id: p.id,
-        tournament: p.tournament,
-        team1: p.team1,
-        logo1: p.logo1,
-        team2: p.team2,
-        logo2: p.logo2,
-        odds: p.odds,
-        predictionText: p.predictionText,
-        isUnlocked: p.isUnlocked
-    })), null, 2));
     if (predictions.length === 0) {
         predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
         console.log('No predictions to render.');
