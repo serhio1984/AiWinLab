@@ -1,162 +1,169 @@
-const express = require('express');
-const { MongoClient } = require('mongodb');
-const path = require('path');
+const telegram = window.Telegram?.WebApp;
 
-const app = express();
-app.use(express.json());
+if (telegram) {
+    telegram.ready();
+    telegram.expand();
+    console.log('Telegram WebApp initialized and expanded');
+} else {
+    console.log('Telegram WebApp not available');
+}
 
-const rootDir = path.join(__dirname, '..');
-console.log('Root directory set to:', rootDir);
+let coins = 0;
+let predictions = [];
+let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+function getDOMElements() {
+    return {
+        coinBalance: document.getElementById('coinBalance'),
+        predictionsContainer: document.getElementById('predictions'),
+        userProfilePic: document.getElementById('userProfilePic'),
+        userName: document.getElementById('userName')
+    };
+}
 
-// 1. Корневая страница — welcome.html
-app.get('/', (req, res) => {
-    const welcomePath = path.join(rootDir, 'welcome.html');
-    res.sendFile(welcomePath, err => {
-        if (err) {
-            console.error('Ошибка при отправке welcome.html:', err);
-            res.status(500).send('Ошибка сервера: ' + err.message);
+function loadUserData() {
+    const { userProfilePic, userName } = getDOMElements();
+    if (!userName || !userProfilePic) return;
+
+    let user = telegram?.initDataUnsafe?.user;
+
+    if (!user) {
+        const saved = localStorage.getItem('tg_user');
+        if (saved) {
+            try {
+                user = JSON.parse(saved);
+                console.log('👤 Восстановлен пользователь:', user);
+            } catch (e) {
+                console.warn('Ошибка чтения tg_user из localStorage:', e);
+            }
         }
-    });
-});
+    }
 
-// 2. Статические файлы
-app.use(express.static(
-    path.join(__dirname, '../'),
-    { index: 'welcome.html' }
-));
-
-// 3. Подключение к MongoDB
-const uri = process.env.MONGODB_URI
-    || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
-const client = new MongoClient(uri);
-let db;
-
-async function connectDB() {
-    try {
-        await client.connect();
-        db = client.db("predictionsDB");
-        console.log("✅ Connected to MongoDB");
-    } catch (e) {
-        console.error("❌ MongoDB connection error:", e);
+    if (user) {
+        userName.textContent = user.first_name || 'Гость';
+        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+    } else {
+        userName.textContent = 'Гость (Тест)';
+        userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
     }
 }
 
-client.on('disconnected', () => {
-    console.log('MongoDB disconnected, attempting to reconnect...');
-    connectDB().catch(console.error);
-});
+async function loadPredictions() {
+    const { predictionsContainer } = getDOMElements();
+    if (!predictionsContainer) return;
 
-(async () => {
+    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
+    if (!userId) {
+        console.warn('User ID not available.');
+        predictions = [];
+        renderPredictions();
+        return;
+    }
+
     try {
-        await connectDB();
-        const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
+        const predictionsResponse = await fetch('/api/predictions');
+        if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
+        const serverPredictions = await predictionsResponse.json();
+
+        predictions = Array.isArray(serverPredictions)
+            ? serverPredictions.map(p => ({
+                ...p,
+                id: Number(p.id),
+                isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
+            }))
+            : [];
+
+        const balanceResponse = await fetch('/balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, action: 'get' })
         });
-    } catch (e) {
-        console.error('Failed to start server:', e);
-        process.exit(1);
+        if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
+        const balanceData = await balanceResponse.json();
+        coins = balanceData.coins || 0;
+
+        updateBalance();
+        renderPredictions();
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        predictions = [];
+        renderPredictions();
     }
-})();
+}
 
-// 4. Проверка пароля для админ-панели
-app.post('/api/check-password', (req, res) => {
-    if (!db) return res.status(503).json({ error: 'Database not available' });
-    const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
-        res.json({ success: true });
-    } else {
-        res.json({ success: false, message: 'Неверный пароль' });
+async function unlockPrediction(id) {
+    const userId = telegram?.initDataUnsafe?.user?.id || JSON.parse(localStorage.getItem('tg_user') || '{}').id;
+
+    if (coins < 1) {
+        alert('Недостаточно монет!');
+        return;
     }
-});
-
-// 5. Баланс пользователя
-app.post('/balance', async (req, res) => {
-    if (!db) return res.status(503).json({ error: 'Database not available' });
-
-    const { userId, action, amount } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
-        const users = db.collection('users');
+        const response = await fetch('/balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, action: 'update', amount: -1 })
+        });
+        const data = await response.json();
 
-        if (action === 'update') {
-            if (typeof amount !== 'number' || isNaN(amount)) {
-                return res.status(400).json({ error: 'Invalid amount' });
-            }
-
-            console.log(`🔁 Обновление баланса: ${userId}, amount: ${amount}`);
-
-            const result = await users.findOneAndUpdate(
-                { chatId: userId },
-                {
-                    $inc: { coins: amount },
-                    $setOnInsert: { chatId: userId, coins: 0 }
-                },
-                { upsert: true, returnDocument: 'after' }
-            );
-
-            if (!result.value) {
-                const user = await users.findOne({ chatId: userId });
-                return res.json({ coins: user?.coins ?? 0 });
-            }
-
-            return res.json({ coins: result.value.coins });
+        if (!response.ok || data.error) {
+            alert('Не удалось списать монету. Попробуйте позже.');
+            console.error('Ошибка при списании:', data.error);
+            return;
         }
 
-        // Получение текущего баланса или первый визит
-        let user = await users.findOne({ chatId: userId });
+        coins = data.coins;
+        unlockedPredictions.push(id);
+        localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
 
-        if (!user) {
-            console.log(`👤 Новый пользователь ${userId}, выдаём 5 монет`);
-            await users.insertOne({ chatId: userId, coins: 5 });
-            user = { coins: 5 };
-        }
+        const prediction = predictions.find(p => Number(p.id) === Number(id));
+        if (prediction) prediction.isUnlocked = true;
 
-        return res.json({ coins: user.coins });
-
+        updateBalance();
+        renderPredictions();
     } catch (e) {
-        console.error('❌ Balance error:', e);
-        return res.status(500).json({ error: 'Server error' });
+        console.error('Ошибка при попытке списания монеты:', e);
+        alert('Произошла ошибка. Попробуйте позже.');
     }
-});
+}
 
-// 6. Получение прогнозов
-app.get('/api/predictions', async (req, res) => {
-    if (!db) return res.status(503).json({ error: 'Database not available' });
-
-    try {
-        const preds = await db.collection('predictions').find().toArray();
-        res.json(preds);
-    } catch (e) {
-        console.error('❌ Predictions fetch error:', e);
-        res.status(500).json({ error: 'Server error' });
+function updateBalance() {
+    const { coinBalance } = getDOMElements();
+    if (coinBalance) {
+        coinBalance.textContent = coins;
     }
-});
+}
 
-// 7. Сохранение прогнозов
-app.post('/api/predictions', async (req, res) => {
-    if (!db) return res.status(503).json({ error: 'Database not available' });
+function renderPredictions() {
+    const { predictionsContainer } = getDOMElements();
+    if (!predictionsContainer) return;
 
-    try {
-        const predictions = req.body;
-        if (!Array.isArray(predictions)) {
-            return res.status(400).json({ success: false, message: 'Данные должны быть массивом' });
-        }
-        const coll = db.collection('predictions');
-        await coll.deleteMany({});
-        await coll.insertMany(predictions);
-        res.json({ success: true, message: 'Прогнозы успешно сохранены' });
-    } catch (e) {
-        console.error('❌ Predictions save error:', e);
-        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    predictionsContainer.innerHTML = '';
+    if (predictions.length === 0) {
+        predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+        return;
     }
-});
 
-// Завершение процесса
-process.on('SIGTERM', () => {
-    client.close();
-    process.exit(0);
-});
+    predictions.forEach(p => {
+        const div = document.createElement('div');
+        div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
+        div.setAttribute('data-id', p.id);
+        div.innerHTML = `
+            <div class="teams">
+                <span class="tournament">${p.tournament || 'Нет турнира'}</span>
+                <div class="team-row"><img src="${p.logo1 || 'https://dummyimage.com/30x30'}" alt="${p.team1}"> ${p.team1}</div>
+                <div class="team-row"><img src="${p.logo2 || 'https://dummyimage.com/30x30'}" alt="${p.team2}"> ${p.team2}</div>
+            </div>
+            <span class="odds">${p.odds || '0.00'}</span>
+            <div class="prediction-text">${p.isUnlocked ? p.predictionText : '🔒 Прогноз заблокирован'}</div>
+            ${!p.isUnlocked ? `<button class="buy-btn unlock-btn" onclick="unlockPrediction(${p.id})">Разблокировать</button>` : ''}
+        `;
+        predictionsContainer.appendChild(div);
+    });
+}
+
+setInterval(loadPredictions, 5000);
+
+loadUserData();
+loadPredictions();
