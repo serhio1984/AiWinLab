@@ -4,12 +4,20 @@ if (window.Telegram?.WebApp && !Telegram.WebApp.initData) {
     if (savedInitData) {
         Telegram.WebApp.initData = savedInitData;
         try {
-            Telegram.WebApp.initDataUnsafe = Telegram.WebApp.initDataUnsafe || JSON.parse(decodeURIComponent(savedInitData));
+            const params = new URLSearchParams(savedInitData);
+            const userJson = params.get('user');
+            if (userJson) {
+                Telegram.WebApp.initDataUnsafe = { user: JSON.parse(userJson) };
+                console.log('✅ Восстановлен пользователь:', Telegram.WebApp.initDataUnsafe.user);
+            } else {
+                console.warn('⚠️ user не найден в initData');
+            }
         } catch (e) {
-            console.warn('Failed to parse initData from localStorage');
+            console.warn('⚠️ Ошибка при парсинге initData:', e);
         }
     }
 }
+
 
 const telegram = window.Telegram?.WebApp;
 if (telegram) {
