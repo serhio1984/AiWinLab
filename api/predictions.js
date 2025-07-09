@@ -83,16 +83,26 @@ app.post('/api/check-password', (req, res) => {
 // 4. Баланс пользователя (Telegram Stars → монеты)
 app.post('/balance', async (req, res) => {
     if (!db) {
+        console.error('❌ База данных не подключена');
         return res.status(503).json({ error: 'Database not available' });
     }
+
     const { userId, action, amount } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+    console.log('📩 Запрос /balance:', { userId, action, amount });
+
+    if (!userId) {
+        console.error('❌ Нет userId в запросе');
+        return res.status(400).json({ error: 'User ID required' });
+    }
 
     try {
         const users = db.collection('users');
 
         if (action === 'update') {
-            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+            if (!amount || isNaN(amount)) {
+                console.error('❌ Некорректная сумма:', amount);
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
 
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
@@ -102,22 +112,20 @@ app.post('/balance', async (req, res) => {
                 },
                 { upsert: true, returnDocument: 'after' }
             );
-            res.json({ coins: result.value.coins });
 
+            console.log('✅ Монеты обновлены:', result.value);
+            res.json({ coins: result.value.coins });
         } else {
-            // Если пользователь не найден — создать с 5 монетами
-            let user = await users.findOne({ chatId: userId });
-            if (!user) {
-                await users.insertOne({ chatId: userId, coins: 5 });
-                user = { coins: 5 };
-            }
+            const user = await users.findOne({ chatId: userId }) || { coins: 0 };
+            console.log('✅ Баланс получен:', user);
             res.json({ coins: user.coins });
         }
     } catch (e) {
-        console.error('❌ Balance error:', e);
-        res.status(500).json({ error: 'Server error' });
+        console.error('❌ Ошибка при обновлении баланса:', e);
+        res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
+
 
 // 5. Получение прогнозов
 app.get('/api/predictions', async (req, res) => {
