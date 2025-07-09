@@ -145,23 +145,33 @@ app.get('/api/predictions', async (req, res) => {
 });
 
 // 7. Сохранение прогнозов
+// 7. Сохранение прогнозов
 app.post('/api/predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     try {
-        const predictions = req.body;
+        let predictions = req.body;
         if (!Array.isArray(predictions)) {
             return res.status(400).json({ success: false, message: 'Данные должны быть массивом' });
         }
+
+        // Удаляем поле isUnlocked из каждого прогноза
+        predictions = predictions.map(p => {
+            const { isUnlocked, ...cleaned } = p;
+            return cleaned;
+        });
+
         const coll = db.collection('predictions');
         await coll.deleteMany({});
         await coll.insertMany(predictions);
+
         res.json({ success: true, message: 'Прогнозы успешно сохранены' });
     } catch (e) {
         console.error('❌ Predictions save error:', e);
         res.status(500).json({ success: false, message: 'Ошибка сервера' });
     }
 });
+
 
 // Завершение процесса
 process.on('SIGTERM', () => {
