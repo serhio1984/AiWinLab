@@ -77,25 +77,32 @@ app.post('/balance', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     const { userId, action, amount } = req.body;
-    console.log('Received balance request:', { userId, action, amount }); // Отладочный лог
+    console.log('Received balance request:', { userId, action, amount });
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
         const users = db.collection('users');
 
         if (action === 'update') {
-            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+            if (typeof amount !== 'number' || isNaN(amount)) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
+
             console.log(`Updating balance for userId: ${userId}, amount: ${amount}`);
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { $inc: { coins: Number(amount) }, $setOnInsert: { chatId: userId } },
+                {
+                    $inc: { coins: Number(amount) },
+                    $setOnInsert: { chatId: userId }
+                },
                 { upsert: true, returnDocument: 'after' }
             );
-            console.log('findOneAndUpdate result:', result); // Отладочный лог
+
             if (!result || !result.value) {
-                console.error(`No valid value returned for userId: ${userId}, result: ${JSON.stringify(result)}`);
+                console.error(`Update failed. Result:`, result);
                 return res.status(500).json({ error: 'Failed to update balance' });
             }
+
             return res.json({ coins: result.value.coins });
         }
 
@@ -113,6 +120,7 @@ app.post('/balance', async (req, res) => {
         return res.status(500).json({ error: 'Server error' });
     }
 });
+
 // 6. Получение прогнозов
 app.get('/api/predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
