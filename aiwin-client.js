@@ -1,3 +1,4 @@
+
 const telegram = window.Telegram?.WebApp;
 if (telegram) {
     telegram.ready();
@@ -12,18 +13,9 @@ if (telegram) {
 }
 
 let predictions = [];
-let coins = parseInt(localStorage.getItem('coins')) || 0;
+let coins = 0;
 let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
 
-function initializeCoins() {
-    if (!localStorage.getItem('visited')) {
-        coins = 5;
-        localStorage.setItem('coins', coins);
-        localStorage.setItem('visited', 'true');
-    }
-}
-
-// Получение элементов DOM после загрузки
 function getDOMElements() {
     return {
         coinBalance: document.getElementById('coinBalance'),
@@ -66,22 +58,12 @@ function loadUserData() {
 
 async function loadPredictions() {
     const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) {
-        console.error('predictionsContainer is undefined');
-        return;
-    }
+    if (!predictionsContainer) return;
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
-    if (!userId) {
-        console.warn('User ID not available. Predictions may not load correctly.');
-        predictions = [];
-        renderPredictions();
-        return;
-    }
 
     try {
         const predictionsResponse = await fetch('/api/predictions');
-        if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
@@ -96,10 +78,8 @@ async function loadPredictions() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'get' })
         });
-        if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
         const balanceData = await balanceResponse.json();
         coins = balanceData.coins || 0;
-        localStorage.setItem('coins', coins);
         updateBalance();
         renderPredictions();
     } catch (error) {
@@ -112,14 +92,10 @@ async function loadPredictions() {
 
 async function updatePredictions() {
     const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) {
-        console.error('predictionsContainer is undefined');
-        return;
-    }
+    if (!predictionsContainer) return;
 
     try {
         const response = await fetch('/api/predictions');
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         const serverPredictions = await response.json();
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
@@ -143,22 +119,15 @@ async function unlockPrediction(id, button) {
     }
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
-    const url = '/balance';
-
-    button.disabled = true;
 
     try {
-        const res = await fetch(url, {
+        const res = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
         });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
         const data = await res.json();
-        coins = typeof data.coins === 'number' ? data.coins : 0;
-        localStorage.setItem('coins', coins);
+        coins = data.coins >= 0 ? data.coins : 0;
 
         unlockedPredictions.push(id);
         const prediction = predictions.find(p => Number(p.id) === Number(id));
@@ -168,10 +137,8 @@ async function unlockPrediction(id, button) {
         updateBalance();
         renderPredictions();
     } catch (error) {
-        console.error('❌ Ошибка при списании монеты:', error);
-        alert('Ошибка при списании монеты. Попробуйте позже.');
-    } finally {
-        button.disabled = false;
+        console.error('Ошибка при списании монеты:', error);
+        alert('Не удалось списать монету. Попробуйте ещё раз.');
     }
 }
 
@@ -179,17 +146,12 @@ function updateBalance() {
     const { coinBalance } = getDOMElements();
     if (coinBalance) {
         coinBalance.textContent = coins;
-    } else {
-        console.error('coinBalance element not found');
     }
 }
 
 function renderPredictions() {
     const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) {
-        console.error('predictionsContainer is undefined');
-        return;
-    }
+    if (!predictionsContainer) return;
 
     predictionsContainer.innerHTML = '';
     if (predictions.length === 0) {
@@ -216,6 +178,4 @@ function renderPredictions() {
 }
 
 setInterval(updatePredictions, 5000);
-
-initializeCoins();
 loadUserData();
