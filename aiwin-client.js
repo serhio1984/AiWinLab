@@ -1,3 +1,16 @@
+// Восстанавливаем initData вручную, если Telegram SDK не успел
+if (window.Telegram?.WebApp && !Telegram.WebApp.initData) {
+    const savedInitData = localStorage.getItem('initData');
+    if (savedInitData) {
+        Telegram.WebApp.initData = savedInitData;
+        try {
+            Telegram.WebApp.initDataUnsafe = Telegram.WebApp.initDataUnsafe || JSON.parse(decodeURIComponent(savedInitData));
+        } catch (e) {
+            console.warn('Failed to parse initData from localStorage');
+        }
+    }
+}
+
 const telegram = window.Telegram?.WebApp;
 if (telegram) {
     telegram.ready();
