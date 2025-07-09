@@ -121,18 +121,16 @@
             <li style="--order: 3;">1 монета = 1 прогноз</li>
         </ul>
         <script>
-            // Ожидаем загрузки DOM
             document.addEventListener('DOMContentLoaded', () => {
-                // Получаем initData из URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const initData = urlParams.get('initData');
-                if (initData) {
-                    localStorage.setItem('initData', initData); // Сохраняем initData в localStorage
-                    window.location.href = `/index.html`; // Редирект без параметров
+                const telegram = window.Telegram?.WebApp;
+                if (telegram?.initDataUnsafe?.user) {
+                    const user = telegram.initDataUnsafe.user;
+                    localStorage.setItem('tg_user', JSON.stringify(user)); // Сохраняем user как JSON
+                    window.location.href = '/index.html';
                 } else {
-                    console.log('No initData found in URL');
-                    // Показываем кнопку для ручного перехода
-                    document.body.innerHTML += '<button class="buy-btn" onclick="window.location.href=\'/index.html\'">Начать</button>';
+                    // Fallback, если initData не передан
+                    console.log('No initData found, redirecting to index.html');
+                    window.location.href = '/index.html';
                 }
             });
         </script>

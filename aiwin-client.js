@@ -1,23 +1,3 @@
-// Восстанавливаем initData вручную, если Telegram SDK не успел
-if (window.Telegram?.WebApp && !Telegram.WebApp.initData) {
-    const savedInitData = localStorage.getItem('initData');
-    if (savedInitData) {
-        Telegram.WebApp.initData = savedInitData;
-        try {
-            const params = new URLSearchParams(savedInitData);
-            const userJson = params.get('user');
-            if (userJson) {
-                Telegram.WebApp.initDataUnsafe = { user: JSON.parse(userJson) };
-                console.log('✅ Восстановлен пользователь:', Telegram.WebApp.initDataUnsafe.user);
-            } else {
-                console.warn('⚠️ user не найден в initData');
-            }
-        } catch (e) {
-            console.warn('⚠️ Ошибка при парсинге initData:', e);
-        }
-    }
-}
-
 const telegram = window.Telegram?.WebApp;
 if (telegram) {
     telegram.ready();
@@ -60,19 +40,26 @@ function loadUserData() {
         return;
     }
 
-    if (telegram) {
-        const user = telegram.initDataUnsafe.user;
-        if (user) {
-            console.log('User data loaded:', user);
-            userName.textContent = user.first_name || 'Гость';
-            userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
-        } else {
-            console.log('No user data in Telegram initData');
-            userName.textContent = 'Гость (Тест)';
-            userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+    let user = telegram?.initDataUnsafe?.user;
+
+    // Если нет user из Telegram SDK — берём из localStorage
+    if (!user) {
+        const savedUser = localStorage.getItem('tg_user');
+        if (savedUser) {
+            try {
+                user = JSON.parse(savedUser);
+                console.log('👤 Восстановлен пользователь из localStorage:', user);
+            } catch (e) {
+                console.warn('Не удалось распарсить tg_user из localStorage:', e);
+            }
         }
+    }
+
+    if (user) {
+        userName.textContent = user.first_name || 'Гость';
+        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
     } else {
-        console.log('No Telegram available, using default user data');
+        console.log('User не найден');
         userName.textContent = 'Гость (Тест)';
         userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
     }
