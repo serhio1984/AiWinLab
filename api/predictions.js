@@ -37,7 +37,9 @@ app.post('/api/check-password', (req, res) => {
 
 // 4. Баланс пользователя
 app.post('/balance', async (req, res) => {
-    if (!db) return res.status(503).json({ error: 'Database not available' });
+    if (!db) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
     const { userId, action, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
@@ -46,21 +48,35 @@ app.post('/balance', async (req, res) => {
 
         if (action === 'update') {
             const numericAmount = Number(amount);
-            if (isNaN(numericAmount)) return res.status(400).json({ error: 'Invalid amount' });
+            if (isNaN(numericAmount)) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
 
             console.log(`Updating balance for userId: ${userId}, action: ${action}, amount: ${numericAmount}`);
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { $inc: { coins: numericAmount }, $setOnInsert: { chatId: userId } },
+                {
+                    $inc: { coins: numericAmount },
+                    $setOnInsert: { chatId: userId, coins: 0 } // Восстановим coins с начальным значением 0
+                },
                 { upsert: true, returnDocument: 'after' }
             );
             if (!result.value) {
                 console.error(`User not found or update failed for userId: ${userId}`);
                 return res.status(404).json({ error: 'User not found' });
             }
-            console.log(`Balance updated successfully: ${result.value.coins}`);
-            res.json({ coins: result.value.coins });
+            if (result.value.coins < 0) {
+                // Если баланс стал отрицательным, сбросим до 0
+                await users.updateOne({ chatId: userId }, { $set: { coins: 0 } });
+                const correctedResult = await users.findOne({ chatId: userId });
+                console.log(`Balance corrected to 0 for userId: ${userId}`);
+                res.json({ coins: correctedResult.coins });
+            } else {
+                console.log(`Balance updated successfully: ${result.value.coins}`);
+                res.json({ coins: result.value.coins });
+            }
         } else {
+            // Если пользователь не найден — создать с 5 монетами
             let user = await users.findOne({ chatId: userId });
             if (!user) {
                 console.log(`Creating new user with userId: ${userId}, initial coins: 5`);
