@@ -8,17 +8,8 @@ if (telegram) {
     console.log('Telegram WebApp not available');
 }
 
-let predictions = [];
-let coins = parseInt(localStorage.getItem('coins')) || 0;
+let coins = 0; // Баланс загружается только с сервера
 let unlockedPredictions = JSON.parse(localStorage.getItem('unlockedPredictions')) || [];
-
-function initializeCoins() {
-    if (!localStorage.getItem('visited')) {
-        coins = 5;
-        localStorage.setItem('coins', coins);
-        localStorage.setItem('visited', 'true');
-    }
-}
 
 function getDOMElements() {
     return {
@@ -69,6 +60,7 @@ async function loadPredictions() {
     }
 
     try {
+        // 1. Получаем прогнозы
         const predictionsResponse = await fetch('/api/predictions');
         if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
@@ -80,6 +72,7 @@ async function loadPredictions() {
             }))
             : [];
 
+        // 2. Получаем или создаём баланс
         const balanceResponse = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,7 +81,7 @@ async function loadPredictions() {
         if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
         const balanceData = await balanceResponse.json();
         coins = balanceData.coins || 0;
-        localStorage.setItem('coins', coins);
+
         updateBalance();
         renderPredictions();
     } catch (error) {
@@ -107,8 +100,8 @@ function unlockPrediction(id) {
     unlockedPredictions.push(id);
     const prediction = predictions.find(p => Number(p.id) === Number(id));
     if (prediction) prediction.isUnlocked = true;
-    localStorage.setItem('coins', coins);
     localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
+    updateBalance();
     renderPredictions();
 }
 
@@ -147,8 +140,9 @@ function renderPredictions() {
     });
 }
 
+// ⏱ Автообновление каждые 5 секунд
 setInterval(loadPredictions, 5000);
 
-initializeCoins();
+// 🔄 Запуск
 loadUserData();
 loadPredictions();
