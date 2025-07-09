@@ -90,19 +90,29 @@ app.post('/balance', async (req, res) => {
 
     try {
         const users = db.collection('users');
+
         if (action === 'update') {
-            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+            if (amount === undefined || isNaN(Number(amount))) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
+
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { 
+                {
                     $inc: { coins: amount },
                     $setOnInsert: { chatId: userId, coins: 0 }
                 },
                 { upsert: true, returnDocument: 'after' }
             );
             res.json({ coins: result.value.coins });
+
         } else {
-            const user = await users.findOne({ chatId: userId }) || { coins: 0 };
+            // Если пользователь не найден — создать с 5 монетами
+            let user = await users.findOne({ chatId: userId });
+            if (!user) {
+                await users.insertOne({ chatId: userId, coins: 5 });
+                user = { coins: 5 };
+            }
             res.json({ coins: user.coins });
         }
     } catch (e) {
