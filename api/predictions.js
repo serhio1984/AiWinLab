@@ -128,6 +128,20 @@ app.post('/balance', async (req, res) => {
         res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
+// 5. Получение списка прогнозов
+app.get('/api/predictions', async (req, res) => {
+    if (!db) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+    try {
+        const predictions = await db.collection('predictions').find().toArray();
+        console.log('Predictions fetched:', predictions);
+        res.json(predictions);
+    } catch (e) {
+        console.error('❌ Predictions fetch error:', e.stack);
+        res.status(500).json({ error: 'Server error', details: e.message });
+    }
+});
 
 // 6. Сохранение прогнозов
 app.post('/api/predictions', async (req, res) => {
