@@ -8,9 +8,10 @@ if (telegram) {
     console.log('Telegram WebApp not available');
 }
 
-let coins = 0; // Баланс загружается только с сервера
+let coins = 0;
 let predictions = [];
 let unlockedPredictions = [];
+
 try {
     const stored = localStorage.getItem('unlockedPredictions');
     if (stored) unlockedPredictions = JSON.parse(stored);
@@ -19,11 +20,12 @@ try {
 }
 
 function getDOMElements() {
-    const coinBalance = document.getElementById('coinBalance');
-    const predictionsContainer = document.getElementById('predictions');
-    const userProfilePic = document.getElementById('userProfilePic');
-    const userName = document.getElementById('userName');
-    return { coinBalance, predictionsContainer, userProfilePic, userName };
+    return {
+        coinBalance: document.getElementById('coinBalance'),
+        predictionsContainer: document.getElementById('predictions'),
+        userProfilePic: document.getElementById('userProfilePic'),
+        userName: document.getElementById('userName')
+    };
 }
 
 function loadUserData() {
@@ -58,7 +60,7 @@ async function loadPredictions() {
     const { predictionsContainer } = getDOMElements();
     if (!predictionsContainer) return;
 
-    const userId = telegram?.initDataUnsafe?.user?.id || (localStorage.getItem('tg_user') ? JSON.parse(localStorage.getItem('tg_user')).id : null);
+    const userId = getUserId();
     if (!userId) {
         console.warn('User ID not available.');
         predictions = [];
@@ -70,11 +72,12 @@ async function loadPredictions() {
         const predictionsResponse = await fetch('/api/predictions');
         if (!predictionsResponse.ok) throw new Error(`HTTP error! Status: ${predictionsResponse.status}`);
         const serverPredictions = await predictionsResponse.json();
+
         predictions = Array.isArray(serverPredictions)
             ? serverPredictions.map(p => ({
                 ...p,
                 id: Number(p.id),
-                isUnlocked: unlockedPredictions.map(Number).includes(Number(p.id))
+                isUnlocked: unlockedPredictions.includes(Number(p.id))
             }))
             : [];
 
@@ -83,7 +86,7 @@ async function loadPredictions() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'get' })
         });
-        if (!balanceResponse.ok) throw new Error(`HTTP error! Status: ${balanceResponse.status}`);
+        if (!balanceResponse.ok) throw new Error(`Balance error! Status: ${balanceResponse.status}`);
         const balanceData = await balanceResponse.json();
         coins = balanceData.coins || 0;
 
@@ -103,7 +106,7 @@ async function unlockPrediction(id) {
         return;
     }
 
-    const userId = telegram?.initDataUnsafe?.user?.id || (localStorage.getItem('tg_user') ? JSON.parse(localStorage.getItem('tg_user')).id : null);
+    const userId = getUserId();
     if (!userId) {
         alert('Ошибка: пользователь не определён');
         return;
@@ -123,21 +126,22 @@ async function unlockPrediction(id) {
             unlockedPredictions = [...new Set([...unlockedPredictions, Number(id)])];
             localStorage.setItem('unlockedPredictions', JSON.stringify(unlockedPredictions));
 
-            const prediction = predictions.find(p => Number(p.id) === Number(id));
-            if (prediction) prediction.isUnlocked = true;
-
             updateBalance();
-            renderPredictions();
+
+            // Обновляем прогнозы заново с сервера
+            await loadPredictions();
         } else {
             alert('Не удалось списать монету из-за некорректного баланса.');
         }
     } catch (e) {
         alert('Ошибка при списании монеты.');
         console.error('Ошибка списания:', e);
-        // Восстановление монет при ошибке
-        coins = parseInt(localStorage.getItem('coins')) || 0;
-        updateBalance();
     }
+}
+
+function getUserId() {
+    return telegram?.initDataUnsafe?.user?.id ||
+        (localStorage.getItem('tg_user') ? JSON.parse(localStorage.getItem('tg_user')).id : null);
 }
 
 function updateBalance() {
@@ -166,6 +170,7 @@ function renderPredictions() {
 
         const teamsDiv = document.createElement('div');
         teamsDiv.className = 'teams';
+
         const tournamentSpan = document.createElement('span');
         tournamentSpan.className = 'tournament';
         tournamentSpan.textContent = p.tournament || 'Нет турнира';
@@ -198,7 +203,7 @@ function renderPredictions() {
 
         const predictionTextDiv = document.createElement('div');
         predictionTextDiv.className = 'prediction-text';
-        predictionTextDiv.textContent = p.isUnlocked ? p.predictionText || 'Нет прогноза' : '🔒 Прогноз заблокирован';
+        predictionTextDiv.textContent = p.isUnlocked ? (p.predictionText || 'Нет прогноза') : '🔒 Прогноз заблокирован';
         div.appendChild(predictionTextDiv);
 
         if (!p.isUnlocked) {
