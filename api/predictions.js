@@ -72,23 +72,33 @@ app.post('/balance', async (req, res) => {
 
 // 6. Получаем прогнозы с учётом разблокировок
 app.get('/api/predictions', async (req, res) => {
-    const userId = Number(req.query.userId);
-    if (!db) return res.status(503).json({ error: 'DB unavailable' });
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+    if (!db) return res.status(503).json({ error: 'Database not available' });
 
-    const preds = await db.collection('predictions').find().toArray();
-    const unlocked = await db.collection('unlocks')
-        .find({ chatId: userId })
-        .project({ predictionId: 1 })
-        .toArray();
-    const unlockedIds = new Set(unlocked.map(d => d.predictionId));
+    try {
+        const userId = parseInt(req.query.userId, 10);
+        const preds = await db.collection('predictions').find().toArray();
 
-    const out = preds.map(p => ({
-        ...p,
-        isUnlocked: unlockedIds.has(p.id),
-    }));
-    res.json(out);
+        if (!userId) {
+            // Гость — возвращаем все прогнозы как заблокированные
+            return res.json(preds.map(p => ({ ...p, isUnlocked: false })));
+        }
+
+        const unlocks = await db.collection('unlocks').find({ userId }).toArray();
+        const unlockedIds = new Set(unlocks.map(u => u.predictionId));
+
+        const result = preds.map(p => ({
+            ...p,
+            isUnlocked: unlockedIds.has(p.id)
+        }));
+
+        res.json(result);
+
+    } catch (e) {
+        console.error('❌ Predictions fetch error:', e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
+
 
 // 7. Разблокировать прогноз
 app.post('/api/unlock', async (req, res) => {
