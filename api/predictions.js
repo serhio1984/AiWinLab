@@ -73,11 +73,13 @@ app.post('/api/check-password', (req, res) => {
 });
 
 // 5. Баланс пользователя
+// 5. Баланс пользователя
 app.post('/balance', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     const { userId, action, amount } = req.body;
-    console.log('Received balance request:', { userId, action, amount });
+    console.log('📥 Received balance request:', { userId, action, amount });
+
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
@@ -88,19 +90,25 @@ app.post('/balance', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid amount' });
             }
 
-            console.log(`Updating balance for userId: ${userId}, amount: ${amount}`);
+            console.log(`🔁 Updating balance for userId: ${userId}, amount: ${amount}`);
+
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
                 {
-                    $inc: { coins: Number(amount) },
+                    $inc: { coins: amount },
                     $setOnInsert: { chatId: userId }
                 },
-                { upsert: true, returnDocument: 'after' }
+                {
+                    upsert: true,
+                    returnDocument: 'after',
+                    returnOriginal: false // 🔧 важно!
+                }
             );
 
             if (!result || !result.value) {
-                console.error(`Update failed. Result:`, result);
-                return res.status(500).json({ error: 'Failed to update balance' });
+                console.warn(`⚠️ Update failed. Manual fallback for userId: ${userId}`);
+                const user = await users.findOne({ chatId: userId });
+                return res.json({ coins: user?.coins ?? 0 });
             }
 
             return res.json({ coins: result.value.coins });
@@ -108,11 +116,13 @@ app.post('/balance', async (req, res) => {
 
         // action === 'get' или не указан
         let user = await users.findOne({ chatId: userId });
+
         if (!user) {
-            console.log(`Creating new user with userId: ${userId}, initial coins: 5`);
+            console.log(`👤 Новый пользователь ${userId}, выдаём 5 монет`);
             await users.insertOne({ chatId: userId, coins: 5 });
             user = { coins: 5 };
         }
+
         return res.json({ coins: user.coins });
 
     } catch (e) {
