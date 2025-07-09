@@ -90,39 +90,42 @@ app.post('/balance', async (req, res) => {
 
     try {
         const users = db.collection('users');
+
         if (action === 'update') {
-            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+            const numericAmount = Number(amount);
+            if (isNaN(numericAmount)) {
+                return res.status(400).json({ error: 'Invalid amount' });
+            }
+
+            console.log(`Updating balance for userId: ${userId}, action: ${action}, amount: ${numericAmount}`);
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { 
-                    $inc: { coins: amount },
+                {
+                    $inc: { coins: numericAmount },
                     $setOnInsert: { chatId: userId, coins: 0 }
                 },
                 { upsert: true, returnDocument: 'after' }
             );
+            if (!result.value) {
+                console.error(`User not found or update failed for userId: ${userId}`);
+                return res.status(404).json({ error: 'User not found' });
+            }
+            console.log(`Balance updated successfully: ${result.value.coins}`);
             res.json({ coins: result.value.coins });
+
         } else {
-            const user = await users.findOne({ chatId: userId }) || { coins: 0 };
+            // Если пользователь не найден — создать с 5 монетами
+            let user = await users.findOne({ chatId: userId });
+            if (!user) {
+                console.log(`Creating new user with userId: ${userId}, initial coins: 5`);
+                await users.insertOne({ chatId: userId, coins: 5 });
+                user = { coins: 5 };
+            }
             res.json({ coins: user.coins });
         }
     } catch (e) {
-        console.error('❌ Balance error:', e);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// 5. Получение прогнозов
-app.get('/api/predictions', async (req, res) => {
-    if (!db) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-    try {
-        const preds = await db.collection('predictions').find().toArray();
-        console.log('Fetched predictions:', preds);
-        res.json(preds);
-    } catch (e) {
-        console.error('❌ Predictions fetch error:', e);
-        res.status(500).json({ error: 'Server error' });
+        console.error('❌ Balance error:', e.stack); // Детализированное логирование
+        res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
 
