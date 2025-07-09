@@ -41,6 +41,7 @@ app.post('/balance', async (req, res) => {
         return res.status(503).json({ error: 'Database not available' });
     }
     const { userId, action, amount } = req.body;
+    console.log('Received balance request:', { userId, action, amount }); // Отладочный лог
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
@@ -48,33 +49,28 @@ app.post('/balance', async (req, res) => {
 
         if (action === 'update') {
             const numericAmount = Number(amount);
+            console.log('Converted amount to:', numericAmount); // Отладочный лог
             if (isNaN(numericAmount)) {
                 return res.status(400).json({ error: 'Invalid amount' });
             }
 
-            console.log(`Updating balance for userId: ${userId}, action: ${action}, amount: ${numericAmount}`);
+            const user = await users.findOne({ chatId: userId }) || { coins: 0 };
+            const newBalance = user.coins + numericAmount;
+
+            if (newBalance < 0) {
+                return res.status(400).json({ error: 'Недостаточно монет' });
+            }
+
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
                 {
                     $inc: { coins: numericAmount },
-                    $setOnInsert: { chatId: userId, coins: 0 } // Восстановим coins с начальным значением 0
+                    $setOnInsert: { chatId: userId }
                 },
                 { upsert: true, returnDocument: 'after' }
             );
-            if (!result.value) {
-                console.error(`User not found or update failed for userId: ${userId}`);
-                return res.status(404).json({ error: 'User not found' });
-            }
-            if (result.value.coins < 0) {
-                // Если баланс стал отрицательным, сбросим до 0
-                await users.updateOne({ chatId: userId }, { $set: { coins: 0 } });
-                const correctedResult = await users.findOne({ chatId: userId });
-                console.log(`Balance corrected to 0 for userId: ${userId}`);
-                res.json({ coins: correctedResult.coins });
-            } else {
-                console.log(`Balance updated successfully: ${result.value.coins}`);
-                res.json({ coins: result.value.coins });
-            }
+            console.log(`Balance updated successfully: ${result.value.coins}`);
+            res.json({ coins: result.value.coins });
         } else {
             // Если пользователь не найден — создать с 5 монетами
             let user = await users.findOne({ chatId: userId });
@@ -90,7 +86,6 @@ app.post('/balance', async (req, res) => {
         res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
-
 // 5. Получение списка прогнозов
 app.get('/api/predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
