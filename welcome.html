@@ -9,7 +9,7 @@
             font-family: 'Verdana', sans-serif;
             margin: 0;
             padding: 0;
-            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png'); /* Фон с текстурой */
+            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
             background-size: cover;
             color: #ff6200;
             min-height: 100vh;
@@ -37,7 +37,7 @@
         .logo h1 {
             font-size: 72px;
             margin: 0;
-            text-shadow: 0 0 10px #ff6200, 0 0 20px #ff6200; /* Эффект свечения */
+            text-shadow: 0 0 10px #ff6200, 0 0 20px #ff6200;
             animation: pulse 2s infinite alternate;
         }
         @keyframes pulse {
@@ -64,7 +64,7 @@
             color: #00ff00;
             margin-right: 15px;
             font-size: 36px;
-            text-shadow: 0 0 5px #00ff00; /* Эффект свечения для галочки */
+            text-shadow: 0 0 5px #00ff00;
         }
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -74,10 +74,10 @@
             background: #ff6200;
             color: #ffffff;
             border: none;
-            padding: 20px 40px; /* Увеличенные размеры */
+            padding: 20px 40px;
             border-radius: 5px;
-            font-size: 28px; /* Увеличенный шрифт */
-            font-weight: bold; /* Сохранение жирного шрифта */
+            font-size: 28px;
+            font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
@@ -99,8 +99,8 @@
                 margin-right: 10px;
             }
             .buy-btn {
-                font-size: 18px; /* Адаптированный шрифт для мобильных */
-                padding: 12px 24px; /* Адаптированные размеры для мобильных */
+                font-size: 18px;
+                padding: 12px 24px;
                 border-radius: 4px;
             }
             .welcome-container {
@@ -120,20 +120,21 @@
             <li style="--order: 2;">5 монет в подарок</li>
             <li style="--order: 3;">1 монета = 1 прогноз</li>
         </ul>
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const telegram = window.Telegram?.WebApp;
-                if (telegram?.initDataUnsafe?.user) {
-                    const user = telegram.initDataUnsafe.user;
-                    localStorage.setItem('tg_user', JSON.stringify(user)); // Сохраняем user как JSON
-                    window.location.href = '/index.html';
-                } else {
-                    // Fallback, если initData не передан
-                    console.log('No initData found, redirecting to index.html');
-                    window.location.href = '/index.html';
-                }
-            });
-        </script>
     </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const telegram = window.Telegram?.WebApp;
+            if (telegram?.initDataUnsafe?.user) {
+                const user = telegram.initDataUnsafe.user;
+                localStorage.setItem('tg_user', JSON.stringify(user));
+                window.location.href = '/index.html';
+            } else {
+                // fallback — переход без пользователя
+                window.location.href = '/index.html';
+            }
+        });
+    </script>
 </body>
 </html>
