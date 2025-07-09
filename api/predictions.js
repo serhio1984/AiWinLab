@@ -102,7 +102,7 @@ app.post('/balance', async (req, res) => {
                 { chatId: userId },
                 {
                     $inc: { coins: numericAmount },
-                    $setOnInsert: { chatId: userId, coins: 0 }
+                    $setOnInsert: { chatId: userId }
                 },
                 { upsert: true, returnDocument: 'after' }
             );
@@ -128,6 +128,7 @@ app.post('/balance', async (req, res) => {
         res.status(500).json({ error: 'Server error', details: e.message });
     }
 });
+
 // 5. Получение списка прогнозов
 app.get('/api/predictions', async (req, res) => {
     if (!db) {
