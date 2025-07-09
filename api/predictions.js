@@ -77,50 +77,42 @@ app.post('/balance', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
     const { userId, action, amount } = req.body;
+    console.log('Received balance request:', { userId, action, amount }); // Отладочный лог
     if (!userId) return res.status(400).json({ error: 'User ID required' });
 
     try {
         const users = db.collection('users');
 
         if (action === 'update') {
-            if (typeof amount !== 'number' || isNaN(amount)) {
-                return res.status(400).json({ error: 'Invalid amount' });
-            }
-
-            console.log(`🔁 Обновление баланса: ${userId}, amount: ${amount}`);
-
-            // Сначала проверим, есть ли пользователь
-            const existing = await users.findOne({ chatId: userId });
-            if (!existing) {
-                await users.insertOne({ chatId: userId, coins: 5 + amount }); // учтём изменение
-                return res.json({ coins: 5 + amount });
-            }
-
+            if (!amount || isNaN(amount)) return res.status(400).json({ error: 'Invalid amount' });
+            console.log(`Updating balance for userId: ${userId}, amount: ${amount}`);
             const result = await users.findOneAndUpdate(
                 { chatId: userId },
-                { $inc: { coins: amount } },
-                { returnDocument: 'after' }
+                { $inc: { coins: Number(amount) }, $setOnInsert: { chatId: userId } },
+                { upsert: true, returnDocument: 'after' }
             );
+            console.log('findOneAndUpdate result:', result); // Отладочный лог
+            if (!result.value) {
+                console.error(`No value returned for userId: ${userId}`);
+                return res.status(500).json({ error: 'Failed to update balance' });
+            }
             return res.json({ coins: result.value.coins });
         }
 
-        // Получение текущего баланса или первый визит
+        // action === 'get' или не указан
         let user = await users.findOne({ chatId: userId });
-
         if (!user) {
-            console.log(`👤 Новый пользователь ${userId}, выдаём 5 монет`);
+            console.log(`Creating new user with userId: ${userId}, initial coins: 5`);
             await users.insertOne({ chatId: userId, coins: 5 });
             user = { coins: 5 };
         }
-
         return res.json({ coins: user.coins });
 
     } catch (e) {
-        console.error('❌ Balance error:', e);
+        console.error('❌ Balance error:', e.stack);
         return res.status(500).json({ error: 'Server error' });
     }
 });
-
 // 6. Получение прогнозов
 app.get('/api/predictions', async (req, res) => {
     if (!db) return res.status(503).json({ error: 'Database not available' });
