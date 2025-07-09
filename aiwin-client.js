@@ -155,9 +155,11 @@ async function unlockPrediction(id, button) {
     }
 
     const userId = telegram?.initDataUnsafe?.user?.id || 'default-user';
+    const url = '/balance';
+    console.log('Sending request to:', url);
 
     try {
-        const res = await fetch('/balance', {
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'update', amount: -1 })
@@ -167,7 +169,11 @@ async function unlockPrediction(id, button) {
 
         const data = await res.json();
         console.log('Unlock balance data:', data);
-        coins = data.coins;
+        if (data.coins === undefined || data.coins < 0) {
+            coins = 0; // Сброс на 0 при некорректном ответе
+        } else {
+            coins = data.coins;
+        }
         localStorage.setItem('coins', coins);
 
         unlockedPredictions.push(id);
@@ -181,6 +187,10 @@ async function unlockPrediction(id, button) {
     } catch (error) {
         console.error('Ошибка при списании монеты:', error);
         alert('Не удалось списать монету. Попробуйте ещё раз.');
+        // Восстановим монеты, если ошибка
+        coins = parseInt(localStorage.getItem('coins')) + 1 || 5;
+        localStorage.setItem('coins', coins);
+        updateBalance();
     }
 }
 
