@@ -4,17 +4,24 @@ const telegram = window.Telegram?.WebApp;
 if (telegram) {
     telegram.ready();
     telegram.expand();
-    console.log('Telegram WebApp initialized and expanded');
+    console.log('✅ Telegram WebApp initialized');
 } else {
-    console.log('Telegram WebApp not available');
+    console.warn('❗ Telegram WebApp not available. Работает в тестовом режиме.');
 }
 
 let coins = 0;
 let predictions = [];
 
 function getUserId() {
-    return telegram?.initDataUnsafe?.user?.id ||
-        (localStorage.getItem('tg_user') ? JSON.parse(localStorage.getItem('tg_user')).id : null);
+    const tgUser = telegram?.initDataUnsafe?.user;
+    if (tgUser?.id) return tgUser.id;
+
+    try {
+        const local = JSON.parse(localStorage.getItem('tg_user'));
+        return local?.id || null;
+    } catch {
+        return null;
+    }
 }
 
 function getDOMElements() {
@@ -28,46 +35,39 @@ function getDOMElements() {
 
 function loadUserData() {
     const { userProfilePic, userName } = getDOMElements();
-    if (!userName || !userProfilePic) return;
-
     let user = telegram?.initDataUnsafe?.user;
+
     if (!user) {
-        const saved = localStorage.getItem('tg_user');
-        if (saved) {
-            try {
-                user = JSON.parse(saved);
-                console.log('👤 Восстановлен пользователь:', user);
-            } catch (e) {
-                console.warn('Ошибка чтения tg_user из localStorage:', e);
-            }
+        try {
+            const saved = localStorage.getItem('tg_user');
+            if (saved) user = JSON.parse(saved);
+        } catch (e) {
+            console.warn('Ошибка чтения tg_user из localStorage:', e);
         }
     }
 
     if (user) {
-        userName.textContent = user.first_name || 'Гость';
-        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+        userName.textContent = user.first_name || 'Пользователь';
+        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
         localStorage.setItem('tg_user', JSON.stringify(user));
     } else {
-        userName.textContent = 'Гость (Тест)';
-        userProfilePic.src = 'https://dummyimage.com/50x50/000000/ffffff?text=User';
+        userName.textContent = 'Гость';
+        userProfilePic.src = 'https://dummyimage.com/50x50/000/fff&text=User';
     }
 }
 
 async function loadPredictions() {
     const { predictionsContainer } = getDOMElements();
-    if (!predictionsContainer) return;
-
     const userId = getUserId();
-    if (!userId) {
-        console.warn('User ID not available.');
-        predictions = [];
-        renderPredictions();
+    if (!predictionsContainer || !userId) {
+        console.warn('Предсказания не загружены. userId:', userId);
         return;
     }
 
     try {
         const response = await fetch(`/api/predictions?userId=${userId}`);
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        if (!response.ok) throw new Error('Ошибка загрузки прогнозов');
+
         predictions = await response.json();
 
         const balanceResponse = await fetch('/balance', {
@@ -75,42 +75,43 @@ async function loadPredictions() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, action: 'get' })
         });
+
         const balanceData = await balanceResponse.json();
         coins = balanceData.coins || 0;
 
         updateBalance();
         renderPredictions();
-    } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
+    } catch (e) {
+        console.error('❌ Ошибка загрузки данных:', e);
         predictions = [];
         renderPredictions();
         if (telegram) alert('Ошибка загрузки данных. Проверьте подключение.');
     }
 }
 
-async function unlockPrediction(id) {
+async function unlockPrediction(predictionId) {
     const userId = getUserId();
-    if (!userId) return alert('Ошибка: пользователь не определён');
-    if (coins < 1) return alert('Недостаточно монет!');
+    if (!userId) return alert('Пользователь не определён');
+    if (coins < 1) return alert('Недостаточно монет для разблокировки');
 
     try {
         const response = await fetch('/api/unlock', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, predictionId: id })
+            body: JSON.stringify({ userId, predictionId })
         });
 
         const result = await response.json();
         if (result.success) {
             coins = result.coins;
             updateBalance();
-            await loadPredictions(); // обновим список прогнозов
+            await loadPredictions();
         } else {
-            alert(result.message || 'Не удалось разблокировать прогноз');
+            alert(result.message || 'Не удалось разблокировать');
         }
     } catch (e) {
+        console.error('❌ Ошибка при разблокировке:', e);
         alert('Ошибка при разблокировке.');
-        console.error(e);
     }
 }
 
@@ -128,70 +129,62 @@ function renderPredictions() {
     predictionsContainer.innerHTML = '';
 
     if (predictions.length === 0) {
-        predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет прогнозов для отображения.</p>';
+        predictionsContainer.innerHTML = '<p style="color: #ff6200;">Нет доступных прогнозов.</p>';
         return;
     }
 
     predictions.forEach(p => {
-        const div = document.createElement('div');
-        div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
-        div.setAttribute('data-id', p.id);
+        const card = document.createElement('div');
+        card.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
+        card.setAttribute('data-id', p.id);
 
-        const teamsDiv = document.createElement('div');
-        teamsDiv.className = 'teams';
+        const teamsBlock = document.createElement('div');
+        teamsBlock.className = 'teams';
 
-        const tournamentSpan = document.createElement('span');
-        tournamentSpan.className = 'tournament';
-        tournamentSpan.textContent = p.tournament || 'Нет турнира';
-        teamsDiv.appendChild(tournamentSpan);
+        const tournament = document.createElement('span');
+        tournament.className = 'tournament';
+        tournament.textContent = p.tournament || 'Без турнира';
+        teamsBlock.appendChild(tournament);
 
-        const team1Div = document.createElement('div');
-        team1Div.className = 'team-row';
-        const team1Img = document.createElement('img');
-        team1Img.src = p.logo1 || 'https://dummyimage.com/30x30';
-        team1Img.alt = p.team1 || 'Команда 1';
-        team1Div.appendChild(team1Img);
-        team1Div.appendChild(document.createTextNode(` ${p.team1 || 'Команда 1'}`));
-        teamsDiv.appendChild(team1Div);
+        const team1 = document.createElement('div');
+        team1.className = 'team-row';
+        team1.innerHTML = `<img src="${p.logo1 || ''}" alt="${p.team1 || ''}"> ${p.team1 || ''}`;
+        teamsBlock.appendChild(team1);
 
-        const team2Div = document.createElement('div');
-        team2Div.className = 'team-row';
-        const team2Img = document.createElement('img');
-        team2Img.src = p.logo2 || 'https://dummyimage.com/30x30';
-        team2Img.alt = p.team2 || 'Команда 2';
-        team2Div.appendChild(team2Img);
-        team2Div.appendChild(document.createTextNode(` ${p.team2 || 'Команда 2'}`));
-        teamsDiv.appendChild(team2Div);
+        const team2 = document.createElement('div');
+        team2.className = 'team-row';
+        team2.innerHTML = `<img src="${p.logo2 || ''}" alt="${p.team2 || ''}"> ${p.team2 || ''}`;
+        teamsBlock.appendChild(team2);
 
-        div.appendChild(teamsDiv);
+        card.appendChild(teamsBlock);
 
-        const oddsSpan = document.createElement('span');
-        oddsSpan.className = 'odds';
-        oddsSpan.textContent = p.odds || '0.00';
-        div.appendChild(oddsSpan);
+        const odds = document.createElement('span');
+        odds.className = 'odds';
+        odds.textContent = p.odds || '0.00';
+        card.appendChild(odds);
 
-        const predictionTextDiv = document.createElement('div');
-        predictionTextDiv.className = 'prediction-text';
-        predictionTextDiv.textContent = p.isUnlocked ? (p.predictionText || 'Нет прогноза') : '🔒 Прогноз заблокирован';
-        div.appendChild(predictionTextDiv);
+        const predictionText = document.createElement('div');
+        predictionText.className = 'prediction-text';
+        predictionText.textContent = p.isUnlocked ? p.predictionText : '🔒 Прогноз заблокирован';
+        card.appendChild(predictionText);
 
         if (!p.isUnlocked) {
-            const unlockButton = document.createElement('button');
-            unlockButton.className = 'buy-btn unlock-btn';
-            unlockButton.textContent = 'Разблокировать';
-            unlockButton.onclick = () => unlockPrediction(p.id);
-            div.appendChild(unlockButton);
+            const unlockBtn = document.createElement('button');
+            unlockBtn.className = 'buy-btn unlock-btn';
+            unlockBtn.textContent = 'Разблокировать';
+            unlockBtn.onclick = () => unlockPrediction(p.id);
+            card.appendChild(unlockBtn);
         }
 
-        predictionsContainer.appendChild(div);
+        predictionsContainer.appendChild(card);
     });
 }
 
-// ⏱ Автообновление каждые 30 секунд
+// ⏱ Обновление раз в 30 сек
 const intervalId = setInterval(loadPredictions, 30000);
 window.onunload = () => clearInterval(intervalId);
 
-// 🔄 Запуск
+// ▶️ Инициализация
 loadUserData();
 loadPredictions();
 </script>
