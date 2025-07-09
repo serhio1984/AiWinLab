@@ -1,366 +1,275 @@
+<!-- admin.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AiWinLab - Админ-панель</title>
-    <style>
-        body {
-            font-family: 'Verdana', sans-serif;
-            margin: 0;
-            padding: 10px;
-            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
-            background-size: cover;
-            color: #ff6200;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .header {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .logo h1 {
-            font-size: 28px;
-            margin: 0;
-            text-shadow: 0 0 10px #ff6200;
-        }
-        .buy-btn {
-            background: #ff6200;
-            color: #ffffff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
-        }
-        .buy-btn:hover {
-            background: #e05600;
-            transform: scale(1.1);
-            box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
-        }
-        .admin-container {
-            background: #ffffff;
-            color: #000000;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 800px;
-            box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
-        }
-        .login-section, .form-section, .predictions-list {
-            display: none;
-        }
-        .login-section.active, .form-section.active, .predictions-list.active {
-            display: block;
-        }
-        .login-section {
-            text-align: center;
-        }
-        .login-section input {
-            width: 80%;
-            max-width: 300px;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
-        .predictions-list {
-            margin-top: 20px;
-        }
-        .predictions-list table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .predictions-list th, .predictions-list td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-        .predictions-list th {
-            background: #ff6200;
-            color: #ffffff;
-        }
-        @media (max-width: 600px) {
-            .logo h1 { font-size: 24px; }
-            .admin-container { padding: 15px; }
-            .form-group input, .form-group select { font-size: 12px; }
-            .buy-btn { font-size: 12px; padding: 5px 10px; }
-            .predictions-list th, .predictions-list td { font-size: 12px; padding: 8px; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AiWinLab - Админ-панель</title>
+  <style>
+    body {
+      font-family: 'Verdana', sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
+      background-size: cover;
+      color: #ff6200;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .logo h1 {
+      font-size: 28px;
+      margin: 0;
+      text-shadow: 0 0 10px #ff6200;
+    }
+    .buy-btn {
+      background: #ff6200;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
+    }
+    .buy-btn:hover {
+      background: #e05600;
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
+    }
+    .admin-container {
+      background: #ffffff;
+      color: #000000;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
+    }
+    .login-section, .form-section, .predictions-list {
+      display: none;
+    }
+    .login-section.active, .form-section.active, .predictions-list.active {
+      display: block;
+    }
+    .login-section {
+      text-align: center;
+    }
+    .login-section input {
+      width: 80%;
+      max-width: 300px;
+      padding: 8px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    .predictions-list {
+      margin-top: 20px;
+    }
+    .predictions-list table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .predictions-list th, .predictions-list td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    .predictions-list th {
+      background: #ff6200;
+      color: #ffffff;
+    }
+    @media (max-width: 600px) {
+      .logo h1 { font-size: 24px; }
+      .admin-container { padding: 15px; }
+      .form-group input, .form-group select { font-size: 12px; }
+      .buy-btn { font-size: 12px; padding: 5px 10px; }
+      .predictions-list th, .predictions-list td { font-size: 12px; padding: 8px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">
-            <h1>AiWinLab</h1>
-        </div>
-        <button class="buy-btn" id="exitBtn" onclick="logout()">Выход</button>
+  <div class="header">
+    <div class="logo">
+      <h1>AiWinLab</h1>
     </div>
-    <div class="admin-container">
-        <div class="login-section" id="loginSection">
-            <h2>Вход в админ-панель</h2>
-            <input type="password" id="adminPassword" placeholder="Введите пароль">
-            <button class="buy-btn" onclick="login()">Войти</button>
-            <div id="loginStatus" style="margin-top: 10px; color: #ff0000;"></div>
-        </div>
-        <div class="form-section" id="formSection">
-            <h2>Добавить прогноз</h2>
-            <div class="form-group">
-                <label for="tournament">Турнир:</label>
-                <input type="text" id="tournament" placeholder="Напр. UEFA Champions League">
-            </div>
-            <div class="form-group">
-                <label for="team1">Команда 1:</label>
-                <input type="text" id="team1" placeholder="Напр. Manchester City">
-            </div>
-            <div class="form-group">
-                <label for="logo1">URL логотипа 1:</label>
-                <input type="text" id="logo1" placeholder="Напр. https://example.com/logo1.png">
-            </div>
-            <div class="form-group">
-                <label for="team2">Команда 2:</label>
-                <input type="text" id="team2" placeholder="Напр. Real Madrid">
-            </div>
-            <div class="form-group">
-                <label for="logo2">URL логотипа 2:</label>
-                <input type="text" id="logo2" placeholder="Напр. https://example.com/logo2.png">
-            </div>
-            <div class="form-group">
-                <label for="odds">Коэффициент:</label>
-                <input type="number" id="odds" step="0.01" placeholder="Напр. 1.80">
-            </div>
-            <div class="form-group">
-                <label for="predictionText">Прогноз:</label>
-                <input type="text" id="predictionText" placeholder="Напр. Победа Manchester City">
-            </div>
-            <button class="buy-btn" onclick="addPrediction()">Добавить</button>
-            <button class="buy-btn" onclick="publishPredictions()">Публикация</button>
-        </div>
-        <div class="predictions-list" id="predictionsList">
-            <h3>Существующие прогнозы</h3>
-            <table id="predictionsTable">
-                <thead>
-                    <tr>
-                        <th>Турнир</th>
-                        <th>Команда 1</th>
-                        <th>Команда 2</th>
-                        <th>Коэффициент</th>
-                        <th>Прогноз</th>
-                        <th>Действие</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Глобальные переменные
-        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+    <button class="buy-btn" id="exitBtn" onclick="logout()">Выход</button>
+  </div>
 
-        // Инициализация
-        document.getElementById('loginSection').classList.add('active');
-        document.getElementById('exitBtn').style.display = 'none';
+  <div class="admin-container">
+    <div class="login-section" id="loginSection">
+      <h2>Вход в админ-панель</h2>
+      <input type="password" id="adminPassword" placeholder="Введите пароль">
+      <button class="buy-btn" onclick="login()">Войти</button>
+      <div id="loginStatus" style="margin-top: 10px; color: #ff0000;"></div>
+    </div>
+
+    <div class="form-section" id="formSection">
+      <h2>Добавить прогноз</h2>
+      <div class="form-group"><label>Турнир:</label><input id="tournament" type="text"></div>
+      <div class="form-group"><label>Команда 1:</label><input id="team1" type="text"></div>
+      <div class="form-group"><label>URL логотипа 1:</label><input id="logo1" type="text"></div>
+      <div class="form-group"><label>Команда 2:</label><input id="team2" type="text"></div>
+      <div class="form-group"><label>URL логотипа 2:</label><input id="logo2" type="text"></div>
+      <div class="form-group"><label>Коэффициент:</label><input id="odds" type="number" step="0.01"></div>
+      <div class="form-group"><label>Прогноз:</label><input id="predictionText" type="text"></div>
+      <button class="buy-btn" onclick="addPrediction()">Добавить</button>
+      <button class="buy-btn" onclick="publishPredictions()">Публикация</button>
+    </div>
+
+    <div class="predictions-list" id="predictionsList">
+      <h3>Существующие прогнозы</h3>
+      <table id="predictionsTable"><thead>
+        <tr>
+          <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэффициент</th><th>Прогноз</th><th>Действие</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+
+    document.getElementById('loginSection').classList.add('active');
+    document.getElementById('exitBtn').style.display = 'none';
 
     async function login() {
-        const password = document.getElementById('adminPassword').value;
-        const loginStatus = document.getElementById('loginStatus');
-        if (!password) {
-            loginStatus.textContent = 'Введите пароль!';
-            return;
-        }
-        try {
-            console.log('Sending login request to /api/check-password with password:', password);
-            const response = await fetch('/api/check-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            console.log('Received response with status:', response.status);
-            const result = await response.json();
-            console.log('Parsed response:', result);
-            if (result.success) {
-                document.getElementById('loginSection').classList.remove('active');
-                document.getElementById('formSection').classList.add('active');
-                document.getElementById('predictionsList').classList.add('active');
-                document.getElementById('exitBtn').style.display = 'block';
-                renderPredictions();
-                loginStatus.textContent = '';
-            } else {
-                loginStatus.textContent = result.message || 'Ошибка входа!';
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            loginStatus.textContent = 'Ошибка подключения: ' + error.message;
-        }
-    }
-    
-
-        function logout() {
-            document.getElementById('loginSection').classList.add('active');
-            document.getElementById('formSection').classList.remove('active');
-            document.getElementById('predictionsList').classList.remove('active');
-            document.getElementById('exitBtn').style.display = 'none';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('loginStatus').textContent = '';
-        }
-
-        function addPrediction() {
-            const tournament = document.getElementById('tournament').value;
-            const team1 = document.getElementById('team1').value;
-            const logo1 = document.getElementById('logo1').value;
-            const team2 = document.getElementById('team2').value;
-            const logo2 = document.getElementById('logo2').value;
-            const odds = document.getElementById('odds').value;
-            const predictionText = document.getElementById('predictionText').value;
-
-            if (tournament && team1 && team2 && odds && predictionText) {
-                const id = Date.now();
-                console.log('Adding new prediction with id:', id);
-                const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText, isUnlocked: true };
-                predictions.push(prediction);
-                localStorage.setItem('predictions', JSON.stringify(predictions));
-                renderPredictions();
-                clearForm();
-            } else {
-                alert('Заполните все поля!');
-            }
-        }
-
-        function clearForm() {
-            document.getElementById('tournament').value = '';
-            document.getElementById('team1').value = '';
-            document.getElementById('logo1').value = '';
-            document.getElementById('logo2').value = '';
-            document.getElementById('team2').value = '';
-            document.getElementById('odds').value = '';
-            document.getElementById('predictionText').value = '';
-        }
-
-        function renderPredictions() {
-            const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
-            tbody.innerHTML = '';
-            predictions.forEach(p => {
-                const row = tbody.insertRow();
-                row.insertCell(0).textContent = p.tournament || 'Нет данных';
-                row.insertCell(1).textContent = p.team1 || 'Нет данных';
-                row.insertCell(2).textContent = p.team2 || 'Нет данных';
-                row.insertCell(3).textContent = p.odds || '0.00';
-                row.insertCell(4).textContent = p.predictionText || 'Нет данных';
-                const actionCell = row.insertCell(5);
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Удалить';
-                deleteBtn.className = 'buy-btn';
-                deleteBtn.onclick = () => deletePrediction(p.id);
-                actionCell.appendChild(deleteBtn);
-                const editBtn = document.createElement('button');
-                editBtn.textContent = 'Редактировать';
-                editBtn.className = 'buy-btn';
-                editBtn.style.marginLeft = '5px';
-                editBtn.onclick = () => editPrediction(p.id);
-                actionCell.appendChild(editBtn);
-            });
-        }
-
-        function deletePrediction(id) {
-            predictions = predictions.filter(p => p.id !== id);
-            localStorage.setItem('predictions', JSON.stringify(predictions));
-            renderPredictions();
-        }
-
-        function editPrediction(id) {
-            const prediction = predictions.find(p => p.id === id);
-            if (prediction) {
-                document.getElementById('tournament').value = prediction.tournament || '';
-                document.getElementById('team1').value = prediction.team1 || '';
-                document.getElementById('logo1').value = prediction.logo1 || '';
-                document.getElementById('team2').value = prediction.team2 || '';
-                document.getElementById('logo2').value = prediction.logo2 || '';
-                document.getElementById('odds').value = prediction.odds || '';
-                document.getElementById('predictionText').value = prediction.predictionText || '';
-                const originalAdd = addPrediction;
-                addPrediction = () => {
-                    const tournament = document.getElementById('tournament').value;
-                    const team1 = document.getElementById('team1').value;
-                    const logo1 = document.getElementById('logo1').value;
-                    const team2 = document.getElementById('team2').value;
-                    const logo2 = document.getElementById('logo2').value;
-                    const odds = document.getElementById('odds').value;
-                    const predictionText = document.getElementById('predictionText').value;
-
-                    if (tournament && team1 && team2 && odds && predictionText) {
-                        const updated = { id, tournament, team1, logo1, team2, logo2, odds, predictionText, isUnlocked: true };
-                        const index = predictions.findIndex(p => p.id === id);
-                        if (index !== -1) {
-                            predictions[index] = updated;
-                            localStorage.setItem('predictions', JSON.stringify(predictions));
-                            renderPredictions();
-                            clearForm();
-                            addPrediction = originalAdd;
-                        }
-                    } else {
-                        alert('Заполните все поля!');
-                    }
-                };
-            }
-        }
-
-        async function publishPredictions() {
-            console.log('Attempting to publish:', predictions);
-            try {
-                const response = await fetch('/api/predictions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(predictions)
-                });
-                const result = await response.json();
-                console.log('Server response:', result);
-                if (response.ok) {
-                    alert('Прогнозы сохранены для публикации в 00:01!');
-                } else {
-                    alert('Ошибка: ' + (result.message || 'Неизвестная ошибка'));
-                }
-            } catch (error) {
-                console.error('Error publishing:', error);
-                alert('Ошибка подключения к серверу: ' + error.message);
-            }
-        }
-
-        // Инициализация Telegram WebApp
-        if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            console.log('Telegram WebApp initialized');
+      const password = document.getElementById('adminPassword').value;
+      const loginStatus = document.getElementById('loginStatus');
+      if (!password) return loginStatus.textContent = 'Введите пароль!';
+      try {
+        const response = await fetch('/api/check-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const result = await response.json();
+        if (result.success) {
+          document.getElementById('loginSection').classList.remove('active');
+          document.getElementById('formSection').classList.add('active');
+          document.getElementById('predictionsList').classList.add('active');
+          document.getElementById('exitBtn').style.display = 'block';
+          renderPredictions();
+          loginStatus.textContent = '';
         } else {
-            console.log('Running in standalone mode');
+          loginStatus.textContent = result.message || 'Ошибка входа!';
         }
-    </script>
+      } catch (error) {
+        loginStatus.textContent = 'Ошибка подключения: ' + error.message;
+      }
+    }
+
+    function logout() {
+      document.getElementById('loginSection').classList.add('active');
+      document.getElementById('formSection').classList.remove('active');
+      document.getElementById('predictionsList').classList.remove('active');
+      document.getElementById('exitBtn').style.display = 'none';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('loginStatus').textContent = '';
+    }
+
+    function addPrediction() {
+      const tournament = document.getElementById('tournament').value;
+      const team1 = document.getElementById('team1').value;
+      const logo1 = document.getElementById('logo1').value;
+      const team2 = document.getElementById('team2').value;
+      const logo2 = document.getElementById('logo2').value;
+      const odds = document.getElementById('odds').value;
+      const predictionText = document.getElementById('predictionText').value;
+      if (tournament && team1 && team2 && odds && predictionText) {
+        const id = Date.now();
+        const prediction = { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
+        predictions.push(prediction);
+        localStorage.setItem('predictions', JSON.stringify(predictions));
+        renderPredictions();
+        clearForm();
+      } else {
+        alert('Заполните все поля!');
+      }
+    }
+
+    function clearForm() {
+      ['tournament', 'team1', 'logo1', 'team2', 'logo2', 'odds', 'predictionText'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+    }
+
+    function renderPredictions() {
+      const tbody = document.getElementById('predictionsTable').getElementsByTagName('tbody')[0];
+      tbody.innerHTML = '';
+      predictions.forEach(p => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = p.tournament;
+        row.insertCell(1).textContent = p.team1;
+        row.insertCell(2).textContent = p.team2;
+        row.insertCell(3).textContent = p.odds;
+        row.insertCell(4).textContent = p.predictionText;
+        const actions = row.insertCell(5);
+        const del = document.createElement('button');
+        del.textContent = 'Удалить';
+        del.className = 'buy-btn';
+        del.onclick = () => deletePrediction(p.id);
+        actions.appendChild(del);
+      });
+    }
+
+    function deletePrediction(id) {
+      predictions = predictions.filter(p => p.id !== id);
+      localStorage.setItem('predictions', JSON.stringify(predictions));
+      renderPredictions();
+    }
+
+    async function publishPredictions() {
+      try {
+        const response = await fetch('/api/predictions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(predictions)
+        });
+        const result = await response.json();
+        if (response.ok) {
+          alert('Прогнозы сохранены для публикации!');
+        } else {
+          alert('Ошибка: ' + (result.message || 'Неизвестная ошибка'));
+        }
+      } catch (error) {
+        alert('Ошибка подключения к серверу: ' + error.message);
+      }
+    }
+
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+  </script>
 </body>
 </html>
