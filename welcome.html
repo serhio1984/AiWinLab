@@ -127,10 +127,11 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const initData = urlParams.get('initData');
                 if (initData) {
-                    // Если initData доступен, перенаправляем на index.html с сохранением параметров
-                    window.location.href = `/index.html?initData=${encodeURIComponent(initData)}`;
+                    localStorage.setItem('initData', initData); // Сохраняем initData в localStorage
+                    window.location.href = `/index.html`; // Редирект без параметров
                 } else {
-                    // Иначе показываем кнопку для ручного перехода
+                    console.log('No initData found in URL');
+                    // Показываем кнопку для ручного перехода
                     document.body.innerHTML += '<button class="buy-btn" onclick="window.location.href=\'/index.html\'">Начать</button>';
                 }
             });
