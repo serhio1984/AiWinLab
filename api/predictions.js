@@ -138,8 +138,6 @@ app.post('/create-invoice', async (req, res) => {
         return res.status(400).json({ error: 'Missing parameters' });
     }
 
-    const amount = stars; // cent-stars
-
     try {
         const response = await axios.post(
             `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
@@ -147,9 +145,9 @@ app.post('/create-invoice', async (req, res) => {
                 title: `Покупка ${coins} монет`,
                 description: `${coins} монет за ${stars} Telegram Stars`,
                 payload: `buy_${coins}_${Date.now()}`,
-                provider_token: process.env.PAY_PROVIDER_TOKEN,
-                currency: "USD",
-                prices: [{ label: `${coins} монет`, amount }],
+                provider_token: "",               // ПУСТОЙ — обязательно для Stars
+                currency: "XTR",                  // ВАЛЮТА Stars
+                prices: [{ label: `${coins} монет`, amount: stars }], // НЕ умножаем на 100
                 start_parameter: `buy_${coins}`
             }
         );
