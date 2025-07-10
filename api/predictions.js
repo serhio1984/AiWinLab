@@ -130,9 +130,8 @@ app.post('/api/predictions', async (req, res) => {
 const axios = require('axios');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const PAY_PROVIDER_TOKEN = process.env.PAY_PROVIDER_TOKEN;
 
-// 9. Создание инвойса для Telegram Stars
+// 9. Создание инвойса через createInvoiceLink
 app.post('/create-invoice', async (req, res) => {
     const { userId, coins, stars } = req.body;
     if (!userId || !coins || !stars) {
@@ -142,22 +141,23 @@ app.post('/create-invoice', async (req, res) => {
     const amount = stars * 100; // cent-stars
 
     try {
-        const invoice = {
-            chat_id: userId,
-            title: `Покупка ${coins} монет`,
-            description: `${coins} монет за ${stars} Telegram Stars`,
-            payload: `buy_${coins}_coins_${Date.now()}`,
-            provider_token: PAY_PROVIDER_TOKEN,
-            currency: "USD",
-            prices: [{ label: `${coins} монет`, amount }],
-        };
+        const response = await axios.post(
+            `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
+            {
+                title: `Покупка ${coins} монет`,
+                description: `${coins} монет за ${stars} Telegram Stars`,
+                payload: `buy_${coins}_${Date.now()}`,
+                provider_token: process.env.PAY_PROVIDER_TOKEN,
+                currency: "USD",
+                prices: [{ label: `${coins} монет`, amount }],
+                start_parameter: `buy_${coins}`
+            }
+        );
 
-        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendInvoice`;
-        const response = await axios.post(url, invoice);
-
-        res.json({ ok: true, invoice: response.data });
+        const url = response.data.result;
+        res.json({ ok: true, url });
     } catch (e) {
-        console.error('❌ Ошибка создания инвойса:', e?.response?.data || e.message);
+        console.error('❌ Ошибка создания ссылки на инвойс:', e?.response?.data || e.message);
         res.status(500).json({ error: 'Invoice creation failed' });
     }
 });
