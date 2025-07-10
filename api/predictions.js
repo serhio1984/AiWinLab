@@ -138,7 +138,7 @@ app.post('/create-invoice', async (req, res) => {
         return res.status(400).json({ error: 'Missing parameters' });
     }
 
-    const amount = stars * 100; // cent-stars
+    const amount = stars; // cent-stars
 
     try {
         const response = await axios.post(
