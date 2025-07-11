@@ -13,7 +13,6 @@
             background-size: cover;
             color: #ff6200;
             min-height: 100vh;
-            max-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -58,7 +57,6 @@
         .title {
             font-size: 24px;
             margin: 0;
-            animation: fadeIn 1s ease-in-out;
         }
         .coin-packages {
             display: grid;
@@ -73,15 +71,11 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
-            transition: transform 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 5px;
             font-weight: bold;
-            animation: slideUp 0.5s ease forwards;
-            animation-delay: calc(var(--order) * 0.2s);
-            opacity: 0;
         }
         .coin-package:hover {
             transform: scale(1.05);
@@ -120,23 +114,12 @@
             color: #ff0000;
             display: none;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
         @media (max-width: 900px) {
             .coin-packages {
                 grid-template-columns: 1fr;
             }
         }
         @media (max-width: 600px) {
-            .coin-packages {
-                grid-template-columns: 1fr;
-            }
             .logo h1 {
                 font-size: 24px;
             }
@@ -146,25 +129,12 @@
             .coin-amount {
                 font-size: 20px;
             }
-            .coin-image {
-                width: 30px;
-                height: 30px;
-                background: url('https://img.icons8.com/fluency/48/star.png') no-repeat center;
-                background-size: contain;
-            }
             .coin-price {
                 font-size: 14px;
             }
             .buy-btn, .back-btn {
                 font-size: 12px;
                 padding: 6px 12px;
-            }
-            .buy-coins-container {
-                gap: 10px;
-                padding: 5px;
-            }
-            .coin-package {
-                padding: 10px;
             }
         }
     </style>
@@ -176,28 +146,29 @@
         </div>
         <button class="back-btn" onclick="window.location.href='/index.html'">Назад</button>
     </div>
+
     <div class="buy-coins-container">
         <h2 class="title">Купить монеты</h2>
         <div class="coin-packages">
-            <div class="coin-package" style="--order: 1;">
+            <div class="coin-package">
                 <div class="coin-amount">10 монет</div>
                 <div class="coin-image"></div>
                 <div class="coin-price">20 Telegram Stars</div>
                 <button class="buy-btn" onclick="buyCoins(10, 20)">Купить</button>
             </div>
-            <div class="coin-package" style="--order: 2;">
+            <div class="coin-package">
                 <div class="coin-amount">25 монет</div>
                 <div class="coin-image"></div>
                 <div class="coin-price">50 Telegram Stars</div>
                 <button class="buy-btn" onclick="buyCoins(25, 50)">Купить</button>
             </div>
-            <div class="coin-package" style="--order: 3;">
+            <div class="coin-package">
                 <div class="coin-amount">50 монет</div>
                 <div class="coin-image"></div>
                 <div class="coin-price">100 Telegram Stars</div>
                 <button class="buy-btn" onclick="buyCoins(50, 100)">Купить</button>
             </div>
-            <div class="coin-package" style="--order: 4;">
+            <div class="coin-package">
                 <div class="coin-amount">100 монет</div>
                 <div class="coin-image"></div>
                 <div class="coin-price">200 Telegram Stars</div>
@@ -207,12 +178,11 @@
         <div class="status" id="status">Ожидание оплаты...</div>
     </div>
 
-        
-   
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 const isTelegram = window.Telegram?.WebApp;
 
-async function buyCoins(amount, stars) {
+async function buyCoins(coins, stars) {
     if (!isTelegram) {
         alert('Оплата доступна только в Telegram WebApp');
         return;
@@ -227,27 +197,27 @@ async function buyCoins(amount, stars) {
     }
 
     try {
-        document.getElementById('status').style.display = 'block';
-        document.getElementById('status').textContent = 'Ожидаем инвойс...';
+        const status = document.getElementById('status');
+        status.style.display = 'block';
+        status.textContent = 'Ожидаем инвойс...';
 
         const response = await fetch('/create-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, coins: amount, stars })
+            body: JSON.stringify({ userId, coins, stars })
         });
 
         const result = await response.json();
 
-        if (!result.ok || !result.url) {
-            throw new Error('Не удалось создать ссылку на инвойс');
+        if (!result.success || !result.invoiceLink) {
+            throw new Error('Ошибка создания инвойса');
         }
 
-        // ✅ Правильный способ — просто перейти по ссылке
-        window.location.href = result.url;
+        Telegram.WebApp.openInvoice(result.invoiceLink);
 
-    } catch (err) {
-        console.error('Ошибка при покупке:', err);
-        alert('Ошибка при покупке. Попробуйте позже.');
+    } catch (error) {
+        console.error('Ошибка при создании инвойса:', error);
+        alert('Ошибка при оплате. Попробуйте позже.');
         document.getElementById('status').style.display = 'none';
     }
 }
@@ -257,7 +227,5 @@ if (isTelegram) {
     Telegram.WebApp.expand();
 }
 </script>
-
-
 </body>
 </html>
