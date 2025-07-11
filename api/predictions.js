@@ -147,7 +147,7 @@ app.post('/create-invoice', async (req, res) => {
                 payload: `buy_${coins}_${Date.now()}`,
                 provider_token: "",               // Обязательно оставить пустым
                 currency: "XTR",                  // Валюта Telegram Stars
-                prices: [{ label: `${coins} монет`, amount: stars * 100 }], // УМНОЖАЕМ НА 100
+                prices: [{ label: `${coins} монет`, amount: stars / 100 }], // УМНОЖАЕМ НА 100
                 start_parameter: `buy_${coins}`
             }
         );
