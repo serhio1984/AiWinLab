@@ -145,9 +145,9 @@ app.post('/create-invoice', async (req, res) => {
                 title: `Покупка ${coins} монет`,
                 description: `${coins} монет за ${stars} Telegram Stars`,
                 payload: `buy_${coins}_${Date.now()}`,
-                provider_token: "",               // ПУСТОЙ — обязательно для Stars
-                currency: "XTR",                  // ВАЛЮТА Stars
-                prices: [{ label: `${coins} монет`, amount: stars }], // НЕ умножаем на 100
+                provider_token: "",               // Обязательно оставить пустым
+                currency: "XTR",                  // Валюта Telegram Stars
+                prices: [{ label: `${coins} монет`, amount: stars * 100 }], // УМНОЖАЕМ НА 100
                 start_parameter: `buy_${coins}`
             }
         );
@@ -159,3 +159,4 @@ app.post('/create-invoice', async (req, res) => {
         res.status(500).json({ error: 'Invoice creation failed' });
     }
 });
+
