@@ -126,42 +126,40 @@ app.post('/api/predictions', async (req, res) => {
 
     res.json({ success: true });
 });
-const axios = require('axios');
+// ... предыдущий код до раздела Разблокировка ...
 
-const BOT_TOKEN = process.env.BOT_TOKEN; // Убедись, что переменная окружения установлена
-const PROVIDER_TOKEN = process.env.PROVIDER_TOKEN; // токен платёжного провайдера (можно не нужен для Stars)
-const BOT_USERNAME = process.env.BOT_USERNAME || 'your_bot_username'; // без @
+// 9. Создание ссылки на Invoice для покупки монет
+const TelegramBot = require('node-telegram-bot-api');
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const botApi = new TelegramBot(BOT_TOKEN, { polling: false });
 
 app.post('/create-invoice', async (req, res) => {
+    if (!db) return res.status(503).json({ ok: false, error: 'DB unavailable' });
     const { userId, coins, stars } = req.body;
-
     if (!userId || !coins || !stars) {
-        return res.status(400).json({ error: 'Missing userId, coins, or stars' });
+        return res.status(400).json({ ok: false, error: 'Missing purchase data' });
     }
-
-    const payload = `user_${userId}_coins_${coins}`;
-    const priceInCentStars = stars * 100; // 1 Star = 100 cent-stars
 
     try {
-        const response = await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`, {
-            title: `Покупка ${coins} монет`,
-            description: `Вы получите ${coins} монет для AiWinLab`,
-            payload,
-            currency: 'XTR',
-            prices: [{ label: `${coins} монет`, amount: priceInCentStars }],
-            provider_token: PROVIDER_TOKEN
-        });
-
-        if (response.data.ok) {
-            return res.json({ success: true, invoiceLink: response.data.result });
-        } else {
-            console.error('❌ Telegram API error:', response.data);
-            return res.status(500).json({ error: 'Telegram API error', details: response.data });
-        }
+        const prices = [{ amount: stars * 100, label: `${coins} монет` }];
+        const link = await botApi.createInvoiceLink(
+            `Покупка ${coins} монет`,           // title
+            `Вы получите ${coins} монет`,       // description
+            JSON.stringify({ userId, coins }),  // payload
+            '',                                 // provider_token – пусто для Stars
+            'XTR',                              // валюта Telegram Stars
+            prices                             // цены
+        );
+        console.log('📄 Invoice link created:', link);
+        res.json({ ok: true, url: link });
     } catch (e) {
-        console.error('❌ Error creating invoice:', e.message);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('❌ Error creating invoice:', e);
+        res.status(500).json({ ok: false, error: e.message });
     }
 });
+
+// 👇 widget graceful shutdown
+process.on('SIGTERM', () => client.close() && process.exit(0));
+
 
 
