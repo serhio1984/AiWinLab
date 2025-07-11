@@ -180,52 +180,51 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-const isTelegram = window.Telegram?.WebApp;
+const tg = window.Telegram?.WebApp;
 
-async function buyCoins(coins, stars) {
-    if (!isTelegram) {
-        alert('Оплата доступна только в Telegram WebApp');
+async function buyCoins(amount, stars) {
+    if (!tg) {
+        alert('Оплата доступна только внутри Telegram WebApp.');
         return;
     }
 
-    const user = Telegram.WebApp.initDataUnsafe?.user;
+    const user = tg.initDataUnsafe?.user;
     const userId = user?.id;
-
     if (!userId) {
-        alert('Не удалось определить пользователя Telegram');
+        alert('Не удалось определить пользователя.');
         return;
     }
 
-    try {
-        const status = document.getElementById('status');
-        status.style.display = 'block';
-        status.textContent = 'Ожидаем инвойс...';
+    document.getElementById('status').style.display = 'block';
+    document.getElementById('status').textContent = 'Создаем инвойс...';
 
-        const response = await fetch('/create-invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, coins, stars })
-        });
+    const resp = await fetch('/create-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, coins: amount, stars })
+    });
+    const data = await resp.json();
 
-        const result = await response.json();
-
-        if (!result.success || !result.invoiceLink) {
-            throw new Error('Ошибка создания инвойса');
-        }
-
-        Telegram.WebApp.openInvoice(result.invoiceLink);
-
-    } catch (error) {
-        console.error('Ошибка при создании инвойса:', error);
-        alert('Ошибка при оплате. Попробуйте позже.');
+    if (!data.ok || !data.url) {
+        alert('Не удалось создать инвойс: ' + data.error);
         document.getElementById('status').style.display = 'none';
+        return;
     }
+
+    tg.openInvoice(data.url, status => {
+        if (status === 'paid') {
+            tg.sendData(JSON.stringify({ event: 'purchase', coins: amount }));
+        } else if (status === 'cancelled') {
+            alert('Платеж отменён');
+        } else {
+            alert('Ошибка оплаты: ' + status);
+        }
+    });
 }
 
-if (isTelegram) {
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
-}
+Telegram.WebApp.ready();
+Telegram.WebApp.expand();
 </script>
+
 </body>
 </html>
