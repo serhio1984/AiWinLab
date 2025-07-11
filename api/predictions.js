@@ -127,36 +127,3 @@ app.post('/api/predictions', async (req, res) => {
     res.json({ success: true });
 });
 
-const axios = require('axios');
-
-const BOT_TOKEN = process.env.BOT_TOKEN;
-
-// 9. Создание инвойса через createInvoiceLink
-app.post('/create-invoice', async (req, res) => {
-    const { userId, coins, stars } = req.body;
-    if (!userId || !coins || !stars) {
-        return res.status(400).json({ error: 'Missing parameters' });
-    }
-
-    try {
-        const response = await axios.post(
-            `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
-            {
-                title: `Покупка ${coins} монет`,
-                description: `${coins} монет за ${stars} Telegram Stars`,
-                payload: `buy_${coins}_${Date.now()}`,
-                provider_token: "",               // Обязательно оставить пустым
-                currency: "XTR",                  // Валюта Telegram Stars
-                prices: [{ label: `${coins} монет`, amount: stars / 100 }], // УМНОЖАЕМ НА 100
-                start_parameter: `buy_${coins}`
-            }
-        );
-
-        const url = response.data.result;
-        res.json({ ok: true, url });
-    } catch (e) {
-        console.error('❌ Ошибка создания ссылки на инвойс:', e?.response?.data || e.message);
-        res.status(500).json({ error: 'Invoice creation failed' });
-    }
-});
-
