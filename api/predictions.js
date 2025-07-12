@@ -4,14 +4,37 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-// 2. Статика
-app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
+// 📩 Webhook от Telegram после оплаты
+app.post('/webhook', express.json(), async (req, res) => {
+    console.log('📩 Вызван /webhook!');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
 
+    const body = req.body;
 
-const rootDir = path.join(__dirname, '..');
-console.log('Root directory set to:', rootDir);
+    // Проверка, что это успешная оплата
+    if (body.message?.successful_payment) {
+        const userId = body.message.from.id;
+        const payload = body.message.successful_payment.invoice_payload;
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+        try {
+            const parsed = JSON.parse(payload); // payload содержит userId и количество монет
+            const { coins } = parsed;
+
+            const users = db.collection('users');
+            await users.updateOne(
+                { chatId: userId },
+                { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+                { upsert: true }
+            );
+
+            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет`);
+        } catch (e) {
+            console.error('❌ Ошибка обработки payload:', e);
+        }
+    }
+
+    res.sendStatus(200);
+});
 
 // 1. Корневая страница
 app.get('/', (req, res) => {
@@ -158,37 +181,15 @@ app.post('/create-invoice', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
-// 📩 Webhook от Telegram после оплаты
-app.post('/webhook', express.json(), async (req, res) => {
-    console.log('📩 Вызван /webhook!');
-    console.log('Body:', JSON.stringify(req.body, null, 2));
+// 2. Статика
+app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
 
-    const body = req.body;
 
-    // Проверка, что это успешная оплата
-    if (body.message?.successful_payment) {
-        const userId = body.message.from.id;
-        const payload = body.message.successful_payment.invoice_payload;
+const rootDir = path.join(__dirname, '..');
+console.log('Root directory set to:', rootDir);
 
-        try {
-            const parsed = JSON.parse(payload); // payload содержит userId и количество монет
-            const { coins } = parsed;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-            const users = db.collection('users');
-            await users.updateOne(
-                { chatId: userId },
-                { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-                { upsert: true }
-            );
-
-            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет`);
-        } catch (e) {
-            console.error('❌ Ошибка обработки payload:', e);
-        }
-    }
-
-    res.sendStatus(200);
-});
 
 
 
