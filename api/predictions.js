@@ -23,23 +23,39 @@ app.post('/webhook', express.json(), async (req, res) => {
             const userId = body.message.from.id;
             const payload = body.message.successful_payment.invoice_payload;
 
-            try {
-                const parsed = JSON.parse(payload);
-                const { coins } = parsed;
-
-                const users = db.collection('users');
-                if (!users) throw new Error('Users collection unavailable');
-
-                const result = await users.updateOne(
-                    { chatId: userId },
-                    { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-                    { upsert: true }
-                );
-
-                console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
-            } catch (e) {
-                console.error('❌ Ошибка обработки payload:', e.stack);
+            if (!payload) {
+                console.warn('⚠️ No invoice_payload in successful_payment');
+                res.sendStatus(200);
+                return;
             }
+
+            let parsedPayload;
+            try {
+                parsedPayload = JSON.parse(payload);
+            } catch (e) {
+                console.error('❌ Invalid JSON in invoice_payload:', payload, e.stack);
+                res.sendStatus(200);
+                return;
+            }
+
+            const { coins } = parsedPayload;
+
+            if (typeof coins !== 'number' || coins <= 0) {
+                console.warn('⚠️ Invalid coins value:', coins);
+                res.sendStatus(200);
+                return;
+            }
+
+            const users = db.collection('users');
+            if (!users) throw new Error('Users collection unavailable');
+
+            const result = await users.updateOne(
+                { chatId: userId },
+                { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+                { upsert: true }
+            );
+
+            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
         } else {
             console.log('⚠️ Non-payment webhook event:', JSON.stringify(body));
         }
