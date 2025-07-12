@@ -126,7 +126,7 @@ app.post('/api/predictions', async (req, res) => {
 
     res.json({ success: true });
 });
-// ... предыдущий код до раздела Разблокировка ...
+
 
 // 9. Создание ссылки на Invoice для покупки монет
 const TelegramBot = require('node-telegram-bot-api');
@@ -141,7 +141,7 @@ app.post('/create-invoice', async (req, res) => {
     }
 
     try {
-        const prices = [{ amount: stars * 1, label: `${coins} монет` }];
+        const prices = [{ amount: stars * 100, label: `${coins} монет` }];
         const link = await botApi.createInvoiceLink(
             `Покупка ${coins} монет`,           // title
             `Вы получите ${coins} монет`,       // description
