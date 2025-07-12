@@ -160,6 +160,9 @@ app.post('/create-invoice', async (req, res) => {
 });
 // 📩 Webhook от Telegram после оплаты
 app.post('/webhook', express.json(), async (req, res) => {
+    console.log('📩 Вызван /webhook!');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+
     const body = req.body;
 
     // Проверка, что это успешная оплата
