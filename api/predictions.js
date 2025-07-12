@@ -162,4 +162,31 @@ app.post('/create-invoice', async (req, res) => {
 process.on('SIGTERM', () => client.close() && process.exit(0));
 
 
+app.post('/webhook', async (req, res) => {
+    const body = req.body;
+
+    // Проверка, что это успешная оплата
+    if (body.message?.successful_payment) {
+        const payment = body.message.successful_payment;
+        const payload = JSON.parse(payment.invoice_payload || '{}');
+        const userId = payload.userId;
+        const coins = parseInt(payload.coins);
+
+        if (userId && coins) {
+            try {
+                const users = db.collection('users');
+                await users.updateOne(
+                    { chatId: userId },
+                    { $inc: { coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+                    { upsert: true }
+                );
+                console.log(`💰 Пользователю ${userId} начислено ${coins} монет`);
+            } catch (err) {
+                console.error('Ошибка начисления монет:', err);
+            }
+        }
+    }
+
+    res.sendStatus(200);
+});
 
