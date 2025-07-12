@@ -141,7 +141,7 @@ app.post('/create-invoice', async (req, res) => {
     }
 
     try {
-        const prices = [{ amount: stars * 100, label: `${coins} монет` }];
+        const prices = [{ amount: stars * 1, label: `${coins} монет` }];
         const link = await botApi.createInvoiceLink(
             `Покупка ${coins} монет`,           // title
             `Вы получите ${coins} монет`,       // description
