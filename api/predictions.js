@@ -4,6 +4,9 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
+// 2. Статика
+app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
+
 
 const rootDir = path.join(__dirname, '..');
 console.log('Root directory set to:', rootDir);
@@ -15,8 +18,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(rootDir, 'welcome.html'));
 });
 
-// 2. Статика
-app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
 
 // 3. MongoDB
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
