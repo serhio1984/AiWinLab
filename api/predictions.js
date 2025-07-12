@@ -4,43 +4,48 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
+
 // 📩 Webhook от Telegram после оплаты
 app.post('/webhook', express.json(), async (req, res) => {
     console.log('📩 Вызван /webhook!');
     console.log('Body:', JSON.stringify(req.body, null, 2));
 
-    const body = req.body;
+    try {
+        const body = req.body;
 
-    // Проверка, что это успешная оплата
-    if (body.message?.successful_payment) {
-        const userId = body.message.from.id;
-        const payload = body.message.successful_payment.invoice_payload;
+        // Проверка, что это успешная оплата
+        if (body.message?.successful_payment) {
+            const userId = body.message.from.id;
+            const payload = body.message.successful_payment.invoice_payload;
 
-        try {
             const parsed = JSON.parse(payload); // payload содержит userId и количество монет
             const { coins } = parsed;
 
+            if (!db) throw new Error('Database not connected');
             const users = db.collection('users');
-            await users.updateOne(
+            if (!users) throw new Error('Users collection unavailable');
+
+            const result = await users.updateOne(
                 { chatId: userId },
                 { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
                 { upsert: true }
             );
 
-            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет`);
-        } catch (e) {
-            console.error('❌ Ошибка обработки payload:', e);
+            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
+        } else {
+            console.log('⚠️ Non-payment webhook event:', body);
         }
+        res.sendStatus(200);
+    } catch (e) {
+        console.error('❌ Ошибка обработки webhook:', e.stack);
+        res.sendStatus(200); // Telegram игнорирует ошибки, но логируются
     }
-
-    res.sendStatus(200);
 });
 
 // 1. Корневая страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(rootDir, 'welcome.html'));
 });
-
 
 // 3. MongoDB
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
@@ -151,7 +156,6 @@ app.post('/api/predictions', async (req, res) => {
     res.json({ success: true });
 });
 
-
 // 9. Создание ссылки на Invoice для покупки монет
 const TelegramBot = require('node-telegram-bot-api');
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -181,20 +185,13 @@ app.post('/create-invoice', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
 // 2. Статика
-app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
-
-
 const rootDir = path.join(__dirname, '..');
 console.log('Root directory set to:', rootDir);
+app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
-
-
-
-
 // 👇 widget graceful shutdown
 process.on('SIGTERM', () => client.close() && process.exit(0));
-
-
