@@ -5,43 +5,50 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// 📩 Webhook от Telegram после оплаты
 app.post('/webhook', express.json(), async (req, res) => {
     console.log('📩 Вызван /webhook!');
+    console.log('Headers:', req.headers);
     console.log('Body:', JSON.stringify(req.body, null, 2));
 
     try {
+        if (!db) {
+            console.error('❌ Database not connected during webhook');
+            res.sendStatus(200); // Telegram игнорирует ошибки
+            return;
+        }
+
         const body = req.body;
 
-        // Проверка, что это успешная оплата
         if (body.message?.successful_payment) {
             const userId = body.message.from.id;
             const payload = body.message.successful_payment.invoice_payload;
 
-            const parsed = JSON.parse(payload); // payload содержит userId и количество монет
-            const { coins } = parsed;
+            try {
+                const parsed = JSON.parse(payload);
+                const { coins } = parsed;
 
-            if (!db) throw new Error('Database not connected');
-            const users = db.collection('users');
-            if (!users) throw new Error('Users collection unavailable');
+                const users = db.collection('users');
+                if (!users) throw new Error('Users collection unavailable');
 
-            const result = await users.updateOne(
-                { chatId: userId },
-                { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-                { upsert: true }
-            );
+                const result = await users.updateOne(
+                    { chatId: userId },
+                    { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+                    { upsert: true }
+                );
 
-            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
+                console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
+            } catch (e) {
+                console.error('❌ Ошибка обработки payload:', e.stack);
+            }
         } else {
-            console.log('⚠️ Non-payment webhook event:', body);
+            console.log('⚠️ Non-payment webhook event:', JSON.stringify(body));
         }
         res.sendStatus(200);
     } catch (e) {
-        console.error('❌ Ошибка обработки webhook:', e.stack);
-        res.sendStatus(200); // Telegram игнорирует ошибки, но логируются
+        console.error('❌ Критическая ошибка webhook:', e.stack);
+        res.sendStatus(200); // Telegram требует 200 даже при ошибках
     }
 });
-
 // 1. Корневая страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(rootDir, 'welcome.html'));
