@@ -157,11 +157,6 @@ app.post('/create-invoice', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
-
-// 👇 widget graceful shutdown
-process.on('SIGTERM', () => client.close() && process.exit(0));
-
-
 // 📩 Webhook от Telegram после оплаты
 app.post('/webhook', express.json(), async (req, res) => {
     const body = req.body;
@@ -190,5 +185,11 @@ app.post('/webhook', express.json(), async (req, res) => {
 
     res.sendStatus(200);
 });
+
+
+
+
+// 👇 widget graceful shutdown
+process.on('SIGTERM', () => client.close() && process.exit(0));
 
 
