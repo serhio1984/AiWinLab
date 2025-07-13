@@ -6,8 +6,7 @@ const axios = require('axios'); // Добавлена зависимость
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// 📩 Webhook от Telegram после оплаты
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
     console.log('📩 Вызван /webhook!');
     console.log('Headers:', req.headers);
     console.log('Body:', JSON.stringify(req.body, null, 2));
@@ -25,13 +24,18 @@ app.post('/webhook', async (req, res) => {
         if (body.pre_checkout_query) {
             const TelegramBot = require('node-telegram-bot-api');
             const BOT_TOKEN = process.env.BOT_TOKEN;
+            const axios = require('axios');
             const queryId = body.pre_checkout_query.id;
 
+            console.log(`⚙️ Processing pre_checkout_query for queryId: ${queryId}`);
+
             try {
-                // Отвечаем Telegram, что всё ОК — можно оплачивать
+                // Немедленный ответ Telegram
                 await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
                     pre_checkout_query_id: queryId,
                     ok: true
+                }, {
+                    timeout: 5000 // Таймаут 5 секунд
                 });
                 console.log(`✅ Ответили на pre_checkout_query ${queryId}`);
             } catch (err) {
