@@ -1,11 +1,13 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const path = require('path');
+const axios = require('axios'); // Добавлена зависимость
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-app.post('/webhook', express.json(), async (req, res) => {
+// 📩 Webhook от Telegram после оплаты
+app.post('/webhook', async (req, res) => {
     console.log('📩 Вызван /webhook!');
     console.log('Headers:', req.headers);
     console.log('Body:', JSON.stringify(req.body, null, 2));
@@ -13,12 +15,33 @@ app.post('/webhook', express.json(), async (req, res) => {
     try {
         if (!db) {
             console.error('❌ Database not connected during webhook');
-            res.sendStatus(200); // Telegram игнорирует ошибки
+            res.sendStatus(200);
             return;
         }
 
         const body = req.body;
 
+        // 👉 Ответ на pre_checkout_query
+        if (body.pre_checkout_query) {
+            const TelegramBot = require('node-telegram-bot-api');
+            const BOT_TOKEN = process.env.BOT_TOKEN;
+            const queryId = body.pre_checkout_query.id;
+
+            try {
+                // Отвечаем Telegram, что всё ОК — можно оплачивать
+                await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
+                    pre_checkout_query_id: queryId,
+                    ok: true
+                });
+                console.log(`✅ Ответили на pre_checkout_query ${queryId}`);
+            } catch (err) {
+                console.error('❌ Ошибка ответа на pre_checkout_query:', err.response?.data || err.message);
+            }
+
+            return res.sendStatus(200);
+        }
+
+        // Обработка успешной оплаты
         if (body.message?.successful_payment) {
             const userId = body.message.from.id;
             const payload = body.message.successful_payment.invoice_payload;
@@ -62,9 +85,10 @@ app.post('/webhook', express.json(), async (req, res) => {
         res.sendStatus(200);
     } catch (e) {
         console.error('❌ Критическая ошибка webhook:', e.stack);
-        res.sendStatus(200); // Telegram требует 200 даже при ошибках
+        res.sendStatus(200);
     }
 });
+
 // 1. Корневая страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(rootDir, 'welcome.html'));
@@ -194,12 +218,12 @@ app.post('/create-invoice', async (req, res) => {
     try {
         const prices = [{ amount: stars * 1, label: `${coins} монет` }];
         const link = await botApi.createInvoiceLink(
-            `Покупка ${coins} монет`,           // title
-            `Вы получите ${coins} монет`,       // description
-            JSON.stringify({ userId, coins }),  // payload
-            '',                                 // provider_token – пусто для Stars
-            'XTR',                              // валюта Telegram Stars
-            prices                             // цены
+            `Покупка ${coins} монет`,
+            `Вы получите ${coins} монет`,
+            JSON.stringify({ userId, coins }),
+            '',
+            'XTR',
+            prices
         );
         console.log('📄 Invoice link created:', link);
         res.json({ ok: true, url: link });
