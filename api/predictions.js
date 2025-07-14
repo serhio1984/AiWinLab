@@ -45,53 +45,40 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
             return res.sendStatus(200);
         }
 
-        // Обработка успешной оплаты
-        if (body.message?.successful_payment) {
-            const userId = body.message.from.id;
-            const payload = body.message.successful_payment.invoice_payload;
+       // Обработка успешной оплаты
+if (body.message?.successful_payment) {
+    const payload = body.message.successful_payment.invoice_payload;
 
-            if (!payload) {
-                console.warn('⚠️ No invoice_payload in successful_payment');
-                res.sendStatus(200);
-                return;
-            }
-
-            let parsedPayload;
-            try {
-                parsedPayload = JSON.parse(payload);
-            } catch (e) {
-                console.error('❌ Invalid JSON in invoice_payload:', payload, e.stack);
-                res.sendStatus(200);
-                return;
-            }
-
-            const { coins } = parsedPayload;
-
-            if (typeof coins !== 'number' || coins <= 0) {
-                console.warn('⚠️ Invalid coins value:', coins);
-                res.sendStatus(200);
-                return;
-            }
-
-            const users = db.collection('users');
-            if (!users) throw new Error('Users collection unavailable');
-
-            const result = await users.updateOne(
-                { chatId: userId },
-                { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-                { upsert: true }
-            );
-
-            console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет, result: ${JSON.stringify(result)}`);
-        } else {
-            console.log('⚠️ Non-payment webhook event:', JSON.stringify(body));
-        }
-        res.sendStatus(200);
-    } catch (e) {
-        console.error('❌ Критическая ошибка webhook:', e.stack);
-        res.sendStatus(200);
+    if (!payload) {
+        console.warn('⚠️ No invoice_payload in successful_payment');
+        return res.sendStatus(200);
     }
-});
+
+    let parsedPayload;
+    try {
+        parsedPayload = JSON.parse(payload);
+    } catch (e) {
+        console.error('❌ Invalid JSON in invoice_payload:', payload, e.stack);
+        return res.sendStatus(200);
+    }
+
+    const { userId, coins } = parsedPayload;
+
+    if (typeof coins !== 'number' || coins <= 0 || !userId) {
+        console.warn('⚠️ Invalid payload values:', parsedPayload);
+        return res.sendStatus(200);
+    }
+
+    const users = db.collection('users');
+    const result = await users.updateOne(
+        { chatId: userId },
+        { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+        { upsert: true }
+    );
+
+    console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет. DB result:`, result);
+}
+
 
 // 1. Корневая страница
 app.get('/', (req, res) => {
