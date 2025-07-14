@@ -78,6 +78,8 @@ if (body.message?.successful_payment) {
 
     console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет. DB result:`, result);
 }
+    
+});
 
 
 // 1. Корневая страница
