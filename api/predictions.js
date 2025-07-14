@@ -1,11 +1,20 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const path = require('path');
-const axios = require('axios'); // Добавлена зависимость
+const axios = require('axios');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+const TelegramBot = require('node-telegram-bot-api');
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const botApi = new TelegramBot(BOT_TOKEN, { polling: false });
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const rootDir = path.join(__dirname, '..');
+console.log('Root directory set to:', rootDir);
+
+// 📩 Webhook
 app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
     console.log('📩 Вызван /webhook!');
     console.log('Headers:', req.headers);
@@ -14,80 +23,73 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
     try {
         if (!db) {
             console.error('❌ Database not connected during webhook');
-            res.sendStatus(200);
-            return;
+            return res.sendStatus(200);
         }
 
         const body = req.body;
 
-        // 👉 Ответ на pre_checkout_query
+        // ✅ Ответ на pre_checkout_query
         if (body.pre_checkout_query) {
-            const TelegramBot = require('node-telegram-bot-api');
-            const BOT_TOKEN = process.env.BOT_TOKEN;
-            const axios = require('axios');
             const queryId = body.pre_checkout_query.id;
-
-            console.log(`⚙️ Processing pre_checkout_query for queryId: ${queryId}`);
-
             try {
-                // Немедленный ответ Telegram
                 await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
                     pre_checkout_query_id: queryId,
                     ok: true
-                }, {
-                    timeout: 5000 // Таймаут 5 секунд
                 });
                 console.log(`✅ Ответили на pre_checkout_query ${queryId}`);
             } catch (err) {
                 console.error('❌ Ошибка ответа на pre_checkout_query:', err.response?.data || err.message);
             }
-
             return res.sendStatus(200);
         }
 
-       // Обработка успешной оплаты
-if (body.message?.successful_payment) {
-    const payload = body.message.successful_payment.invoice_payload;
+        // ✅ Успешная оплата
+        if (body.message?.successful_payment) {
+            const payload = body.message.successful_payment.invoice_payload;
+            if (!payload) return res.sendStatus(200);
 
-    if (!payload) {
-        console.warn('⚠️ No invoice_payload in successful_payment');
-        return res.sendStatus(200);
-    }
+            let parsed;
+            try {
+                parsed = JSON.parse(payload);
+            } catch (e) {
+                console.error('❌ Невалидный payload:', payload);
+                return res.sendStatus(200);
+            }
 
-    let parsedPayload;
-    try {
-        parsedPayload = JSON.parse(payload);
+            const { userId, coins } = parsed;
+            if (!userId || typeof coins !== 'number' || coins <= 0) {
+                console.warn('⚠️ Неверные данные оплаты:', parsed);
+                return res.sendStatus(200);
+            }
+
+            const users = db.collection('users');
+            const result = await users.updateOne(
+                { chatId: userId },
+                { $inc: { coins }, $setOnInsert: { chatId: userId, coins: 0 } },
+                { upsert: true }
+            );
+
+            console.log(`✅ Пользователь ${userId} получил ${coins} монет. Результат:`, result);
+        } else {
+            console.log('⚠️ Другой тип webhook:', JSON.stringify(body));
+        }
+
+        res.sendStatus(200);
     } catch (e) {
-        console.error('❌ Invalid JSON in invoice_payload:', payload, e.stack);
-        return res.sendStatus(200);
+        console.error('❌ Ошибка в webhook:', e.stack);
+        res.sendStatus(200);
     }
-
-    const { userId, coins } = parsedPayload;
-
-    if (typeof coins !== 'number' || coins <= 0 || !userId) {
-        console.warn('⚠️ Invalid payload values:', parsedPayload);
-        return res.sendStatus(200);
-    }
-
-    const users = db.collection('users');
-    const result = await users.updateOne(
-        { chatId: userId },
-        { $inc: { coins: coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-        { upsert: true }
-    );
-
-    console.log(`✅ Пользователь ${userId} успешно оплатил и получил ${coins} монет. DB result:`, result);
-}
-    
 });
 
-
-// 1. Корневая страница
+// 🏠 Корневая страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(rootDir, 'welcome.html'));
 });
 
-// 3. MongoDB
+// 🌐 Статика
+app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
+
+// 🛠️ MongoDB
 const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const client = new MongoClient(uri);
 let db;
@@ -97,17 +99,16 @@ async function connectDB() {
     db = client.db("predictionsDB");
     console.log("✅ MongoDB connected");
 }
-
 client.on('disconnected', () => connectDB().catch(console.error));
 connectDB().then(() => app.listen(process.env.PORT || 3000, () => console.log('🚀 Server started')));
 
-// 4. Админ-панель
+// 🔐 Проверка пароля
 app.post('/api/check-password', (req, res) => {
     const { password } = req.body;
     res.json({ success: password === ADMIN_PASSWORD });
 });
 
-// 5. Баланс
+// 💰 Баланс
 app.post('/balance', async (req, res) => {
     const { userId, action, amount } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID required' });
@@ -135,7 +136,7 @@ app.post('/balance', async (req, res) => {
     res.status(400).json({ error: 'Invalid action' });
 });
 
-// 6. Получение прогнозов с учётом разблокировок
+// 📊 Получение прогнозов
 app.get('/api/predictions', async (req, res) => {
     const userId = parseInt(req.query.userId, 10);
     const preds = await db.collection('predictions').find().toArray();
@@ -155,7 +156,7 @@ app.get('/api/predictions', async (req, res) => {
     res.json(result);
 });
 
-// 7. Разблокировка прогноза
+// 🔓 Разблокировка прогноза
 app.post('/api/unlock', async (req, res) => {
     const { userId, predictionId } = req.body;
     if (!userId || predictionId == null) return res.status(400).json({ error: 'Missing data' });
@@ -179,7 +180,7 @@ app.post('/api/unlock', async (req, res) => {
     res.json({ success: true, coins: updated.coins });
 });
 
-// 8. Сохранение прогнозов
+// 📝 Сохранение прогнозов
 app.post('/api/predictions', async (req, res) => {
     const arr = req.body;
     if (!Array.isArray(arr)) return res.status(400).json({ success: false });
@@ -196,11 +197,7 @@ app.post('/api/predictions', async (req, res) => {
     res.json({ success: true });
 });
 
-// 9. Создание ссылки на Invoice для покупки монет
-const TelegramBot = require('node-telegram-bot-api');
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const botApi = new TelegramBot(BOT_TOKEN, { polling: false });
-
+// 💳 Создание инвойса
 app.post('/create-invoice', async (req, res) => {
     if (!db) return res.status(503).json({ ok: false, error: 'DB unavailable' });
     const { userId, coins, stars } = req.body;
@@ -209,7 +206,7 @@ app.post('/create-invoice', async (req, res) => {
     }
 
     try {
-        const prices = [{ amount: stars * 1, label: `${coins} монет` }];
+        const prices = [{ amount: stars, label: `${coins} монет` }];
         const link = await botApi.createInvoiceLink(
             `Покупка ${coins} монет`,
             `Вы получите ${coins} монет`,
@@ -226,12 +223,5 @@ app.post('/create-invoice', async (req, res) => {
     }
 });
 
-// 2. Статика
-const rootDir = path.join(__dirname, '..');
-console.log('Root directory set to:', rootDir);
-app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-
-// 👇 widget graceful shutdown
+// ⛔ Завершение процесса
 process.on('SIGTERM', () => client.close() && process.exit(0));
