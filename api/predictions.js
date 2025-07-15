@@ -203,21 +203,25 @@ app.post('/api/predictions', async (req, res) => {
 // 💳 Создание инвойса
 app.post('/create-invoice', async (req, res) => {
     if (!db) return res.status(503).json({ ok: false, error: 'DB unavailable' });
+
     const { userId, coins, stars } = req.body;
+
     if (!userId || !coins || !stars) {
         return res.status(400).json({ ok: false, error: 'Missing purchase data' });
     }
 
     try {
         const prices = [{ amount: stars, label: `${coins} монет` }];
+
         const link = await botApi.createInvoiceLink(
-            `Покупка ${coins} монет`,
-            `Вы получите ${coins} монет`,
-            JSON.stringify({ userId, coins }),
-            '',
-            'XTR',
-            prices
+            `Покупка ${coins} монет`,                          // title
+            `Вы получите ${coins} монет`,                     // description
+            JSON.stringify({ userId, coins }),                // payload
+            'redirect-index',                                 // 👈 start_parameter
+            'XTR',                                            // currency
+            prices                                            // prices
         );
+
         console.log('📄 Invoice link created:', link);
         res.json({ ok: true, url: link });
     } catch (e) {
@@ -225,6 +229,7 @@ app.post('/create-invoice', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
 
 // ⛔ Завершение процесса
 process.on('SIGTERM', () => client.close() && process.exit(0));
