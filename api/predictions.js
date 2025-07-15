@@ -64,10 +64,13 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
 
             const users = db.collection('users');
             const result = await users.updateOne(
-                { chatId: userId },
-                { $inc: { coins }, $setOnInsert: { chatId: userId, coins: 0 } },
-                { upsert: true }
-            );
+    { chatId: userId },
+    {
+        $inc: { coins },
+        $setOnInsert: { chatId: userId } // ✅ убираем coins отсюда
+    },
+    { upsert: true }
+);
 
             console.log(`✅ Пользователь ${userId} получил ${coins} монет. Результат:`, result);
         } else {
