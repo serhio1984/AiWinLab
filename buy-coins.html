@@ -224,6 +224,12 @@ async function buyCoins(amount, stars) {
 
 Telegram.WebApp.ready();
 Telegram.WebApp.expand();
+// 🔄 Автоматический редирект после оплаты
+const urlParams = new URLSearchParams(window.Telegram.WebApp.initDataUnsafe?.start_param || '');
+if (urlParams.toString() === 'redirect-index') {
+    window.location.href = '/index.html';
+}
+
 </script>
 
 </body>
