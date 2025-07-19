@@ -1,31 +1,67 @@
+const axios = require('axios');
+const OpenAI = require('openai');
+
+const API_KEY = process.env.FOOTBALL_API_KEY;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const API_URL = 'https://v3.football.api-sports.io/fixtures?date=';
+
+const openai = new OpenAI({ apiKey: OPENAI_KEY });
+
 function getRandomOdds() {
     return (1.5 + Math.random() * 2).toFixed(2);
 }
 
-function getRandomMatch() {
-    const teams = [
-        ['Барселона', 'Реал Мадрид'],
-        ['Манчестер Сити', 'Ливерпуль'],
-        ['Бавария', 'ПСЖ'],
-        ['Челси', 'Арсенал'],
-        ['Интер', 'Милан']
-    ];
-    return teams[Math.floor(Math.random() * teams.length)];
+async function fetchMatches() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const res = await axios.get(`${API_URL}${today}`, {
+            headers: { 'x-apisports-key': API_KEY }
+        });
+        return res.data.response || [];
+    } catch (e) {
+        console.error('Ошибка загрузки матчей:', e.message);
+        return [];
+    }
+}
+
+async function generateAIPrediction(home, away) {
+    if (!OPENAI_KEY) return `${home} или ${away} победит.`;
+    try {
+        const prompt = `Дай краткий прогноз на матч ${home} против ${away}. Укажи вероятного победителя и причину (2 предложения).`;
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+        });
+        return response.choices[0].message.content;
+    } catch (e) {
+        console.error('Ошибка AI-прогноза:', e.message);
+        return `${home} или ${away} имеет хорошие шансы на победу.`;
+    }
 }
 
 async function generatePredictions() {
+    const matches = await fetchMatches();
+    if (!matches.length) {
+        console.warn('Нет матчей на сегодня.');
+        return [];
+    }
+
     const predictions = [];
-    for (let i = 0; i < 5; i++) {
-        const [team1, team2] = getRandomMatch();
+    for (let i = 0; i < Math.min(5, matches.length); i++) {
+        const match = matches[i];
+        const home = match.teams.home.name;
+        const away = match.teams.away.name;
+        const aiText = await generateAIPrediction(home, away);
+
         predictions.push({
             id: Date.now() + i,
-            tournament: 'UEFA Champions League',
-            team1,
-            logo1: `https://dummyimage.com/50x50/ff6200/fff&text=${team1[0]}`,
-            team2,
-            logo2: `https://dummyimage.com/50x50/ff6200/fff&text=${team2[0]}`,
+            tournament: match.league.name,
+            team1: home,
+            logo1: match.teams.home.logo,
+            team2: away,
+            logo2: match.teams.away.logo,
             odds: getRandomOdds(),
-            predictionText: `${team1} победит ${team2}`
+            predictionText: aiText
         });
     }
     return predictions;
