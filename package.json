@@ -14,7 +14,8 @@
     "express": "^4.21.2",
     "mongodb": "^6.17.0",
     "node-cron": "^4.2.1",
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.63.0",
+    "openai": "^5.10.2"
   },
   "repository": {
     "type": "git",
