@@ -1,24 +1,25 @@
 const axios = require('axios');
 const OpenAI = require('openai');
 
-const API_KEY = process.env.FOOTBALL_API_KEY;
+const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const ODDS_API_KEY = 'd0c08025a01a64651cd3c9d15a29e242';
+
 const API_URL = 'https://v3.football.api-sports.io/fixtures?date=';
+const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=h2h&oddsFormat=decimal&apiKey=' + ODDS_API_KEY;
 
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-// Возможные коэффициенты (для теста — случайные)
 function getRandomOdds() {
     const odds = [1.5, 1.7, 1.9, 2.0, 2.3, 2.5, 3.0, 3.5];
     return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
 }
 
-// Получаем список матчей на сегодня
 async function fetchMatches() {
     try {
         const today = new Date().toISOString().split('T')[0];
         const res = await axios.get(`${API_URL}${today}`, {
-            headers: { 'x-apisports-key': API_KEY }
+            headers: { 'x-apisports-key': FOOTBALL_API_KEY }
         });
         return res.data.response || [];
     } catch (e) {
@@ -27,7 +28,27 @@ async function fetchMatches() {
     }
 }
 
-// Генерация прогноза ИИ (короткий, на русском)
+async function fetchRealOdds(team1, team2) {
+    try {
+        const res = await axios.get(ODDS_API_URL);
+        const games = res.data;
+        for (const game of games) {
+            if (
+                game.home_team.toLowerCase().includes(team1.toLowerCase()) ||
+                game.away_team.toLowerCase().includes(team2.toLowerCase())
+            ) {
+                if (game.bookmakers?.length > 0 && game.bookmakers[0].markets?.length > 0) {
+                    return game.bookmakers[0].markets[0].outcomes[0].price;
+                }
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error('Ошибка загрузки коэффициентов (The Odds API):', e.message);
+        return null;
+    }
+}
+
 async function generateAIPrediction(home, away) {
     const prompt = `
 Ты спортивный аналитик. 
@@ -47,7 +68,6 @@ async function generateAIPrediction(home, away) {
     }
 }
 
-// Генерация 20 прогнозов
 async function generatePredictions() {
     const matches = await fetchMatches();
     if (!matches.length) {
@@ -65,6 +85,9 @@ async function generatePredictions() {
         const away = match.teams.away.name;
         const aiText = await generateAIPrediction(home, away);
 
+        const realOdds = await fetchRealOdds(home, away);
+        const odds = realOdds || getRandomOdds();
+
         predictions.push({
             id: Date.now() + i,
             tournament: match.league.name,
@@ -72,26 +95,7 @@ async function generatePredictions() {
             logo1: match.teams.home.logo,
             team2: away,
             logo2: match.teams.away.logo,
-            odds: getRandomOdds(),
-            predictionText: aiText
-        });
-    }
-
-    // Если матчей меньше 20 — дублируем с другими прогнозами (fallback)
-    while (predictions.length < maxPredictions) {
-        const randomMatch = matches[Math.floor(Math.random() * matches.length)];
-        const home = randomMatch.teams.home.name;
-        const away = randomMatch.teams.away.name;
-        const aiText = await generateAIPrediction(home, away);
-
-        predictions.push({
-            id: Date.now() + predictions.length,
-            tournament: randomMatch.league.name,
-            team1: home,
-            logo1: randomMatch.teams.home.logo,
-            team2: away,
-            logo2: randomMatch.teams.away.logo,
-            odds: getRandomOdds(),
+            odds,
             predictionText: aiText
         });
     }
