@@ -30,7 +30,7 @@ client.on('disconnected', () => connectDB().catch(console.error));
 connectDB().then(() => app.listen(process.env.PORT || 3000, () => console.log('🚀 Server started')));
 
 // ======= CRON: Автогенерация прогнозов =======
-cron.schedule('57 17 * * *', async () => {
+cron.schedule('07 18 * * *', async () => {
     console.log('⏰ Запуск генерации прогнозов в 00:02');
     try {
         const predictions = await generatePredictions();

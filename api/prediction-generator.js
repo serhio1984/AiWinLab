@@ -4,25 +4,34 @@ const OpenAI = require('openai');
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-const API_URL = 'https://v3.football.api-sports.io/fixtures?date=';
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-// Список топ-европейских лиг
+// Список лиг (точные названия, как в API-Football)
 const EUROPEAN_LEAGUES = [
+  "UEFA Champions League",
+  "UEFA Europa League",
+  "UEFA Europa Conference League",
   "Premier League",
   "La Liga",
   "Serie A",
   "Bundesliga",
   "Ligue 1",
   "Eredivisie",
-  "Champions League",
-  "Europa League",
-  "Conference League",
   "Primeira Liga",
-  "Scottish Premiership"
+  "Scottish Premiership",
+  "Russian Premier League",
+  "Ukrainian Premier League",
+  "Belgian Pro League",
+  "Swiss Super League",
+  "Greek Super League",
+  "Turkish Super Lig",
+  "Danish Superliga",
+  "Norwegian Eliteserien",
+  "Swedish Allsvenskan",
+  "Austrian Bundesliga"
 ];
 
-// Случайные коэффициенты (если нет реальных)
+// Случайные коэффициенты (пока нет реальных)
 function getRandomOdds() {
   const odds = [1.5, 1.7, 1.9, 2.0, 2.3, 2.5, 3.0, 3.5];
   return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
@@ -34,17 +43,24 @@ function getTodayKiev() {
   return now.toISOString().split('T')[0];
 }
 
-// Получение матчей API-Football (только Европа)
+// Получение матчей (с фильтром по лигам)
 async function fetchMatches() {
   try {
     const today = getTodayKiev();
-    const res = await axios.get(`${API_URL}${today}`, {
+    const res = await axios.get(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY }
     });
 
     let matches = res.data.response || [];
+
+    // Выведем все лиги для проверки
+    const allLeagues = [...new Set(matches.map(m => m.league.name))];
+    console.log("📋 Все лиги на сегодня:", allLeagues);
+
+    // Фильтруем только топ-европейские
     matches = matches.filter(m => EUROPEAN_LEAGUES.includes(m.league.name));
 
+    console.log(`🎯 Найдено матчей топ-лиг: ${matches.length}`);
     return matches;
   } catch (e) {
     console.error('Ошибка загрузки матчей:', e.message);
@@ -123,6 +139,7 @@ async function generatePredictions() {
     });
   }
 
+  console.log(`✅ Сформировано прогнозов: ${predictions.length}`);
   return predictions;
 }
 
