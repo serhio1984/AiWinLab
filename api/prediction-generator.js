@@ -3,12 +3,10 @@ const OpenAI = require('openai');
 
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const ODDS_API_KEY = process.env.ODDS_API_KEY;
 
 const API_URL = 'https://v3.football.api-sports.io/fixtures?date=';
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-// Список европейских лиг (ID API-Football или названия)
 const EUROPEAN_LEAGUES = [
   "Premier League",
   "La Liga",
@@ -29,13 +27,13 @@ function getRandomOdds() {
   return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
 }
 
-// Получение сегодняшней даты по Киеву
+// Дата по Киеву
 function getTodayKiev() {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
   return now.toISOString().split('T')[0];
 }
 
-// Получаем список матчей из API-Football
+// Получение матчей из API-Football
 async function fetchMatches() {
   try {
     const today = getTodayKiev();
@@ -43,10 +41,7 @@ async function fetchMatches() {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY }
     });
     let matches = res.data.response || [];
-
-    // Фильтруем по европейским лигам
     matches = matches.filter(m => EUROPEAN_LEAGUES.includes(m.league.name));
-
     return matches;
   } catch (e) {
     console.error('Ошибка загрузки матчей:', e.message);
@@ -54,23 +49,33 @@ async function fetchMatches() {
   }
 }
 
-// Генерация краткого прогноза ИИ
-async function generateAIPrediction(home, away) {
+// Генерация прогнозов одним запросом
+async function generateAllPredictions(matches) {
+  const matchesList = matches
+    .map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`)
+    .join("\n");
+
   const prompt = `
 Ты спортивный аналитик. 
-Дай один краткий прогноз на матч ${home} против ${away}. 
-Формат: только результат (например, "Победа ${home}", "Тотал больше 2.5", "Фора -1.5 на ${away}", "Двойной шанс ${home} или ничья", "Ничья"). 
-Пиши на русском. Никаких объяснений.
+Для каждого матча ниже сделай один краткий прогноз в формате ставки 
+(например: "Победа {team1}", "Тотал больше 2.5", "Фора -1.5 на {team2}", "Двойной шанс {team1} или ничья", "Ничья").
+Ответь строго в формате "номер. прогноз" на русском. 
+Список матчей:
+${matchesList}
   `;
+
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
     });
-    return response.choices[0].message.content.trim();
+
+    const resultText = response.choices[0].message.content.trim();
+    const predictions = resultText.split("\n").map(line => line.replace(/^\d+\.\s*/, '').trim());
+    return predictions;
   } catch (e) {
     console.error('Ошибка AI-прогноза:', e.message);
-    return `Победа ${home}`;
+    return matches.map(m => `Победа ${m.teams.home.name}`);
   }
 }
 
@@ -82,48 +87,22 @@ async function generatePredictions() {
     return [];
   }
 
-  const predictions = [];
-  const maxPredictions = 20;
-  const matchCount = Math.min(maxPredictions, matches.length);
+  // Берём максимум 20 матчей
+  matches = matches.slice(0, 20);
 
-  for (let i = 0; i < matchCount; i++) {
-    const match = matches[i];
-    const home = match.teams.home.name;
-    const away = match.teams.away.name;
-    const aiText = await generateAIPrediction(home, away);
+  // Получаем прогнозы одним запросом
+  const aiPredictions = await generateAllPredictions(matches);
 
-    predictions.push({
-      id: Date.now() + i,
-      tournament: match.league.name,
-      team1: home,
-      logo1: match.teams.home.logo,
-      team2: away,
-      logo2: match.teams.away.logo,
-      odds: getRandomOdds(), // пока случайные
-      predictionText: aiText
-    });
-  }
-
-  // Если матчей меньше 20 — дублируем случайные матчи с другими прогнозами
-  while (predictions.length < maxPredictions && matches.length > 0) {
-    const randomMatch = matches[Math.floor(Math.random() * matches.length)];
-    const home = randomMatch.teams.home.name;
-    const away = randomMatch.teams.away.name;
-    const aiText = await generateAIPrediction(home, away);
-
-    predictions.push({
-      id: Date.now() + predictions.length,
-      tournament: randomMatch.league.name,
-      team1: home,
-      logo1: randomMatch.teams.home.logo,
-      team2: away,
-      logo2: randomMatch.teams.away.logo,
-      odds: getRandomOdds(),
-      predictionText: aiText
-    });
-  }
-
-  return predictions;
+  return matches.map((match, i) => ({
+    id: Date.now() + i,
+    tournament: match.league.name,
+    team1: match.teams.home.name,
+    logo1: match.teams.home.logo,
+    team2: match.teams.away.name,
+    logo2: match.teams.away.logo,
+    odds: getRandomOdds(),
+    predictionText: aiPredictions[i] || `Победа ${match.teams.home.name}`
+  }));
 }
 
 module.exports = { generatePredictions };
