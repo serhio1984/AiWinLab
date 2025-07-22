@@ -1,69 +1,39 @@
 const axios = require('axios');
 const OpenAI = require('openai');
 
-const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY;
+const ODDS_API_KEY = process.env.ODDS_API_KEY || 'd0c08025a01a64651cd3c9d15a29e242';
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-// Список лиг (точные названия, как в API-Football)
-const EUROPEAN_LEAGUES = [
-  "UEFA Champions League",
-  "UEFA Europa League",
-  "UEFA Europa Conference League",
-  "Premier League",
-  "La Liga",
-  "Serie A",
-  "Bundesliga",
-  "Ligue 1",
-  "Eredivisie",
-  "Primeira Liga",
-  "Scottish Premiership",
-  "Russian Premier League",
-  "Ukrainian Premier League",
-  "Belgian Pro League",
-  "Swiss Super League",
-  "Greek Super League",
-  "Turkish Super Lig",
-  "Danish Superliga",
-  "Norwegian Eliteserien",
-  "Swedish Allsvenskan",
-  "Austrian Bundesliga"
-];
+const ODDS_API_URL = `https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=${ODDS_API_KEY}`;
 
-// Случайные коэффициенты (пока нет реальных)
+// Случайные коэффициенты (если нет от API)
 function getRandomOdds() {
   const odds = [1.5, 1.7, 1.9, 2.0, 2.3, 2.5, 3.0, 3.5];
   return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
 }
 
-// Дата по Киеву
-function getTodayKiev() {
-  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-  return now.toISOString().split('T')[0];
-}
-
-// Получение матчей (с фильтром по лигам)
+// Получение матчей с Odds API
 async function fetchMatches() {
   try {
-    const today = getTodayKiev();
-    const res = await axios.get(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
-      headers: { 'x-apisports-key': FOOTBALL_API_KEY }
-    });
+    const res = await axios.get(ODDS_API_URL);
+    const games = res.data || [];
 
-    let matches = res.data.response || [];
+    const matches = games.map((g, i) => ({
+      id: Date.now() + i,
+      tournament: g.sport_title || 'Футбол',
+      team1: g.home_team,
+      logo1: 'https://img.icons8.com/fluency/48/soccer-ball.png', // заглушка
+      team2: g.away_team,
+      logo2: 'https://img.icons8.com/fluency/48/soccer-ball.png',
+      odds: g.bookmakers?.[0]?.markets?.[0]?.outcomes?.[0]?.price || getRandomOdds()
+    }));
 
-    // Выведем все лиги для проверки
-    const allLeagues = [...new Set(matches.map(m => m.league.name))];
-    console.log("📋 Все лиги на сегодня:", allLeagues);
-
-    // Фильтруем только топ-европейские
-    matches = matches.filter(m => EUROPEAN_LEAGUES.includes(m.league.name));
-
-    console.log(`🎯 Найдено матчей топ-лиг: ${matches.length}`);
+    console.log(`🎯 Найдено матчей (Odds API): ${matches.length}`);
     return matches;
   } catch (e) {
-    console.error('Ошибка загрузки матчей:', e.message);
+    console.error('Ошибка загрузки матчей с The Odds API:', e.message);
     return [];
   }
 }
@@ -71,12 +41,12 @@ async function fetchMatches() {
 // Генерация прогнозов одним запросом
 async function generateAllPredictions(matches) {
   const matchesList = matches
-    .map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`)
+    .map((m, i) => `${i + 1}. ${m.team1} vs ${m.team2}`)
     .join("\n");
 
   const prompt = `
 Ты спортивный аналитик. 
-Сделай один краткий прогноз для каждого матча ниже в формате ставок 
+Сделай краткий прогноз для каждого матча ниже в формате ставок 
 (например: "Победа {team1}", "Тотал больше 2.5", "Фора -1.5 на {team2}", "Двойной шанс {team1} или ничья", "Ничья").
 Ответь строго в формате "номер. прогноз" на русском, без пояснений.
 Список матчей:
@@ -94,7 +64,7 @@ ${matchesList}
     return predictions;
   } catch (e) {
     console.error('Ошибка AI-прогноза:', e.message);
-    return matches.map(m => `Победа ${m.teams.home.name}`);
+    return matches.map(m => `Победа ${m.team1}`);
   }
 }
 
@@ -102,7 +72,7 @@ ${matchesList}
 async function generatePredictions() {
   let matches = await fetchMatches();
   if (!matches.length) {
-    console.warn('Нет матчей по выбранным лигам.');
+    console.warn('Нет матчей с The Odds API.');
     return [];
   }
 
@@ -114,28 +84,23 @@ async function generatePredictions() {
 
   // Формируем список прогнозов
   const predictions = matches.map((match, i) => ({
-    id: Date.now() + i,
-    tournament: match.league.name,
-    team1: match.teams.home.name,
-    logo1: match.teams.home.logo,
-    team2: match.teams.away.name,
-    logo2: match.teams.away.logo,
-    odds: getRandomOdds(),
-    predictionText: aiPredictions[i] || `Победа ${match.teams.home.name}`
+    id: match.id,
+    tournament: match.tournament,
+    team1: match.team1,
+    logo1: match.logo1,
+    team2: match.team2,
+    logo2: match.logo2,
+    odds: match.odds,
+    predictionText: aiPredictions[i] || `Победа ${match.team1}`
   }));
 
-  // Если матчей < 20, дублируем случайные
+  // Если матчей < 20, дублируем
   while (predictions.length < 20 && matches.length > 0) {
     const randomMatch = matches[Math.floor(Math.random() * matches.length)];
     predictions.push({
+      ...randomMatch,
       id: Date.now() + predictions.length,
-      tournament: randomMatch.league.name,
-      team1: randomMatch.teams.home.name,
-      logo1: randomMatch.teams.home.logo,
-      team2: randomMatch.teams.away.name,
-      logo2: randomMatch.teams.away.logo,
-      odds: getRandomOdds(),
-      predictionText: `Победа ${randomMatch.teams.home.name}`
+      predictionText: `Победа ${randomMatch.team1}`
     });
   }
 
