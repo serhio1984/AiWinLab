@@ -5,7 +5,10 @@ const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY || '548e45339f74b3a936d49b
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
-const API_URL = 'https://v3.football.api-sports.io/fixtures';
+const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
+const ODDS_URL = 'https://v3.football.api-sports.io/odds';
+
+// Европейские турниры
 const EUROPEAN_LEAGUES = [
   "UEFA Champions League",
   "UEFA Europa League",
@@ -19,7 +22,6 @@ const EUROPEAN_LEAGUES = [
   "Primeira Liga",
   "Scottish Premiership",
   "Ukrainian Premier League",
-  "Russian Premier League",
   "Belgian Pro League",
   "Swiss Super League",
   "Turkish Super Lig",
@@ -30,11 +32,12 @@ const EUROPEAN_LEAGUES = [
   "Swedish Allsvenskan"
 ];
 
-// Генерация случайных коэффициентов
-function getRandomOdds() {
-  const odds = [1.5, 1.7, 1.9, 2.0, 2.3, 2.5, 3.0, 3.5];
-  return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
-}
+// Европейские страны
+const EUROPEAN_COUNTRIES = [
+  "England", "Spain", "Italy", "Germany", "France", "Netherlands", "Portugal",
+  "Scotland", "Ukraine", "Belgium", "Switzerland", "Turkey", "Greece",
+  "Austria", "Denmark", "Norway", "Sweden", "Poland", "Czech Republic"
+];
 
 // Текущая дата по Киеву
 function getTodayKiev() {
@@ -46,16 +49,19 @@ function getTodayKiev() {
 async function fetchMatches() {
   try {
     const today = getTodayKiev();
-    const res = await axios.get(`${API_URL}?date=${today}`, {
+    const res = await axios.get(`${FIXTURES_URL}?date=${today}`, {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY }
     });
 
     let matches = res.data.response || [];
 
-    // Фильтруем только европейские турниры
-    matches = matches.filter(m => EUROPEAN_LEAGUES.includes(m.league.name));
+    // Фильтруем только европейские турниры и страны
+    matches = matches.filter(m =>
+      EUROPEAN_LEAGUES.includes(m.league.name) ||
+      EUROPEAN_COUNTRIES.includes(m.league.country)
+    );
 
-    console.log(`🎯 Найдено матчей европейских лиг: ${matches.length}`);
+    console.log(`🎯 Найдено европейских матчей: ${matches.length}`);
     return matches.slice(0, 40);
   } catch (e) {
     console.error('Ошибка загрузки матчей:', e.message);
@@ -63,7 +69,26 @@ async function fetchMatches() {
   }
 }
 
-// 2. Генерация прогнозов одним запросом
+// 2. Получение реальных коэффициентов
+async function fetchOdds(fixtureId) {
+  try {
+    const res = await axios.get(`${ODDS_URL}?fixture=${fixtureId}`, {
+      headers: { 'x-apisports-key': FOOTBALL_API_KEY }
+    });
+
+    const data = res.data.response;
+    if (data.length > 0 && data[0].bookmakers.length > 0) {
+      const outcomes = data[0].bookmakers[0].bets[0].values;
+      if (outcomes.length > 0) return outcomes[0].odd;
+    }
+    return "—";
+  } catch (e) {
+    console.error(`Ошибка получения коэффициента для матча ${fixtureId}:`, e.message);
+    return "—";
+  }
+}
+
+// 3. Генерация прогнозов одним запросом
 async function generateAllPredictions(matches) {
   const matchesList = matches.map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join("\n");
 
@@ -90,7 +115,7 @@ ${matchesList}
   }
 }
 
-// 3. Основная функция генерации
+// 4. Основная функция генерации
 async function generatePredictions() {
   const matches = await fetchMatches();
 
@@ -99,16 +124,24 @@ async function generatePredictions() {
     return [];
   }
 
-  const aiPredictions = await generateAllPredictions(matches);
+  // Получаем реальные коэффициенты
+  const matchesWithOdds = [];
+  for (const match of matches) {
+    const odds = await fetchOdds(match.fixture.id);
+    matchesWithOdds.push({ ...match, odds });
+  }
 
-  const predictions = matches.map((match, i) => ({
+  // Генерация прогнозов
+  const aiPredictions = await generateAllPredictions(matchesWithOdds);
+
+  const predictions = matchesWithOdds.map((match, i) => ({
     id: Date.now() + i,
     tournament: match.league.name,
     team1: match.teams.home.name,
     logo1: match.teams.home.logo,
     team2: match.teams.away.name,
     logo2: match.teams.away.logo,
-    odds: getRandomOdds(),
+    odds: match.odds,
     predictionText: aiPredictions[i] || `Победа ${match.teams.home.name}`
   }));
 
