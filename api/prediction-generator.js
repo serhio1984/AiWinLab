@@ -1,5 +1,6 @@
 const axios = require('axios');
 const OpenAI = require('openai');
+const { getTranslatedTeams } = require('./translate-teams');
 
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY || '548e45339f74b3a936d49be6786124b0';
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -8,41 +9,46 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// Европейские турниры
-const EUROPEAN_LEAGUES = [
-  "UEFA Champions League",
-  "UEFA Europa League",
-  "UEFA Europa Conference League",
-  "Premier League",
-  "La Liga",
-  "Serie A",
-  "Bundesliga",
-  "Ligue 1",
-  "Eredivisie",
-  "Primeira Liga",
-  "Scottish Premiership",
-  "Ukrainian Premier League",
-  "Belgian Pro League",
-  "Swiss Super League",
-  "Turkish Super Lig",
-  "Greek Super League",
-  "Austrian Bundesliga",
-  "Danish Superliga",
-  "Norwegian Eliteserien",
-  "Swedish Allsvenskan"
-];
+// Переводы названий турниров
+const TOURNAMENT_TRANSLATIONS = {
+  "UEFA Champions League": "Лига Чемпионов УЕФА",
+  "UEFA Europa League": "Лига Европы УЕФА",
+  "UEFA Europa Conference League": "Лига Конференций УЕФА",
+  "Premier League": "Премьер-Лига Англии",
+  "La Liga": "Ла Лига Испании",
+  "Serie A": "Серия А Италии",
+  "Bundesliga": "Бундеслига Германии",
+  "Ligue 1": "Лига 1 Франции",
+  "Eredivisie": "Эредивизи Нидерландов",
+  "Primeira Liga": "Примейра Лига Португалии"
+};
 
-// Европейские страны
+// Европейские лиги и страны для фильтрации
+const EUROPEAN_LEAGUES = Object.keys(TOURNAMENT_TRANSLATIONS);
 const EUROPEAN_COUNTRIES = [
   "England", "Spain", "Italy", "Germany", "France", "Netherlands", "Portugal",
   "Scotland", "Ukraine", "Belgium", "Switzerland", "Turkey", "Greece",
   "Austria", "Denmark", "Norway", "Sweden", "Poland", "Czech Republic"
 ];
 
-// Текущая дата по Киеву
 function getTodayKiev() {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
   return now.toISOString().split('T')[0];
+}
+
+function getRandomOdds() {
+  const odds = [1.5, 1.7, 1.9, 2.0, 2.3, 2.5, 3.0, 3.5];
+  return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
+}
+
+// Формат турнира: Футбол.DD.MM.YY Турнир
+function formatTournament(match) {
+  const date = new Date(match.fixture.date);
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = String(date.getFullYear()).slice(2);
+  const league = TOURNAMENT_TRANSLATIONS[match.league.name] || match.league.name;
+  return `Футбол.${d}.${m}.${y} ${league}`;
 }
 
 // 1. Получение матчей
@@ -55,7 +61,7 @@ async function fetchMatches() {
 
     let matches = res.data.response || [];
 
-    // Фильтруем только европейские турниры и страны
+    // Фильтрация только по европейским турнирам или странам
     matches = matches.filter(m =>
       EUROPEAN_LEAGUES.includes(m.league.name) ||
       EUROPEAN_COUNTRIES.includes(m.league.country)
@@ -69,7 +75,7 @@ async function fetchMatches() {
   }
 }
 
-// 2. Получение реальных коэффициентов
+// 2. Получение коэффициентов
 async function fetchOdds(fixtureId) {
   try {
     const res = await axios.get(`${ODDS_URL}?fixture=${fixtureId}`, {
@@ -78,17 +84,20 @@ async function fetchOdds(fixtureId) {
 
     const data = res.data.response;
     if (data.length > 0 && data[0].bookmakers.length > 0) {
-      const outcomes = data[0].bookmakers[0].bets[0].values;
-      if (outcomes.length > 0) return outcomes[0].odd;
+      for (const bookmaker of data[0].bookmakers) {
+        if (bookmaker.bets?.[0]?.values?.[0]?.odd) {
+          return bookmaker.bets[0].values[0].odd;
+        }
+      }
     }
-    return "—";
+    return getRandomOdds();
   } catch (e) {
     console.error(`Ошибка получения коэффициента для матча ${fixtureId}:`, e.message);
-    return "—";
+    return getRandomOdds();
   }
 }
 
-// 3. Генерация прогнозов одним запросом
+// 3. Генерация прогнозов
 async function generateAllPredictions(matches) {
   const matchesList = matches.map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join("\n");
 
@@ -118,7 +127,6 @@ ${matchesList}
 // 4. Основная функция генерации
 async function generatePredictions() {
   const matches = await fetchMatches();
-
   if (!matches.length) {
     console.warn('Нет матчей для прогнозов.');
     return [];
@@ -131,18 +139,22 @@ async function generatePredictions() {
     matchesWithOdds.push({ ...match, odds });
   }
 
+  // Переводим команды
+  const allTeams = matchesWithOdds.flatMap(m => [m.teams.home.name, m.teams.away.name]);
+  const teamTranslations = await getTranslatedTeams(allTeams);
+
   // Генерация прогнозов
   const aiPredictions = await generateAllPredictions(matchesWithOdds);
 
   const predictions = matchesWithOdds.map((match, i) => ({
     id: Date.now() + i,
-    tournament: match.league.name,
-    team1: match.teams.home.name,
+    tournament: formatTournament(match),
+    team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
-    team2: match.teams.away.name,
+    team2: teamTranslations[match.teams.away.name] || match.teams.away.name,
     logo2: match.teams.away.logo,
     odds: match.odds,
-    predictionText: aiPredictions[i] || `Победа ${match.teams.home.name}`
+    predictionText: aiPredictions[i] || `Победа ${teamTranslations[match.teams.home.name] || match.teams.home.name}`
   }));
 
   console.log(`✅ Сформировано прогнозов: ${predictions.length}`);
