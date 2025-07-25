@@ -9,7 +9,6 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// Переводы названий турниров
 const TOURNAMENT_TRANSLATIONS = {
   "UEFA Champions League": "Лига Чемпионов УЕФА",
   "UEFA Europa League": "Лига Европы УЕФА",
@@ -23,7 +22,6 @@ const TOURNAMENT_TRANSLATIONS = {
   "Primeira Liga": "Примейра Лига Португалии"
 };
 
-// Европейские лиги и страны для фильтрации
 const EUROPEAN_LEAGUES = Object.keys(TOURNAMENT_TRANSLATIONS);
 const EUROPEAN_COUNTRIES = [
   "England", "Spain", "Italy", "Germany", "France", "Netherlands", "Portugal",
@@ -41,7 +39,6 @@ function getRandomOdds() {
   return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
 }
 
-// Формат турнира: Футбол.DD.MM.YY Турнир
 function formatTournament(match) {
   const date = new Date(match.fixture.date);
   const d = String(date.getDate()).padStart(2, '0');
@@ -51,7 +48,6 @@ function formatTournament(match) {
   return `Футбол.${d}.${m}.${y} ${league}`;
 }
 
-// 1. Получение матчей
 async function fetchMatches() {
   try {
     const today = getTodayKiev();
@@ -60,8 +56,6 @@ async function fetchMatches() {
     });
 
     let matches = res.data.response || [];
-
-    // Фильтрация только по европейским турнирам или странам
     matches = matches.filter(m =>
       EUROPEAN_LEAGUES.includes(m.league.name) ||
       EUROPEAN_COUNTRIES.includes(m.league.country)
@@ -75,7 +69,6 @@ async function fetchMatches() {
   }
 }
 
-// 2. Получение коэффициентов
 async function fetchOdds(fixtureId) {
   try {
     const res = await axios.get(`${ODDS_URL}?fixture=${fixtureId}`, {
@@ -97,18 +90,31 @@ async function fetchOdds(fixtureId) {
   }
 }
 
-// 3. Генерация прогнозов
 async function generateAllPredictions(matches) {
   const matchesList = matches.map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join("\n");
 
   const prompt = `
 Ты спортивный аналитик.
-Сделай краткий прогноз для каждого матча ниже в формате ставок
-(например: "Победа {team1}", "Тотал больше 2.5", "Фора -1.5 на {team2}", "Двойной шанс {team1} или ничья", "Ничья").
-Ответь строго в формате "номер. прогноз" на русском, без пояснений.
+Для каждого матча придумай краткий прогноз на русском языке в формате ставок.
+Примеры прогнозов: 
+- Победа {команда}
+- Ничья
+- Двойной шанс {команда} или ничья
+- Тотал больше 2.5 (или 3.5, 1.5)
+- Тотал меньше 2.5 (или 3.5, 1.5)
+- Фора -1.5 на {команда}
+- Фора +1.5 на {команда}
+
+Требования:
+1. Прогнозы должны быть разнообразными — не только "Победа {команда}".
+2. Формат ответа:
+1. прогноз
+2. прогноз
+...
+
 Список матчей:
 ${matchesList}
-  `;
+`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -124,7 +130,6 @@ ${matchesList}
   }
 }
 
-// 4. Основная функция генерации
 async function generatePredictions() {
   const matches = await fetchMatches();
   if (!matches.length) {
@@ -132,18 +137,15 @@ async function generatePredictions() {
     return [];
   }
 
-  // Получаем реальные коэффициенты
   const matchesWithOdds = [];
   for (const match of matches) {
     const odds = await fetchOdds(match.fixture.id);
     matchesWithOdds.push({ ...match, odds });
   }
 
-  // Переводим команды
   const allTeams = matchesWithOdds.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
-  // Генерация прогнозов
   const aiPredictions = await generateAllPredictions(matchesWithOdds);
 
   const predictions = matchesWithOdds.map((match, i) => ({
