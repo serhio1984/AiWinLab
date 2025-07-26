@@ -9,6 +9,7 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
+// Переводы популярных турниров
 const TOURNAMENT_TRANSLATIONS = {
   "UEFA Champions League": "Лига Чемпионов УЕФА",
   "UEFA Europa League": "Лига Европы УЕФА",
@@ -143,6 +144,7 @@ async function generatePredictions() {
     matchesWithOdds.push({ ...match, odds });
   }
 
+  // Получаем переводы команд из БД
   const allTeams = matchesWithOdds.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
