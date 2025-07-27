@@ -136,14 +136,24 @@
             <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
         </div>
         <div class="predictions-list" id="predictionsList">
-            <h3>Существующие прогнозы</h3>
+            <h3>Существующие черновики</h3>
             <table><thead><tr>
                 <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэфф.</th><th>Прогноз</th><th>Действие</th>
             </tr></thead><tbody></tbody></table>
         </div>
     </div>
     <script>
-        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+        let predictions = [];
+
+        async function loadDrafts() {
+            try {
+                const res = await fetch('/api/predictions');
+                predictions = await res.json();
+                renderPredictions();
+            } catch (e) {
+                console.error('Ошибка загрузки черновиков:', e.message);
+            }
+        }
 
         async function login() {
             const password = document.getElementById('adminPassword').value;
@@ -161,7 +171,7 @@
                     document.getElementById('formSection').classList.add('active');
                     document.getElementById('predictionsList').classList.add('active');
                     document.getElementById('exitBtn').style.display = 'block';
-                    renderPredictions();
+                    await loadDrafts();
                     status.textContent = '';
                 } else {
                     status.textContent = result.message || 'Ошибка входа!';
@@ -194,7 +204,6 @@
             };
             if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
             predictions.push(p);
-            localStorage.setItem('predictions', JSON.stringify(predictions));
             renderPredictions();
             clearForm();
         }
@@ -221,7 +230,6 @@
                 delBtn.textContent = 'Удалить';
                 delBtn.onclick = () => {
                     predictions = predictions.filter(x => x.id !== p.id);
-                    localStorage.setItem('predictions', JSON.stringify(predictions));
                     renderPredictions();
                 };
                 cell.appendChild(delBtn);
@@ -229,12 +237,11 @@
         }
 
         async function saveDrafts() {
-            const clean = predictions.map(({ isUnlocked, ...rest }) => rest);
             try {
                 const res = await fetch('/api/predictions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(clean)
+                    body: JSON.stringify(predictions)
                 });
                 const result = await res.json();
                 if (res.ok) {
