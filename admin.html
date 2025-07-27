@@ -20,7 +20,6 @@
         .header {
             width: 100%;
             padding: 10px;
-            box-sizing: border-box;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -45,7 +44,6 @@
         .buy-btn:hover {
             background: #e05600;
             transform: scale(1.1);
-            box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
         }
         .admin-container {
             background: #ffffff;
@@ -53,7 +51,7 @@
             padding: 20px;
             border-radius: 10px;
             width: 90%;
-            max-width: 900px;
+            max-width: 800px;
             box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
         }
         .login-section, .form-section, .predictions-list {
@@ -69,24 +67,15 @@
             margin: 10px 0;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 14px;
         }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
         .form-group input {
             width: 100%;
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 5px;
             font-size: 14px;
-            box-sizing: border-box;
         }
         .predictions-list table {
             width: 100%;
@@ -97,21 +86,16 @@
             border: 1px solid #ccc;
             text-align: left;
         }
-        .predictions-list th {
-            background: #ff6200;
-            color: #ffffff;
-        }
-        .predictions-list input {
+        .predictions-list th { background: #ff6200; color: #fff; }
+        input.editable {
             width: 100%;
-            border: none;
+            border: 1px solid #ddd;
             padding: 4px;
-            box-sizing: border-box;
+            font-size: 13px;
         }
         @media (max-width: 600px) {
             .logo h1 { font-size: 24px; }
-            .admin-container { padding: 15px; }
-            .form-group input { font-size: 12px; }
-            .buy-btn { font-size: 12px; padding: 5px 10px; }
+            .form-group input, .buy-btn { font-size: 12px; }
             .predictions-list th, .predictions-list td { font-size: 12px; padding: 6px; }
         }
     </style>
@@ -142,14 +126,24 @@
             <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
         </div>
         <div class="predictions-list" id="predictionsList">
-            <h3>Черновики прогнозов</h3>
+            <h3>Существующие черновики</h3>
             <table><thead><tr>
                 <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэфф.</th><th>Прогноз</th><th>Действие</th>
             </tr></thead><tbody></tbody></table>
         </div>
     </div>
     <script>
-        let predictions = JSON.parse(localStorage.getItem('predictions')) || [];
+        let predictions = [];
+
+        async function loadDrafts() {
+            try {
+                const res = await fetch('/api/predictions');
+                predictions = await res.json();
+                renderPredictions();
+            } catch (e) {
+                console.error('Ошибка загрузки черновиков:', e.message);
+            }
+        }
 
         async function login() {
             const password = document.getElementById('adminPassword').value;
@@ -167,7 +161,7 @@
                     document.getElementById('formSection').classList.add('active');
                     document.getElementById('predictionsList').classList.add('active');
                     document.getElementById('exitBtn').style.display = 'block';
-                    renderPredictions();
+                    await loadDrafts();
                     status.textContent = '';
                 } else {
                     status.textContent = result.message || 'Ошибка входа!';
@@ -200,44 +194,43 @@
             };
             if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
             predictions.push(p);
-            localStorage.setItem('predictions', JSON.stringify(predictions));
             renderPredictions();
             clearForm();
         }
 
         function clearForm() {
-            ['tournament','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
+            ['tournament','team1','logo1','team2','logo2','odds','predictionText']
+                .forEach(id => document.getElementById(id).value = '');
+        }
+
+        function makeEditableCell(row, key, value) {
+            const input = document.createElement('input');
+            input.value = value;
+            input.className = 'editable';
+            input.oninput = e => predictions[row][key] = e.target.value;
+            return input;
         }
 
         function renderPredictions() {
             const tbody = document.querySelector('tbody');
             tbody.innerHTML = '';
-            predictions.forEach(p => {
+            predictions.forEach((p, i) => {
                 const row = tbody.insertRow();
-
-                row.innerHTML = `
-                    <td><input type="text" value="${p.tournament}" onchange="updateField(${p.id}, 'tournament', this.value)"></td>
-                    <td><input type="text" value="${p.team1}" onchange="updateField(${p.id}, 'team1', this.value)"></td>
-                    <td><input type="text" value="${p.team2}" onchange="updateField(${p.id}, 'team2', this.value)"></td>
-                    <td><input type="number" value="${p.odds}" step="0.01" onchange="updateField(${p.id}, 'odds', this.value)"></td>
-                    <td><input type="text" value="${p.predictionText}" onchange="updateField(${p.id}, 'predictionText', this.value)"></td>
-                    <td><button class="buy-btn" onclick="deletePrediction(${p.id})">Удалить</button></td>
-                `;
+                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'tournament', p.tournament));
+                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team1', p.team1));
+                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team2', p.team2));
+                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'odds', p.odds));
+                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'predictionText', p.predictionText));
+                const cell = row.insertCell();
+                const delBtn = document.createElement('button');
+                delBtn.className = 'buy-btn';
+                delBtn.textContent = 'Удалить';
+                delBtn.onclick = () => {
+                    predictions = predictions.filter(x => x.id !== p.id);
+                    renderPredictions();
+                };
+                cell.appendChild(delBtn);
             });
-        }
-
-        function updateField(id, field, value) {
-            const p = predictions.find(x => x.id === id);
-            if (p) p[field] = value;
-            localStorage.setItem('predictions', JSON.stringify(predictions));
-        }
-
-        function deletePrediction(id) {
-            predictions = predictions.filter(x => x.id !== id);
-            localStorage.setItem('predictions', JSON.stringify(predictions));
-            renderPredictions();
         }
 
         async function saveDrafts() {
@@ -247,9 +240,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(predictions)
                 });
-                const result = await res.json();
                 if (res.ok) alert('Черновики сохранены!');
-                else alert('Ошибка: ' + (result.message || 'Неизвестная ошибка'));
             } catch (e) {
                 alert('Ошибка подключения: ' + e.message);
             }
@@ -259,11 +250,7 @@
             try {
                 const res = await fetch('/api/publish-next-day', { method: 'POST' });
                 const result = await res.json();
-                if (res.ok && result.success) {
-                    alert('Прогнозы готовы к публикации завтра!');
-                } else {
-                    alert('Ошибка: ' + (result.message || 'Неизвестная ошибка'));
-                }
+                if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
             } catch (e) {
                 alert('Ошибка подключения: ' + e.message);
             }
