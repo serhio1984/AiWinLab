@@ -3,7 +3,6 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 const axios = require('axios');
 const cron = require('node-cron');
-const { generatePredictions } = require('./prediction-generator');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -29,19 +28,26 @@ async function connectDB() {
 client.on('disconnected', () => connectDB().catch(console.error));
 connectDB().then(() => app.listen(process.env.PORT || 3000, () => console.log('🚀 Server started')));
 
-// ======= CRON: Автогенерация прогнозов =======
+// ======= CRON: Автопубликация прогнозов =======
 cron.schedule('2 0 * * *', async () => {
-    console.log('⏰ Запуск генерации прогнозов в 00:02');
+    console.log('⏰ Публикация прогнозов в 00:02 (Киев)');
     try {
-        const predictions = await generatePredictions();
-        const coll = db.collection('predictions');
-        await coll.deleteMany({});
-        if (predictions.length > 0) await coll.insertMany(predictions);
-        console.log('✅ Прогнозы обновлены:', predictions.length);
+        const nextDayColl = db.collection('predictions_next_day');
+        const mainColl = db.collection('predictions');
+        const nextDayPredictions = await nextDayColl.find().toArray();
+
+        if (nextDayPredictions.length > 0) {
+            await mainColl.deleteMany({});
+            await mainColl.insertMany(nextDayPredictions);
+            await nextDayColl.deleteMany({});
+            console.log('✅ Прогнозы опубликованы:', nextDayPredictions.length);
+        } else {
+            console.log('⚠️ Нет прогнозов для публикации');
+        }
     } catch (err) {
-        console.error('❌ Ошибка при генерации прогнозов:', err);
+        console.error('❌ Ошибка публикации:', err);
     }
-});
+}, { timezone: 'Europe/Kiev' });
 
 // ======= WEBHOOK =======
 app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
@@ -174,7 +180,7 @@ app.post('/api/unlock', async (req, res) => {
     res.json({ success: true, coins: updated.coins });
 });
 
-// Сохранение прогнозов (админ)
+// Сохранение черновиков прогнозов (админ)
 app.post('/api/predictions', async (req, res) => {
     const arr = req.body;
     if (!Array.isArray(arr)) return res.status(400).json({ success: false });
@@ -184,11 +190,23 @@ app.post('/api/predictions', async (req, res) => {
         return { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
     });
 
-    const coll = db.collection('predictions');
+    const coll = db.collection('draft_predictions');
     await coll.deleteMany({});
     if (cleaned.length > 0) await coll.insertMany(cleaned);
 
     res.json({ success: true });
+});
+
+// Подготовка прогнозов к публикации
+app.post('/api/publish-next-day', async (req, res) => {
+    const drafts = await db.collection('draft_predictions').find().toArray();
+    if (!drafts.length) return res.json({ success: false, message: "Нет черновиков" });
+
+    const nextDay = db.collection('predictions_next_day');
+    await nextDay.deleteMany({});
+    await nextDay.insertMany(drafts);
+
+    res.json({ success: true, message: "Прогнозы готовы к публикации завтра" });
 });
 
 // Создание инвойса
@@ -201,7 +219,7 @@ app.post('/create-invoice', async (req, res) => {
     }
 
     try {
-        const prices = [{ amount: stars * 1, label: `${coins} монет` }]; // Исправлено
+        const prices = [{ amount: stars * 1, label: `${coins} монет` }];
 
         const link = await botApi.createInvoiceLink(
             `Покупка ${coins} монет`,
