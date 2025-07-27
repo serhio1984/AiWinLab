@@ -136,7 +136,7 @@ app.post('/balance', async (req, res) => {
     res.status(400).json({ error: 'Invalid action' });
 });
 
-// Получение прогнозов
+// Получение прогнозов (показываем только опубликованные)
 app.get('/api/predictions', async (req, res) => {
     const userId = parseInt(req.query.userId, 10);
     const preds = await db.collection('predictions').find().toArray();
@@ -180,7 +180,9 @@ app.post('/api/unlock', async (req, res) => {
     res.json({ success: true, coins: updated.coins });
 });
 
-// Сохранение черновиков прогнозов (админ)
+// ======= Черновики прогнозов (админ) =======
+
+// Сохранение черновиков
 app.post('/api/predictions', async (req, res) => {
     const arr = req.body;
     if (!Array.isArray(arr)) return res.status(400).json({ success: false });
@@ -240,3 +242,5 @@ app.post('/create-invoice', async (req, res) => {
 
 // Завершение
 process.on('SIGTERM', () => client.close() && process.exit(0));
+
+module.exports = app;
