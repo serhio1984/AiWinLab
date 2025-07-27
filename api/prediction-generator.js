@@ -1,15 +1,19 @@
 const axios = require('axios');
 const OpenAI = require('openai');
+const { MongoClient } = require('mongodb');
 const { getTranslatedTeams } = require('./translate-teams');
 
+// === API KEYS ===
 const FOOTBALL_API_KEY = process.env.FOOTBALL_API_KEY || '548e45339f74b3a936d49be6786124b0';
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
+// === API URLs ===
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// Переводы популярных турниров
+// === Переводы турниров ===
 const TOURNAMENT_TRANSLATIONS = {
   "UEFA Champions League": "Лига Чемпионов УЕФА",
   "UEFA Europa League": "Лига Европы УЕФА",
@@ -30,8 +34,10 @@ const EUROPEAN_COUNTRIES = [
   "Austria", "Denmark", "Norway", "Sweden", "Poland", "Czech Republic"
 ];
 
-function getTodayKiev() {
+// === Получение завтрашней даты (Киев) ===
+function getTomorrowKiev() {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
+  now.setDate(now.getDate() + 1);
   return now.toISOString().split('T')[0];
 }
 
@@ -49,10 +55,11 @@ function formatTournament(match) {
   return `Футбол.${d}.${m}.${y} ${league}`;
 }
 
+// === Получение матчей на завтра ===
 async function fetchMatches() {
   try {
-    const today = getTodayKiev();
-    const res = await axios.get(`${FIXTURES_URL}?date=${today}`, {
+    const tomorrow = getTomorrowKiev();
+    const res = await axios.get(`${FIXTURES_URL}?date=${tomorrow}`, {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY }
     });
 
@@ -62,7 +69,7 @@ async function fetchMatches() {
       EUROPEAN_COUNTRIES.includes(m.league.country)
     );
 
-    console.log(`🎯 Найдено европейских матчей: ${matches.length}`);
+    console.log(`🎯 Найдено европейских матчей на ${tomorrow}: ${matches.length}`);
     return matches.slice(0, 40);
   } catch (e) {
     console.error('Ошибка загрузки матчей:', e.message);
@@ -70,6 +77,7 @@ async function fetchMatches() {
   }
 }
 
+// === Получение коэффициентов ===
 async function fetchOdds(fixtureId) {
   try {
     const res = await axios.get(`${ODDS_URL}?fixture=${fixtureId}`, {
@@ -91,6 +99,7 @@ async function fetchOdds(fixtureId) {
   }
 }
 
+// === Генерация прогнозов через OpenAI ===
 async function generateAllPredictions(matches) {
   const matchesList = matches.map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join("\n");
 
@@ -101,8 +110,8 @@ async function generateAllPredictions(matches) {
 - Победа {команда}
 - Ничья
 - Двойной шанс {команда} или ничья
-- Тотал больше 2.5 (или 3.5, 1.5)
-- Тотал меньше 2.5 (или 3.5, 1.5)
+- Тотал больше 2.5
+- Тотал меньше 2.5
 - Фора -1.5 на {команда}
 - Фора +1.5 на {команда}
 
@@ -131,6 +140,21 @@ ${matchesList}
   }
 }
 
+// === Сохранение черновиков в MongoDB ===
+async function saveToDraft(predictions) {
+  const client = new MongoClient(MONGODB_URI);
+  await client.connect();
+  const db = client.db('predictionsDB');
+  const draftColl = db.collection('draft_predictions');
+
+  await draftColl.deleteMany({});
+  if (predictions.length > 0) await draftColl.insertMany(predictions);
+
+  await client.close();
+  console.log(`💾 Черновики сохранены: ${predictions.length}`);
+}
+
+// === Основная функция генерации ===
 async function generatePredictions() {
   const matches = await fetchMatches();
   if (!matches.length) {
@@ -144,10 +168,8 @@ async function generatePredictions() {
     matchesWithOdds.push({ ...match, odds });
   }
 
-  // Получаем переводы команд из БД
   const allTeams = matchesWithOdds.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
-
   const aiPredictions = await generateAllPredictions(matchesWithOdds);
 
   const predictions = matchesWithOdds.map((match, i) => ({
@@ -161,8 +183,15 @@ async function generatePredictions() {
     predictionText: aiPredictions[i] || `Победа ${teamTranslations[match.teams.home.name] || match.teams.home.name}`
   }));
 
-  console.log(`✅ Сформировано прогнозов: ${predictions.length}`);
+  await saveToDraft(predictions);
   return predictions;
+}
+
+// === Запуск при вызове файла напрямую ===
+if (require.main === module) {
+  generatePredictions().then(() => {
+    console.log('✅ Генерация завершена.');
+  }).catch(err => console.error('❌ Ошибка генерации:', err));
 }
 
 module.exports = { generatePredictions };
