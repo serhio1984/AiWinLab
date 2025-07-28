@@ -34,11 +34,20 @@ const EUROPEAN_COUNTRIES = [
   "Austria", "Denmark", "Norway", "Sweden", "Poland", "Czech Republic"
 ];
 
-// === Получение завтрашней даты (Киев) ===
-function getTomorrowKiev() {
-  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }));
-  now.setDate(now.getDate() + 1);
-  return now.toISOString().split('T')[0];
+// === Завтрашний диапазон по Киеву ===
+function getKievDateRangeForTomorrow() {
+  const tz = "Europe/Kiev";
+  const tomorrowStart = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  tomorrowStart.setHours(0, 0, 0, 0);
+
+  const tomorrowEnd = new Date(tomorrowStart);
+  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+
+  const from = tomorrowStart.toISOString().split('T')[0];
+  const to = tomorrowEnd.toISOString().split('T')[0];
+
+  return { from, to };
 }
 
 function getRandomOdds() {
@@ -58,8 +67,8 @@ function formatTournament(match) {
 // === Получение матчей на завтра ===
 async function fetchMatches() {
   try {
-    const tomorrow = getTomorrowKiev();
-    const res = await axios.get(`${FIXTURES_URL}?date=${tomorrow}`, {
+    const { from, to } = getKievDateRangeForTomorrow();
+    const res = await axios.get(`${FIXTURES_URL}?from=${from}&to=${to}`, {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY }
     });
 
@@ -69,7 +78,7 @@ async function fetchMatches() {
       EUROPEAN_COUNTRIES.includes(m.league.country)
     );
 
-    console.log(`🎯 Найдено европейских матчей на ${tomorrow}: ${matches.length}`);
+    console.log(`🎯 Найдено европейских матчей с ${from} по ${to}: ${matches.length}`);
     return matches.slice(0, 40);
   } catch (e) {
     console.error('Ошибка загрузки матчей:', e.message);
@@ -187,7 +196,7 @@ async function generatePredictions() {
   return predictions;
 }
 
-// === Запуск при вызове файла напрямую ===
+// === Запуск при вызове напрямую ===
 if (require.main === module) {
   generatePredictions().then(() => {
     console.log('✅ Генерация завершена.');
