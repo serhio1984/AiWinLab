@@ -68,8 +68,13 @@ function formatTournament(match) {
 async function fetchMatches() {
   try {
     const { from, to } = getKievDateRangeForTomorrow();
-    const res = await axios.get(`${FIXTURES_URL}?from=${from}&to=${to}`, {
-      headers: { 'x-apisports-key': FOOTBALL_API_KEY }
+    const res = await axios.get(FIXTURES_URL, {
+      headers: { 'x-apisports-key': FOOTBALL_API_KEY },
+      params: {
+        from,
+        to,
+        timezone: 'Europe/Kiev' // важно для корректной даты
+      }
     });
 
     let matches = res.data.response || [];
@@ -89,8 +94,9 @@ async function fetchMatches() {
 // === Получение коэффициентов ===
 async function fetchOdds(fixtureId) {
   try {
-    const res = await axios.get(`${ODDS_URL}?fixture=${fixtureId}`, {
-      headers: { 'x-apisports-key': FOOTBALL_API_KEY }
+    const res = await axios.get(ODDS_URL, {
+      headers: { 'x-apisports-key': FOOTBALL_API_KEY },
+      params: { fixture: fixtureId, timezone: 'Europe/Kiev' }
     });
 
     const data = res.data.response;
@@ -115,7 +121,7 @@ async function generateAllPredictions(matches) {
   const prompt = `
 Ты спортивный аналитик.
 Для каждого матча придумай краткий прогноз на русском языке в формате ставок.
-Примеры прогнозов: 
+Примеры:
 - Победа {команда}
 - Ничья
 - Двойной шанс {команда} или ничья
@@ -125,8 +131,8 @@ async function generateAllPredictions(matches) {
 - Фора +1.5 на {команда}
 
 Требования:
-1. Прогнозы должны быть разнообразными — не только "Победа {команда}".
-2. Формат ответа:
+1) Используй разные типы исходов, а не только победу.
+2) Ответ строго в формате:
 1. прогноз
 2. прогноз
 ...
@@ -198,9 +204,9 @@ async function generatePredictions() {
 
 // === Запуск при вызове напрямую ===
 if (require.main === module) {
-  generatePredictions().then(() => {
-    console.log('✅ Генерация завершена.');
-  }).catch(err => console.error('❌ Ошибка генерации:', err));
+  generatePredictions()
+    .then(() => console.log('✅ Генерация завершена.'))
+    .catch(err => console.error('❌ Ошибка генерации:', err));
 }
 
 module.exports = { generatePredictions };
