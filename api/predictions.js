@@ -51,7 +51,7 @@ cron.schedule('2 0 * * *', async () => {
 }, { timezone: 'Europe/Kiev' });
 
 // ======= CRON: Генерация черновиков на завтра =======
-cron.schedule('30 20 * * *', async () => {
+cron.schedule('50 17 * * *', async () => {
   console.log('⏰ Генерация черновиков прогнозов (18:00 Киев)');
   try {
     const predictions = await generatePredictions();
