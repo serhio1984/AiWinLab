@@ -1,265 +1,193 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AiWinLab - Админ-панель</title>
-    <style>
-        body {
-            font-family: 'Verdana', sans-serif;
-            margin: 0;
-            padding: 10px;
-            background: #000000 url('https://www.transparenttextures.com/patterns/stardust.png');
-            background-size: cover;
-            color: #ff6200;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .header {
-            width: 100%;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .logo h1 {
-            font-size: 28px;
-            margin: 0;
-            text-shadow: 0 0 10px #ff6200;
-        }
-        .buy-btn {
-            background: #ff6200;
-            color: #ffffff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
-        }
-        .buy-btn:hover {
-            background: #e05600;
-            transform: scale(1.1);
-        }
-        .admin-container {
-            background: #ffffff;
-            color: #000000;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 800px;
-            box-shadow: 0 0 15px rgba(255, 98, 0, 0.3);
-        }
-        .login-section, .form-section, .predictions-list {
-            display: none;
-        }
-        .login-section.active, .form-section.active, .predictions-list.active {
-            display: block;
-        }
-        .login-section input {
-            width: 80%;
-            max-width: 300px;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        .predictions-list table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .predictions-list th, .predictions-list td {
-            padding: 8px;
-            border: 1px solid #ccc;
-            text-align: left;
-        }
-        .predictions-list th { background: #ff6200; color: #fff; }
-        input.editable {
-            width: 100%;
-            border: 1px solid #ddd;
-            padding: 4px;
-            font-size: 13px;
-        }
-        @media (max-width: 600px) {
-            .logo h1 { font-size: 24px; }
-            .form-group input, .buy-btn { font-size: 12px; }
-            .predictions-list th, .predictions-list td { font-size: 12px; padding: 6px; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AiWinLab - Админ-панель</title>
+  <style>
+    body { font-family: 'Verdana', sans-serif; margin:0; padding:10px; background:#000 url('https://www.transparenttextures.com/patterns/stardust.png'); color:#ff6200; min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+    .header { width:100%; padding:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .logo h1 { font-size:28px; margin:0; text-shadow:0 0 10px #ff6200; }
+    .buy-btn { background:#ff6200; color:#fff; border:none; padding:8px 16px; border-radius:5px; font-size:14px; cursor:pointer; transition:.3s; box-shadow:0 0 15px rgba(255,98,0,.5); }
+    .buy-btn:hover { background:#e05600; transform:scale(1.05); }
+    .admin-container { background:#fff; color:#000; padding:20px; border-radius:10px; width:90%; max-width:900px; box-shadow:0 0 15px rgba(255,98,0,.3); }
+    .login-section, .form-section, .predictions-list { display:none; }
+    .login-section.active, .form-section.active, .predictions-list.active { display:block; }
+    .login-section input { width:80%; max-width:300px; padding:8px; margin:10px 0; border:1px solid #ccc; border-radius:5px; }
+    .form-group { margin-bottom:12px; }
+    .form-group label { display:block; margin-bottom:5px; font-weight:bold; }
+    .form-group input { width:100%; padding:8px; border:1px solid #ccc; border-radius:5px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:8px; border:1px solid #ccc; text-align:left; }
+    th { background:#ff6200; color:#fff; }
+    input.editable { width:100%; border:1px solid #ddd; padding:4px; font-size:13px; }
+    @media (max-width:600px){ .logo h1{font-size:24px} .form-group input,.buy-btn{font-size:12px} th,td{font-size:12px;padding:6px}}
+  </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo"><h1>AiWinLab</h1></div>
-        <button class="buy-btn" id="exitBtn" onclick="logout()">Выход</button>
+  <div class="header">
+    <div class="logo"><h1>AiWinLab</h1></div>
+    <button class="buy-btn" id="exitBtn" onclick="logout()">Выход</button>
+  </div>
+
+  <div class="admin-container">
+    <div class="login-section active" id="loginSection">
+      <h2>Вход в админ-панель</h2>
+      <input type="password" id="adminPassword" placeholder="Введите пароль">
+      <button class="buy-btn" onclick="login()">Войти</button>
+      <div id="loginStatus" style="margin-top:10px;color:red;"></div>
     </div>
-    <div class="admin-container">
-        <div class="login-section active" id="loginSection">
-            <h2>Вход в админ-панель</h2>
-            <input type="password" id="adminPassword" placeholder="Введите пароль">
-            <button class="buy-btn" onclick="login()">Войти</button>
-            <div id="loginStatus" style="margin-top: 10px; color: red;"></div>
-        </div>
-        <div class="form-section" id="formSection">
-            <h2>Добавить прогноз</h2>
-            <div class="form-group"><label>Турнир:</label><input type="text" id="tournament"></div>
-            <div class="form-group"><label>Команда 1:</label><input type="text" id="team1"></div>
-            <div class="form-group"><label>URL логотипа 1:</label><input type="text" id="logo1"></div>
-            <div class="form-group"><label>Команда 2:</label><input type="text" id="team2"></div>
-            <div class="form-group"><label>URL логотипа 2:</label><input type="text" id="logo2"></div>
-            <div class="form-group"><label>Коэффициент:</label><input type="number" id="odds" step="0.01"></div>
-            <div class="form-group"><label>Прогноз:</label><input type="text" id="predictionText"></div>
-            <button class="buy-btn" onclick="addPrediction()">Добавить</button>
-            <button class="buy-btn" onclick="saveDrafts()">Сохранить черновики</button>
-            <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
-        </div>
-        <div class="predictions-list" id="predictionsList">
-            <h3>Существующие черновики</h3>
-            <table><thead><tr>
-                <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэфф.</th><th>Прогноз</th><th>Действие</th>
-            </tr></thead><tbody></tbody></table>
-        </div>
+
+    <div class="form-section" id="formSection">
+      <h2>Добавить прогноз</h2>
+      <div class="form-group"><label>Турнир:</label><input type="text" id="tournament"></div>
+      <div class="form-group"><label>Команда 1:</label><input type="text" id="team1"></div>
+      <div class="form-group"><label>URL логотипа 1:</label><input type="text" id="logo1"></div>
+      <div class="form-group"><label>Команда 2:</label><input type="text" id="team2"></div>
+      <div class="form-group"><label>URL логотипа 2:</label><input type="text" id="logo2"></div>
+      <div class="form-group"><label>Коэффициент:</label><input type="number" id="odds" step="0.01"></div>
+      <div class="form-group"><label>Прогноз:</label><input type="text" id="predictionText"></div>
+      <button class="buy-btn" onclick="addPrediction()">Добавить</button>
+      <button class="buy-btn" onclick="saveDrafts()">Сохранить черновики</button>
+      <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
+      <button class="buy-btn" onclick="loadDrafts()">Обновить черновики</button>
     </div>
-    <script>
-        let predictions = [];
 
-        async function loadDrafts() {
-            try {
-                const res = await fetch('/api/predictions');
-                predictions = await res.json();
-                renderPredictions();
-            } catch (e) {
-                console.error('Ошибка загрузки черновиков:', e.message);
-            }
-        }
+    <div class="predictions-list" id="predictionsList">
+      <h3>Существующие черновики</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэфф.</th><th>Прогноз</th><th>Действие</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
-        async function login() {
-            const password = document.getElementById('adminPassword').value;
-            const status = document.getElementById('loginStatus');
-            if (!password) return status.textContent = 'Введите пароль!';
-            try {
-                const res = await fetch('/api/check-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    document.getElementById('loginSection').classList.remove('active');
-                    document.getElementById('formSection').classList.add('active');
-                    document.getElementById('predictionsList').classList.add('active');
-                    document.getElementById('exitBtn').style.display = 'block';
-                    await loadDrafts();
-                    status.textContent = '';
-                } else {
-                    status.textContent = result.message || 'Ошибка входа!';
-                }
-            } catch (e) {
-                status.textContent = 'Ошибка подключения: ' + e.message;
-            }
-        }
+  <script>
+    let predictions = [];
 
-        function logout() {
-            document.getElementById('loginSection').classList.add('active');
-            document.getElementById('formSection').classList.remove('active');
-            document.getElementById('predictionsList').classList.remove('active');
-            document.getElementById('exitBtn').style.display = 'none';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('loginStatus').textContent = '';
-        }
+    async function loadDrafts() {
+      try {
+        const res = await fetch('/api/drafts'); // читаем черновики
+        predictions = await res.json();
+        renderPredictions();
+      } catch (e) {
+        console.error('Ошибка загрузки черновиков:', e.message);
+      }
+    }
 
-        function addPrediction() {
-            const id = Date.now();
-            const p = {
-                id,
-                tournament: document.getElementById('tournament').value,
-                team1: document.getElementById('team1').value,
-                logo1: document.getElementById('logo1').value,
-                team2: document.getElementById('team2').value,
-                logo2: document.getElementById('logo2').value,
-                odds: document.getElementById('odds').value,
-                predictionText: document.getElementById('predictionText').value
-            };
-            if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
-            predictions.push(p);
-            renderPredictions();
-            clearForm();
+    async function login() {
+      const password = document.getElementById('adminPassword').value;
+      const status = document.getElementById('loginStatus');
+      if (!password) return status.textContent = 'Введите пароль!';
+      try {
+        const res = await fetch('/api/check-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const result = await res.json();
+        if (result.success) {
+          document.getElementById('loginSection').classList.remove('active');
+          document.getElementById('formSection').classList.add('active');
+          document.getElementById('predictionsList').classList.add('active');
+          document.getElementById('exitBtn').style.display = 'block';
+          await loadDrafts();
+          status.textContent = '';
+        } else {
+          status.textContent = result.message || 'Ошибка входа!';
         }
+      } catch (e) {
+        status.textContent = 'Ошибка подключения: ' + e.message;
+      }
+    }
 
-        function clearForm() {
-            ['tournament','team1','logo1','team2','logo2','odds','predictionText']
-                .forEach(id => document.getElementById(id).value = '');
-        }
+    function logout() {
+      document.getElementById('loginSection').classList.add('active');
+      document.getElementById('formSection').classList.remove('active');
+      document.getElementById('predictionsList').classList.remove('active');
+      document.getElementById('exitBtn').style.display = 'none';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('loginStatus').textContent = '';
+    }
 
-        function makeEditableCell(row, key, value) {
-            const input = document.createElement('input');
-            input.value = value;
-            input.className = 'editable';
-            input.oninput = e => predictions[row][key] = e.target.value;
-            return input;
-        }
+    function addPrediction() {
+      const id = Date.now();
+      const p = {
+        id,
+        tournament: document.getElementById('tournament').value,
+        team1: document.getElementById('team1').value,
+        logo1: document.getElementById('logo1').value,
+        team2: document.getElementById('team2').value,
+        logo2: document.getElementById('logo2').value,
+        odds: document.getElementById('odds').value,
+        predictionText: document.getElementById('predictionText').value
+      };
+      if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
+      predictions.push(p);
+      renderPredictions();
+      ['tournament','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => document.getElementById(id).value = '');
+    }
 
-        function renderPredictions() {
-            const tbody = document.querySelector('tbody');
-            tbody.innerHTML = '';
-            predictions.forEach((p, i) => {
-                const row = tbody.insertRow();
-                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'tournament', p.tournament));
-                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team1', p.team1));
-                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team2', p.team2));
-                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'odds', p.odds));
-                row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'predictionText', p.predictionText));
-                const cell = row.insertCell();
-                const delBtn = document.createElement('button');
-                delBtn.className = 'buy-btn';
-                delBtn.textContent = 'Удалить';
-                delBtn.onclick = () => {
-                    predictions = predictions.filter(x => x.id !== p.id);
-                    renderPredictions();
-                };
-                cell.appendChild(delBtn);
-            });
-        }
+    function makeEditableCell(rowIdx, key, value) {
+      const input = document.createElement('input');
+      input.value = value ?? '';
+      input.className = 'editable';
+      input.oninput = e => { predictions[rowIdx][key] = e.target.value; };
+      return input;
+    }
 
-        async function saveDrafts() {
-            try {
-                const res = await fetch('/api/predictions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(predictions)
-                });
-                if (res.ok) alert('Черновики сохранены!');
-            } catch (e) {
-                alert('Ошибка подключения: ' + e.message);
-            }
-        }
+    function renderPredictions() {
+      const tbody = document.querySelector('tbody');
+      tbody.innerHTML = '';
+      predictions.forEach((p, i) => {
+        const row = tbody.insertRow();
+        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'tournament', p.tournament));
+        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team1', p.team1));
+        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team2', p.team2));
+        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'odds', p.odds));
+        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'predictionText', p.predictionText));
+        const act = row.insertCell();
+        const delBtn = document.createElement('button');
+        delBtn.className = 'buy-btn';
+        delBtn.textContent = 'Удалить';
+        delBtn.onclick = () => { predictions = predictions.filter(x => x.id !== p.id); renderPredictions(); };
+        act.appendChild(delBtn);
+      });
+    }
 
-        async function publishNextDay() {
-            try {
-                const res = await fetch('/api/publish-next-day', { method: 'POST' });
-                const result = await res.json();
-                if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
-            } catch (e) {
-                alert('Ошибка подключения: ' + e.message);
-            }
-        }
+    async function saveDrafts() {
+      try {
+        const res = await fetch('/api/predictions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(predictions)
+        });
+        if (res.ok) alert('Черновики сохранены!');
+        else alert('Ошибка сохранения');
+      } catch (e) {
+        alert('Ошибка подключения: ' + e.message);
+      }
+    }
 
-        if (window.Telegram?.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-        }
-    </script>
+    async function publishNextDay() {
+      try {
+        const res = await fetch('/api/publish-next-day', { method: 'POST' });
+        const result = await res.json();
+        if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
+        else alert('Ошибка публикации');
+      } catch (e) {
+        alert('Ошибка подключения: ' + e.message);
+      }
+    }
+
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+    }
+  </script>
 </body>
 </html>
