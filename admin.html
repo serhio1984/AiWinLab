@@ -39,7 +39,8 @@
     </div>
 
     <div class="form-section" id="formSection">
-      <h2>Добавить прогноз</h2>
+      <h2>Черновики прогнозов</h2>
+
       <div class="form-group"><label>Турнир:</label><input type="text" id="tournament"></div>
       <div class="form-group"><label>Команда 1:</label><input type="text" id="team1"></div>
       <div class="form-group"><label>URL логотипа 1:</label><input type="text" id="logo1"></div>
@@ -47,9 +48,11 @@
       <div class="form-group"><label>URL логотипа 2:</label><input type="text" id="logo2"></div>
       <div class="form-group"><label>Коэффициент:</label><input type="number" id="odds" step="0.01"></div>
       <div class="form-group"><label>Прогноз:</label><input type="text" id="predictionText"></div>
+
       <button class="buy-btn" onclick="addPrediction()">Добавить</button>
       <button class="buy-btn" onclick="saveDrafts()">Сохранить черновики</button>
       <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
+      <button class="buy-btn" onclick="generateDraftsNow()">Сгенерировать черновики</button>
       <button class="buy-btn" onclick="loadDrafts()">Обновить черновики</button>
     </div>
 
@@ -129,7 +132,7 @@
       if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
       predictions.push(p);
       renderPredictions();
-      ['tournament','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => document.getElementById(id).value = '');
+      ['tournament','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => (document.getElementById(id).value = ''));
     }
 
     function makeEditableCell(rowIdx, key, value) {
@@ -178,9 +181,28 @@
         const res = await fetch('/api/publish-next-day', { method: 'POST' });
         const result = await res.json();
         if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
-        else alert('Ошибка публикации');
+        else alert('Ошибка публикации: ' + (result.message || 'неизвестно'));
       } catch (e) {
         alert('Ошибка подключения: ' + e.message);
+      }
+    }
+
+    async function generateDraftsNow() {
+      const btns = document.querySelectorAll('.buy-btn');
+      btns.forEach(b => (b.disabled = true));
+      try {
+        const res = await fetch('/api/generate-drafts-now', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert(`Сгенерировано черновиков: ${data.count}`);
+          await loadDrafts();
+        } else {
+          alert('Ошибка генерации: ' + (data.message || 'неизвестно'));
+        }
+      } catch (e) {
+        alert('Ошибка подключения: ' + e.message);
+      } finally {
+        btns.forEach(b => (b.disabled = false));
       }
     }
 
