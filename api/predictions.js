@@ -13,56 +13,72 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const botApi = new TelegramBot(BOT_TOKEN, { polling: false });
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ENABLE_AUTO_GEN = process.env.ENABLE_AUTO_GEN === 'true'; // автогенерация черновиков по CRON (по умолчанию выкл)
+
 const rootDir = path.join(__dirname, '..');
 console.log('Root directory set to:', rootDir);
 
 // ======= MONGO DB =======
-const uri = process.env.MONGODB_URI || "mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true";
+const uri =
+  process.env.MONGODB_URI ||
+  'mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true';
 const client = new MongoClient(uri);
 let db;
 
 async function connectDB() {
   await client.connect();
-  db = client.db("predictionsDB");
-  console.log("✅ MongoDB connected");
+  db = client.db('predictionsDB');
+  console.log('✅ MongoDB connected');
 }
 client.on('disconnected', () => connectDB().catch(console.error));
-connectDB().then(() => app.listen(process.env.PORT || 3000, () => console.log('🚀 Server started')));
+connectDB().then(() =>
+  app.listen(process.env.PORT || 3000, () => console.log('🚀 Server started'))
+);
 
-// ======= CRON: Автопубликация прогнозов =======
-cron.schedule('2 0 * * *', async () => {
-  console.log('⏰ Публикация прогнозов в 00:02 (Киев)');
-  try {
-    const nextDayColl = db.collection('predictions_next_day');
-    const mainColl = db.collection('predictions');
-    const nextDayPredictions = await nextDayColl.find().toArray();
+// ======= CRON: Автопубликация прогнозов (НЕ отключаем) =======
+cron.schedule(
+  '2 0 * * *',
+  async () => {
+    console.log('⏰ Публикация прогнозов в 00:02 (Киев)');
+    try {
+      const nextDayColl = db.collection('predictions_next_day');
+      const mainColl = db.collection('predictions');
+      const nextDayPredictions = await nextDayColl.find().toArray();
 
-    if (nextDayPredictions.length > 0) {
-      await mainColl.deleteMany({});
-      await mainColl.insertMany(nextDayPredictions);
-      await nextDayColl.deleteMany({});
-      console.log('✅ Прогнозы опубликованы:', nextDayPredictions.length);
-    } else {
-      console.log('⚠️ Нет прогнозов для публикации');
+      if (nextDayPredictions.length > 0) {
+        await mainColl.deleteMany({});
+        await mainColl.insertMany(nextDayPredictions);
+        await nextDayColl.deleteMany({});
+        console.log('✅ Прогнозы опубликованы:', nextDayPredictions.length);
+      } else {
+        console.log('⚠️ Нет прогнозов для публикации');
+      }
+    } catch (err) {
+      console.error('❌ Ошибка публикации:', err);
     }
-  } catch (err) {
-    console.error('❌ Ошибка публикации:', err);
-  }
-}, { timezone: 'Europe/Kiev' });
+  },
+  { timezone: 'Europe/Kiev' }
+);
 
-// ======= CRON: Генерация черновиков на завтра =======
-cron.schedule('0 12 * * *', async () => {
-  console.log('⏰ Генерация черновиков прогнозов (18:00 Киев)');
-  try {
-    const predictions = await generatePredictions();
-    const draftsColl = db.collection('draft_predictions');
-    await draftsColl.deleteMany({});
-    if (predictions.length > 0) await draftsColl.insertMany(predictions);
-    console.log(`✅ Сгенерировано и сохранено в черновики: ${predictions.length}`);
-  } catch (err) {
-    console.error('❌ Ошибка генерации черновиков:', err);
-  }
-}, { timezone: 'Europe/Kiev' });
+// ======= (Опционально) CRON: Автогенерация черновиков =======
+if (ENABLE_AUTO_GEN) {
+  cron.schedule(
+    '10 21 * * *',
+    async () => {
+      console.log('⏰ Генерация черновиков прогнозов (21:10 Киев, авто-CRON)');
+      try {
+        const predictions = await generatePredictions();
+        const draftsColl = db.collection('draft_predictions');
+        await draftsColl.deleteMany({});
+        if (predictions.length > 0) await draftsColl.insertMany(predictions);
+        console.log(`✅ Сгенерировано и сохранено в черновики: ${predictions.length}`);
+      } catch (err) {
+        console.error('❌ Ошибка генерации черновиков:', err);
+      }
+    },
+    { timezone: 'Europe/Kiev' }
+  );
+}
 
 // ======= WEBHOOK =======
 app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
@@ -72,6 +88,7 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
 
     const body = req.body;
 
+    // Ответ на pre_checkout_query
     if (body.pre_checkout_query) {
       const queryId = body.pre_checkout_query.id;
       await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
@@ -82,13 +99,18 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // Успешная оплата
     if (body.message?.successful_payment) {
       const payload = body.message.successful_payment.invoice_payload;
       if (!payload) return res.sendStatus(200);
 
       let parsed;
-      try { parsed = JSON.parse(payload); }
-      catch { return res.sendStatus(200); }
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        console.error('❌ Невалидный payload:', payload);
+        return res.sendStatus(200);
+      }
 
       const { userId, coins } = parsed;
       const users = db.collection('users');
@@ -144,7 +166,7 @@ app.post('/balance', async (req, res) => {
   res.status(400).json({ error: 'Invalid action' });
 });
 
-// Получение прогнозов (видно пользователям)
+// Получение прогнозов (пользователи видят опубликованные)
 app.get('/api/predictions', async (req, res) => {
   const userId = parseInt(req.query.userId, 10);
   const preds = await db.collection('predictions').find().toArray();
@@ -160,7 +182,7 @@ app.get('/api/predictions', async (req, res) => {
 
 // ======= Черновики (админ) =======
 
-// Получить черновики
+// Прочитать черновики
 app.get('/api/drafts', async (req, res) => {
   try {
     const drafts = await db.collection('draft_predictions').find().toArray();
@@ -171,7 +193,7 @@ app.get('/api/drafts', async (req, res) => {
   }
 });
 
-// Сохранить черновики (перезаписываем коллекцию)
+// Сохранить черновики (перезапись коллекции)
 app.post('/api/predictions', async (req, res) => {
   const arr = req.body;
   if (!Array.isArray(arr)) return res.status(400).json({ success: false });
@@ -188,16 +210,27 @@ app.post('/api/predictions', async (req, res) => {
   res.json({ success: true });
 });
 
-// Подготовить к публикации
+// Ручная генерация черновиков на завтра (по кнопке в админке)
+app.post('/api/generate-drafts-now', async (req, res) => {
+  try {
+    const predictions = await generatePredictions(); // генератор сам пишет в draft_predictions
+    res.json({ success: true, count: predictions.length });
+  } catch (e) {
+    console.error('❌ Ошибка ручной генерации черновиков:', e);
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+// Подготовить к публикации (копируем в predictions_next_day)
 app.post('/api/publish-next-day', async (req, res) => {
   const drafts = await db.collection('draft_predictions').find().toArray();
-  if (!drafts.length) return res.json({ success: false, message: "Нет черновиков" });
+  if (!drafts.length) return res.json({ success: false, message: 'Нет черновиков' });
 
   const nextDay = db.collection('predictions_next_day');
   await nextDay.deleteMany({});
   await nextDay.insertMany(drafts);
 
-  res.json({ success: true, message: "Прогнозы готовы к публикации завтра" });
+  res.json({ success: true, message: 'Прогнозы готовы к публикации завтра' });
 });
 
 // Разблокировка прогноза
@@ -232,7 +265,7 @@ app.post('/create-invoice', async (req, res) => {
   }
 
   try {
-    const prices = [{ amount: stars * 1, label: `${coins} монет` }];
+    const prices = [{ amount: stars, label: `${coins} монет` }];
 
     const link = await botApi.createInvoiceLink(
       `Покупка ${coins} монет`,
