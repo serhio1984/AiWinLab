@@ -37,10 +37,8 @@ const TOURNAMENT_TRANSLATIONS = {
 const EUROPEAN_COUNTRIES = [
   // UK & Ireland
   'England', 'Scotland', 'Wales', 'Northern Ireland', 'Ireland',
-
   // Топ-5
   'Spain', 'Italy', 'Germany', 'France', 'Netherlands', 'Portugal',
-
   // Другая Европа
   'Belgium', 'Switzerland', 'Austria', 'Turkey', 'Greece', 'Denmark',
   'Norway', 'Sweden', 'Poland', 'Czech Republic', 'Czechia', 'Croatia',
@@ -51,10 +49,8 @@ const EUROPEAN_COUNTRIES = [
   'Armenia', 'Azerbaijan', 'Cyprus', 'Malta', 'Luxembourg',
   'Liechtenstein', 'Andorra', 'San Marino', 'Monaco', 'Gibraltar',
   'Faroe Islands',
-
   // Вне ЕС, но часто участвуют в еврокубках/УЕФА
   'Israel', 'Kazakhstan', 'Russia',
-
   // Метки из API для еврокубков
   'International', 'World', 'Europe'
 ];
@@ -163,7 +159,7 @@ async function fetchMatches(maxCount = 40) {
   const leaguesList = [...new Set(all.map((m) => `${m.league?.country} — ${m.league?.name}`))].sort();
   console.log(`📅 Завтра (Киев): ${from} | Диапазон: ${from} → ${to}`);
   console.log(`📊 Всего матчей получено: ${all.length}`);
-  console.log(`🏷️ Лиги/страны (образцы):\n  - ${leaguesList.slice(0, 50).join('\n  - ')}`);
+  console.log(`🏷️ Лиги/страны (образцы):\n  - ${leaguesList.slice(0, 80).join('\n  - ')}`);
 
   let selected = all;
 
@@ -174,7 +170,61 @@ async function fetchMatches(maxCount = 40) {
     console.log('🟡 Фильтр Европы отключён (ONLY_EUROPE=false): берём все матчи.');
   }
 
-  // Если европейских мало — добираем любыми до лимита
+  // === Приоритезация лиг/турниров ===
+  const EURO_REGEX = /(uefa|champions league|europa|conference|european championship|qualifying|qualification)/i;
+  const FRIENDLY_REGEX = /(friendly|friendlies|club friendlies|товарищеск)/i;
+  const TOP_LEAGUES = new Set([
+    'Premier League',
+    'La Liga',
+    'Serie A',
+    'Bundesliga',
+    'Ligue 1',
+    'Eredivisie',
+    'Primeira Liga',
+    'Scottish Premiership',
+    'Ukrainian Premier League',
+    'Belgian Pro League',
+    'Swiss Super League',
+    'Austrian Bundesliga',
+    'Super Lig',               // Turkey
+    'Super League',            // Greece (общее имя, но подходит)
+    'Danish Superliga',
+    'Eliteserien',             // Norway
+    'Allsvenskan',             // Sweden
+    'Ekstraklasa',             // Poland
+    'Czech Liga',              // Czech Republic
+    '1. HNL', 'HNL',           // Croatia
+    'NB I',                    // Hungary
+    'SuperLiga',               // Serbia
+    'Liga I',                  // Romania
+  ]);
+
+  const leagueName = (m) => String(m.league?.name || '');
+  const leagueType = (m) => String(m.league?.type || '');
+  const isEuroCup = (m) => {
+    const name = leagueName(m);
+    const country = String(m.league?.country || '');
+    return EURO_REGEX.test(name) || (/International|World|Europe/i.test(country) && EURO_REGEX.test(name));
+  };
+  const isFriendly = (m) => FRIENDLY_REGEX.test(leagueName(m)) || /friendly/i.test(leagueType(m));
+  const isTopLeague = (m) => TOP_LEAGUES.has(leagueName(m));
+
+  const priorityOf = (m) => {
+    if (isEuroCup(m)) return 1;     // Еврокубки
+    if (isFriendly(m)) return 2;    // Товарищеские
+    if (isTopLeague(m)) return 3;   // Топ‑лиги
+    return 4;                       // Остальное
+  };
+
+  // СОРТИРОВКА: приоритет → время начала
+  selected.sort((a, b) => {
+    const pa = priorityOf(a);
+    const pb = priorityOf(b);
+    if (pa !== pb) return pa - pb;
+    return new Date(a.fixture.date) - new Date(b.fixture.date);
+  });
+
+  // Если европейских мало — добираем любыми до лимита (но порядок уже по приоритету)
   const minTarget = Math.min(20, maxCount);
   if (selected.length < minTarget) {
     const map = new Map(selected.map((m) => [m.fixture.id, m]));
@@ -183,15 +233,22 @@ async function fetchMatches(maxCount = 40) {
       if (!map.has(m.fixture.id)) map.set(m.fixture.id, m);
     }
     selected = [...map.values()];
+    // ещё раз отсортируем добранные по тем же правилам
+    selected.sort((a, b) => {
+      const pa = priorityOf(a);
+      const pb = priorityOf(b);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.fixture.date) - new Date(b.fixture.date);
+    });
     console.log(`🔁 Добрали до: ${selected.length}`);
   }
 
   const final = selected.slice(0, maxCount);
-  console.log(`✅ Итого к генерации: ${final.length}`);
+  console.log(`✅ Итого к генерации (после приоритета): ${final.length}`);
   return final;
 }
 
-// === Получение коэффициентов ===
+// === Получение коэффициентов (простая версия с фолбэком) ===
 async function fetchOdds(fixtureId) {
   try {
     const data = await safeGet(ODDS_URL, { fixture: fixtureId, timezone: 'Europe/Kiev' });
@@ -278,6 +335,7 @@ async function generatePredictions() {
     return [];
   }
 
+  // Коэффициенты
   const matchesWithOdds = [];
   for (const match of matches) {
     const odds = await fetchOdds(match.fixture.id);
