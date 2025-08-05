@@ -1,6 +1,7 @@
-// generatePredictions.js
-// Полная версия: 1 матч = 1 запрос в OpenAI, + реальные коэффициенты из API-Football.
-// CommonJS (require) совместимо с твоим проектом.
+// generatePredictions.js — NO-SKIP версия
+// 1 матч = 1 запрос в OpenAI (+ жёсткий JSON), но если модель даёт SKIP/низкую уверенность,
+// мы ВСЕ РАВНО берём исход через локальный фолбэк по статистике/рынку.
+// Odds: реальные из API-Football (1X2 / Totals 2.5/3.5 / BTTS / AH). Если не найдены — odds:null.
 
 const axios = require('axios');
 const OpenAI = require('openai');
@@ -14,7 +15,7 @@ const MONGODB_URI =
   process.env.MONGODB_URI ||
   'mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true';
 
-// Флаг: фильтровать только Европу (по умолчанию ВКЛ)
+// Фильтр Европы (можно выключить .env → ONLY_EUROPE=false)
 const ONLY_EUROPE = process.env.ONLY_EUROPE !== 'false';
 
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
@@ -25,7 +26,7 @@ const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 const TEAMS_STATS_URL = 'https://v3.football.api-sports.io/teams/statistics';
 const H2H_URL = 'https://v3.football.api-sports.io/fixtures/headtohead';
 
-// === Переводы популярных турниров (для заголовка карточки) ===
+// === Переводы турниров (для заголовка) ===
 const TOURNAMENT_TRANSLATIONS = {
   'UEFA Champions League': 'Лига Чемпионов УЕФА',
   'UEFA Europa League': 'Лига Европы УЕФА',
@@ -39,7 +40,7 @@ const TOURNAMENT_TRANSLATIONS = {
   'Primeira Liga': 'Примейра Лига Португалии'
 };
 
-// === Европа: расширенный список стран/меток и правила ===
+// === Европа: страны/метки ===
 const EUROPEAN_COUNTRIES = [
   'England','Scotland','Wales','Northern Ireland','Ireland',
   'Spain','Italy','Germany','France','Netherlands','Portugal',
@@ -98,7 +99,7 @@ function formatTournament(match) {
   return `Футбол.${d}.${m}.${y} ${league}`;
 }
 
-// === Безопасный GET с логами ===
+// === Безопасный GET ===
 async function safeGet(url, params) {
   try {
     const res = await axios.get(url, {
@@ -116,14 +117,14 @@ async function safeGet(url, params) {
   }
 }
 
-// === Получение матчей на завтра (с приоритезацией) ===
+// === Матчи на завтра ===
 async function fetchMatches(maxCount = 40) {
   const tz = 'Europe/Kiev';
   const { from, to } = getKievDateRangeForTomorrow();
   let all = await safeGet(FIXTURES_URL, { date: from, timezone: tz });
   if (all.length === 0) all = await safeGet(FIXTURES_URL, { from, to, timezone: tz });
   if (all.length === 0) {
-    const next = await safeGet(FIXTURES_URL, { next: 200, timezone: tz });
+    const next = await safeGet(FIXTURES_URL, { next: 500, timezone: tz }); // расширили запас
     if (next.length > 0) {
       const zStart = new Date(`${from}T00:00:00.000Z`);
       const zEnd = new Date(`${to}T00:00:00.000Z`);
@@ -131,7 +132,7 @@ async function fetchMatches(maxCount = 40) {
         const dt = new Date(m.fixture.date);
         return dt >= zStart && dt < zEnd;
       });
-      console.log(`🧩 Фолбэк next=200 → отфильтровано на завтра: ${all.length}`);
+      console.log(`🧩 Фолбэк next=500 → отфильтровано на завтра: ${all.length}`);
     }
   }
 
@@ -203,7 +204,7 @@ async function fetchMatches(maxCount = 40) {
   return final;
 }
 
-// === Статистика команд + H2H (кэшируется в памяти на запуск) ===
+// === Статы + H2H (кэш в памяти) ===
 const _statsCache = new Map();
 const cacheKey = (prefix, params) => prefix + ':' + Object.entries(params).sort().map(([k,v])=>`${k}=${v}`).join('&');
 function seasonOf(m) {
@@ -278,7 +279,7 @@ H2H (последние ${h2h.count}):
 `.trim();
 }
 
-// === Очередь/пул выполнения (без зависимостей) ===
+// === Очередь/пул ===
 function createPool({ concurrency = 4, minDelayMs = 250 }) {
   let active = 0;
   const queue = [];
@@ -317,9 +318,7 @@ function createPool({ concurrency = 4, minDelayMs = 250 }) {
   return { schedule };
 }
 
-// === Реальные коэффициенты: агрегация рынков ===
-// Будем собирать лучшие (max) коэффициенты по рынкам:
-// 1X2 (Match Winner), Goals O/U (2.5 и 3.5), BTTS, Asian Handicap (линии -0.25,-0.5,+0.25,+0.5,+1.0 и т.п.)
+// === Реальные коэффициенты: агрегатор рынков ===
 async function fetchAggregatedOdds(fixtureId) {
   const data = await safeGet(ODDS_URL, { fixture: fixtureId, timezone: 'Europe/Kiev' });
   if (!data.length) return {};
@@ -328,7 +327,7 @@ async function fetchAggregatedOdds(fixtureId) {
     '1X2': { '1': null, X: null, '2': null },
     OU: { '2.5': { OVER: null, UNDER: null }, '3.5': { OVER: null, UNDER: null } },
     BTTS: { YES: null, NO: null },
-    AH: {} // ключ линия (напр. home_-0.25, away_+1.0) -> odd
+    AH: {} // key: "home_-0.25" / "away_+1.0" -> odd
   };
 
   const trySetMax = (obj, key, value) => {
@@ -354,7 +353,7 @@ async function fetchAggregatedOdds(fixtureId) {
       // Goals Over/Under
       if (name.includes('goals over/under') || name.includes('over/under')) {
         for (const v of (bet.values || [])) {
-          const label = (v.value || '').toUpperCase(); // напр. "Over 2.5"
+          const label = (v.value || '').toUpperCase(); // "Over 2.5"
           const m = label.match(/(OVER|UNDER)\s+(\d+(\.\d+)?)/);
           if (!m) continue;
           const side = m[1]; const line = m[2];
@@ -375,13 +374,12 @@ async function fetchAggregatedOdds(fixtureId) {
       // Asian Handicap / Handicap
       if (name.includes('asian handicap') || name.includes('handicap')) {
         for (const v of (bet.values || [])) {
-          // Часто формат: "Home -0.25" / "Away +0.5"
-          const label = (v.value || '').toLowerCase();
+          const label = (v.value || '').toLowerCase(); // "Home -0.25"
           const m = label.match(/(home|away)\s*([+-]?\d+(\.\d+)?)/);
           if (!m) continue;
           const side = m[1];
           const line = m[2];
-          const key = `${side}_${line}`; // напр. "home_-0.25"
+          const key = `${side}_${line}`;
           if (!best.AH[key] || parseFloat(v.odd) > parseFloat(best.AH[key])) {
             best.AH[key] = v.odd;
           }
@@ -392,19 +390,17 @@ async function fetchAggregatedOdds(fixtureId) {
   return best;
 }
 
-// Найти коэффициент для выбранного моделью исхода
+// Маппинг выбранного исхода → коэффициент
 function findOddsForSelection(pick, oddsPack) {
-  // pick.selection: UNDER_2_5 / OVER_2_5 / X / 1X / X2 / YES / NO / AH_HOME_-0_25 / AH_AWAY_+1_0 / и т.п.
   if (!pick || !oddsPack) return null;
   const s = (pick.selection || '').toUpperCase();
 
   // TOTALS
   if (s.startsWith('UNDER_') || s.startsWith('OVER_')) {
-    const parts = s.split('_'); // ['UNDER', '2', '5'] или ['UNDER', '2.5']
+    const parts = s.split('_');
     const side = parts[0]; // UNDER/OVER
     let line = parts.slice(1).join('_').replace('_', '.'); // '2.5'
     if (!oddsPack.OU || !oddsPack.OU[line]) {
-      // fallback: попробуем ближайшие популярные линии
       const prefer = ['2.5','3.5','2.0','3.0'];
       for (const L of prefer) if (oddsPack.OU?.[L]?.[side]) { line = L; break; }
     }
@@ -412,7 +408,7 @@ function findOddsForSelection(pick, oddsPack) {
     return odd ? { market: `Totals ${side} ${line}`, line, outcome: side, odd } : null;
   }
 
-  // DRAW / 1X / X2 / 1 / 2
+  // DRAW / 1 / 2 / 1X / X2
   if (s === 'X') {
     const odd = oddsPack['1X2']?.X || null;
     return odd ? { market: '1X2', outcome: 'Draw', odd } : null;
@@ -426,8 +422,7 @@ function findOddsForSelection(pick, oddsPack) {
     return odd ? { market: '1X2', outcome: 'Away', odd } : null;
   }
   if (s === '1X' || s === 'X2') {
-    // комбинированные коэффициенты 1X/X2 не всегда в API как отдельный рынок,
-    // поэтому оставим null (можно позже добавить синтетическую оценку).
+    // как правило не отдельный рынок — оставим без odds
     return null;
   }
 
@@ -449,12 +444,11 @@ function findOddsForSelection(pick, oddsPack) {
   return null;
 }
 
-// === LLM: один матч → один ответ (жёсткий JSON) ===
+// === OpenAI: один матч → JSON ===
 async function llmPickOne(statsText, marketSnapshotText) {
   const system = `Ты спортивный аналитик. Дай ОДИН конкретный исход ставки из списка.
 - Разрешённые типы: TOTAL_UNDER, TOTAL_OVER, DRAW, DOUBLE_CHANCE, BOTH_TEAMS_TO_SCORE, ASIAN_HANDICAP.
-- Твоя задача — выбрать исход, который согласуется с рынком: избегай заведомо "длинных" ставок с вероятностью < 35% (по рынку) и слишком очевидных > 75%. Предпочитай диапазон коэффициентов ~1.50–2.50, если статистика и рынок не противоречат.
-- Если уверенность ниже 60 — верни {"decision":"SKIP"}.
+- Если уверенность ниже 55 — верни {"decision":"SKIP"}.
 - Используй ТОЛЬКО факты из статистики и снапшота рынка, не выдумывай травмы/новости.
 - Ответ строго JSON без лишнего текста.`;
 
@@ -462,18 +456,18 @@ async function llmPickOne(statsText, marketSnapshotText) {
 СТАТИСТИКА МАТЧА (факты):
 ${statsText}
 
-СНАПШОТ РЫНКА (лучшие коэффициенты):
-${marketSnapshotText}
+СНАПШОТ РЫНКА (если пусто — ориентируйся только на статистику):
+${marketSnapshotText || '(нет данных)'}
 
 ТРЕБУЕМЫЙ JSON:
 {
   "bet_type": "TOTAL_UNDER | TOTAL_OVER | DRAW | DOUBLE_CHANCE | BOTH_TEAMS_TO_SCORE | ASIAN_HANDICAP",
   "selection": "UNDER_2_5 | OVER_2_5 | X | 1X | X2 | YES | NO | AH_HOME_-0_25 | AH_AWAY_+1_0 ...",
-  "reason": "кратко, 1-2 предложения по цифрам и рынку",
+  "reason": "кратко, 1-2 предложения по цифрам/тенденциям",
   "confidence": 0-100,
   "variety_bucket": "totals | handicap | draws | dc | btts"
 }
-Если данных недостаточно или уверенность < 60 — верни {"decision":"SKIP"}.
+Если не хватает данных или уверенность < 55 — верни {"decision":"SKIP"}.
 `.trim();
 
   const resp = await openai.chat.completions.create({
@@ -517,12 +511,61 @@ function selectionToText(p, homeName, awayName) {
   return 'Надёжный исход';
 }
 
-// === Батч генерации с очередью и ротацией ===
+// === ЛОКАЛЬНЫЙ ФОЛБЭК (когда LLM дал SKIP/низкую уверенность) ===
+// Простейшая логика на основе средних голов и H2H/BTTS, с попыткой прикрутить близкий рынок:
+function fallbackPick({ homeName, awayName, homeStats, awayStats, h2h, oddsPack }) {
+  const avgF = Number(homeStats?.avgGoalsFor || 0);
+  const avgA = Number(awayStats?.avgGoalsFor || 0);
+  const avgGAh = Number(homeStats?.avgGoalsAgainst || 0);
+  const avgGAa = Number(awayStats?.avgGoalsAgainst || 0);
+  const avgTotalTeams = (avgF + avgA + avgGAh + avgGAa) / 2 || null; // грубая оценка тотала
+  const h2hAvg = h2h?.avgTotal ? Number(h2h.avgTotal) : null;
+
+  // 1) Если есть BTTS рынок и команды забивают/пропускают прилично — BTTS YES
+  if (oddsPack?.BTTS?.YES) {
+    const bttsBias = (avgF > 1 || avgA > 1) && (avgGAh > 0.8 || avgGAa > 0.8);
+    if (bttsBias || (h2h?.bttsCount || 0) >= 3) {
+      return { bet_type: 'BOTH_TEAMS_TO_SCORE', selection: 'YES', reason: 'Обе команды достаточно забивные/пропускают; H2H поддерживает', confidence: 60, variety_bucket: 'btts' };
+    }
+  }
+
+  // 2) Totals: если средний тотал по оценке/истории высок — OVER 2.5, иначе UNDER 2.5
+  if (oddsPack?.OU?.['2.5']) {
+    const overBias = (avgTotalTeams && avgTotalTeams >= 2.6) || (h2hAvg && h2hAvg >= 2.6);
+    if (overBias && oddsPack.OU['2.5'].OVER) {
+      return { bet_type: 'TOTAL_OVER', selection: 'OVER_2_5', reason: 'Средний тотал и/или H2H > 2.5', confidence: 58, variety_bucket: 'totals' };
+    }
+    if (oddsPack.OU['2.5'].UNDER) {
+      return { bet_type: 'TOTAL_UNDER', selection: 'UNDER_2_5', reason: 'Оборона/темп ниже среднего; тотал ≤ 2.5', confidence: 58, variety_bucket: 'totals' };
+    }
+  }
+
+  // 3) 1X2: если есть сильный фаворит по рынку
+  if (oddsPack?.['1X2']) {
+    const h = parseFloat(oddsPack['1X2']['1'] || '0');
+    const d = parseFloat(oddsPack['1X2']['X'] || '0');
+    const a = parseFloat(oddsPack['1X2']['2'] || '0');
+    if (h && a) {
+      // если дом. коэф заметно ниже гостевого → 1Х (без точного коэфа на комб. рынок)
+      if (h < a * 0.6) return { bet_type: 'DOUBLE_CHANCE', selection: '1X', reason: 'Рынок даёт сильное преимущество хозяевам', confidence: 57, variety_bucket: 'dc' };
+      if (a < h * 0.6) return { bet_type: 'DOUBLE_CHANCE', selection: 'X2', reason: 'Рынок даёт сильное преимущество гостям', confidence: 57, variety_bucket: 'dc' };
+    }
+  }
+
+  // 4) AH — базовая страховка, если есть линия -0.25/+0.25
+  if (oddsPack?.AH?.['home_-0.25']) return { bet_type: 'ASIAN_HANDICAP', selection: 'AH_HOME_-0_25', reason: 'Склон в пользу хозяев; мягкая фора', confidence: 56, variety_bucket: 'handicap' };
+  if (oddsPack?.AH?.['away_+0.25']) return { bet_type: 'ASIAN_HANDICAP', selection: 'AH_AWAY_+0_25', reason: 'Склон в пользу гостей; мягкая фора', confidence: 56, variety_bucket: 'handicap' };
+
+  // 5) Совсем бэкап: DC 1X
+  return { bet_type: 'DOUBLE_CHANCE', selection: '1X', reason: 'Базовый страховочный исход при недостатке данных', confidence: 55, variety_bucket: 'dc' };
+}
+
+// === Батч: очередь + no-skip ===
 async function generateAllPredictions(matches) {
   const pool = createPool({ concurrency: 4, minDelayMs: 250 });
 
-  // квоты по типам (подправь под себя)
-  const quota = { totals: 12, dc: 8, handicap: 6, btts: 6, draws: 8, other: 4 };
+  // Мягкие квоты (не блокируют набор 40)
+  const quota = { totals: 16, dc: 10, handicap: 6, btts: 6, draws: 8, other: 4 };
   const left = (b) => (quota[b] ?? 0) > 0;
 
   const out = [];
@@ -550,12 +593,10 @@ async function generateAllPredictions(matches) {
         leagueName: m.league.name, kickoff: m.fixture.date
       });
 
-      // соберём снапшот рынка «читаемым» текстом для промпта
+      // Снапшот рынка → короткий текст
       const marketSnapshotText = (() => {
         const lines = [];
-        if (oddsPack['1X2']) {
-          lines.push(`1X2: 1=${oddsPack['1X2']['1'] || '-'} | X=${oddsPack['1X2']['X'] || '-'} | 2=${oddsPack['1X2']['2'] || '-'}`);
-        }
+        if (oddsPack['1X2']) lines.push(`1X2: 1=${oddsPack['1X2']['1'] || '-'} | X=${oddsPack['1X2']['X'] || '-'} | 2=${oddsPack['1X2']['2'] || '-'}`);
         if (oddsPack.OU) {
           for (const L of ['2.5','3.5']) {
             if (oddsPack.OU[L]) {
@@ -563,9 +604,7 @@ async function generateAllPredictions(matches) {
             }
           }
         }
-        if (oddsPack.BTTS) {
-          lines.push(`BTTS: YES=${oddsPack.BTTS.YES || '-'} | NO=${oddsPack.BTTS.NO || '-'}`);
-        }
+        if (oddsPack.BTTS) lines.push(`BTTS: YES=${oddsPack.BTTS.YES || '-'} | NO=${oddsPack.BTTS.NO || '-'}`);
         if (oddsPack.AH) {
           const ahSamples = Object.entries(oddsPack.AH).slice(0, 6).map(([k,v])=>`${k}=${v}`);
           if (ahSamples.length) lines.push(`AH: ${ahSamples.join(' | ')}`);
@@ -573,14 +612,17 @@ async function generateAllPredictions(matches) {
         return lines.join('\n');
       })();
 
-      const pick = await llmPickOne(statsText, marketSnapshotText);
-      if (pick?.decision === 'SKIP' || (pick?.confidence ?? 0) < 60) return;
+      // 1) Пробуем LLM
+      let pick = await llmPickOne(statsText, marketSnapshotText);
+      if (pick?.decision === 'SKIP' || (pick?.confidence ?? 0) < 55) {
+        // 2) NO-SKIP: берём локальный фолбэк
+        pick = fallbackPick({ homeName, awayName, homeStats, awayStats, h2h, oddsPack });
+      }
 
       const bucket = bucketOf(pick);
-      if (!left(bucket)) return;
-      quota[bucket]--;
+      if (left(bucket)) quota[bucket]--; // мягко уменьшаем, но не запрещаем перелив
 
-      // подбираем реальный коэффициент для выбранного исхода
+      // Привяжем odds, если найдём
       const matchedOdd = findOddsForSelection(pick, oddsPack);
 
       out.push({
@@ -590,16 +632,17 @@ async function generateAllPredictions(matches) {
         reason: pick.reason,
         confidence: pick.confidence,
         odds: matchedOdd ? String(matchedOdd.odd) : null,
-        oddsMeta: matchedOdd // market/line/outcome/odd
+        oddsMeta: matchedOdd || null
       });
     }));
   }
 
   await Promise.all(tasks);
+  console.log(`🧮 Сгенерировано исходов: ${out.length}`);
   return out.slice(0, 40);
 }
 
-// === Сохранение черновиков в MongoDB ===
+// === Сохранение в Mongo ===
 async function saveToDraft(predictions) {
   const client = new MongoClient(MONGODB_URI);
   await client.connect();
@@ -613,10 +656,10 @@ async function saveToDraft(predictions) {
   console.log(`💾 Черновики сохранены: ${predictions.length}`);
 }
 
-// === Основная функция генерации ===
+// === Основная ===
 async function generatePredictions() {
   if (!FOOTBALL_API_KEY) throw new Error('FOOTBALL_API_KEY is missing');
-  if (!OPENAI_KEY) throw new Error('OPENAI_API_KEY is missing');
+  if (!OPENAI_KEY) console.warn('OPENAI_API_KEY is missing — будет работать только фолбэк без LLM');
 
   const matches = await fetchMatches(40);
   if (!matches.length) {
@@ -627,7 +670,7 @@ async function generatePredictions() {
 
   const aiPredictions = await generateAllPredictions(matches);
   if (!aiPredictions.length) {
-    console.warn('AI вернул пусто (всё SKIP).');
+    console.warn('Не удалось сгенерировать ни одного исхода (no-skip должен был спасти).');
     await saveToDraft([]);
     return [];
   }
@@ -648,7 +691,7 @@ async function generatePredictions() {
       team2: t2,
       logo2: match.teams.away.logo,
       predictionText,
-      odds,            // реальный коэффициент, если найден
+      odds, // может быть null — фронт просто не покажет бейдж
       meta: {
         reason,
         confidence,
