@@ -44,7 +44,7 @@ function translatePredictionText(text, target) {
   try {
     if (!text || target === 'ru') return text;
 
-    // Нормализация: заменить разные тире на обычное, сжать пробелы
+    // Нормализация: разные тире → дефис, пробелы, запятая/точка
     const norm = (s) =>
       s
         .replace(/[–—−]/g, '-')      // длинные тире → дефис
@@ -59,7 +59,7 @@ function translatePredictionText(text, target) {
 
     const rules = [
       // ===== ОБЕ ЗАБЬЮТ =====
-      // Варианты: "Обе забьют", "Обе забьют: да/нет", "Обе команды забьют (Да)"
+      // "Обе забьют", "Обе забьют: да/нет", "Обе команды забьют (Да)"
       {
         re: new RegExp(`^Обе(\\s+команды)?\\s+забьют(?:\\s*[:\\-]?\\s*\\(?\\s*(да|нет)\\s*\\)\\s*)?$`, 'i'),
         tr: (m) => {
@@ -70,8 +70,24 @@ function translatePredictionText(text, target) {
         }
       },
 
-      // ===== ДВОЙНОЙ ШАНС (команда или ничья / ничья или команда) =====
-      // "Двойной шанс: {TEAM} или ничья"
+      // ===== ДВОЙНОЙ ШАНС (разные формы) =====
+      // Без префикса: "{TEAM} или ничья"
+      {
+        re: new RegExp(`^${TEAM}\\s+(?:или|або|or)\\s+ничья$`, 'i'),
+        tr: (m) => {
+          const tm = m[1];
+          return target === 'en' ? `Double chance ${tm} or draw` : `Подвійний шанс ${tm} або нічия`;
+        }
+      },
+      // Без префикса: "ничья или {TEAM}"
+      {
+        re: new RegExp(`^ничья\\s+(?:или|або|or)\\s*${TEAM}$`, 'i'),
+        tr: (m) => {
+          const tm = m[1];
+          return target === 'en' ? `Double chance draw or ${tm}` : `Подвійний шанс нічия або ${tm}`;
+        }
+      },
+      // С префиксом: "Двойной шанс: {TEAM} или ничья"
       {
         re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*${TEAM}\\s+(?:или|або|or)\\s+ничья$`, 'i'),
         tr: (m) => {
@@ -79,7 +95,7 @@ function translatePredictionText(text, target) {
           return target === 'en' ? `Double chance ${tm} or draw` : `Подвійний шанс ${tm} або нічия`;
         }
       },
-      // "Двойной шанс: ничья или {TEAM}"
+      // С префиксом: "Двойной шанс: ничья или {TEAM}"
       {
         re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*ничья\\s+(?:или|або|or)\\s*${TEAM}$`, 'i'),
         tr: (m) => {
@@ -87,7 +103,7 @@ function translatePredictionText(text, target) {
           return target === 'en' ? `Double chance draw or ${tm}` : `Подвійний шанс нічия або ${tm}`;
         }
       },
-      // Частая форма: "{TEAM} не проиграет" (эквивалент 1X/Х2 в зависимости от команды)
+      // Эквивалент double chance: "{TEAM} не проиграет"
       {
         re: new RegExp(`^${TEAM}\\s+не\\s+проиграет$`, 'i'),
         tr: (m) => {
@@ -147,7 +163,7 @@ function translatePredictionText(text, target) {
         tr: () => target === 'en' ? 'Draw' : 'Нічия'
       },
 
-      // ===== Короткие двойные шансы =====
+      // ===== Короткие двойные шансы и исходы =====
       { re: /^1Х$/i, tr: () => target === 'en' ? '1X (home or draw)' : '1X (господарі або нічия)' },
       { re: /^Х2$/i, tr: () => target === 'en' ? 'X2 (draw or away)' : 'X2 (нічия або гості)' },
       { re: /^12$/i, tr: () => target === 'en' ? '12 (no draw)' : '12 (без нічиєї)' },
