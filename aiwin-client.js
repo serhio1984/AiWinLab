@@ -6,6 +6,39 @@ if (telegram) {
     console.log('✅ Telegram WebApp initialized');
 }
 
+// ===== Языковая поддержка =====
+const lang = localStorage.getItem('app_lang') || 'ru';
+
+const translations = {
+    ru: {
+        slogan: "Умные ставки. Большие выигрыши.",
+        hello: "Привет",
+        guest: "Гость",
+        buyCoins: "Купить монеты",
+        unlock: "Разблокировать",
+        locked: "🔒 Прогноз заблокирован",
+        notEnough: "Недостаточно монет"
+    },
+    uk: {
+        slogan: "Розумні ставки. Великі виграші.",
+        hello: "Привіт",
+        guest: "Гість",
+        buyCoins: "Купити монети",
+        unlock: "Розблокувати",
+        locked: "🔒 Прогноз заблоковано",
+        notEnough: "Недостатньо монет"
+    },
+    en: {
+        slogan: "Smart bets. Big wins.",
+        hello: "Hello",
+        guest: "Guest",
+        buyCoins: "Buy coins",
+        unlock: "Unlock",
+        locked: "🔒 Prediction locked",
+        notEnough: "Not enough coins"
+    }
+};
+
 let coins = 0;
 let predictions = [];
 
@@ -25,12 +58,14 @@ function getDOMElements() {
         coinBalance: document.getElementById('coinBalance'),
         predictionsContainer: document.getElementById('predictions'),
         userProfilePic: document.getElementById('userProfilePic'),
-        userName: document.getElementById('userName')
+        userName: document.getElementById('userName'),
+        sloganEl: document.querySelector('.logo p'),
+        buyBtn: document.querySelector('.buy-btn')
     };
 }
 
 function loadUserData() {
-    const { userProfilePic, userName } = getDOMElements();
+    const { userProfilePic, userName, sloganEl, buyBtn } = getDOMElements();
     let user = telegram?.initDataUnsafe?.user;
 
     if (!user) {
@@ -41,13 +76,16 @@ function loadUserData() {
     }
 
     if (user) {
-        userName.textContent = user.first_name || 'Пользователь';
+        userName.textContent = `${translations[lang].hello}, ${user.first_name || translations[lang].guest}`;
         userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
         localStorage.setItem('tg_user', JSON.stringify(user));
     } else {
-        userName.textContent = 'Гость';
+        userName.textContent = `${translations[lang].hello}, ${translations[lang].guest}`;
         userProfilePic.src = 'https://dummyimage.com/50x50/000/fff&text=User';
     }
+
+    if (sloganEl) sloganEl.textContent = translations[lang].slogan;
+    if (buyBtn) buyBtn.textContent = translations[lang].buyCoins;
 }
 
 async function loadPredictions() {
@@ -76,7 +114,7 @@ async function loadPredictions() {
 
 async function unlockPrediction(predictionId) {
     const userId = getUserId();
-    if (!userId || coins < 1) return alert('Недостаточно монет');
+    if (!userId || coins < 1) return alert(translations[lang].notEnough);
 
     const res = await fetch('/api/unlock', {
         method: 'POST',
@@ -115,13 +153,13 @@ function renderPredictions() {
                 <div class="team-row"><img src="${p.logo2}"> ${p.team2}</div>
             </div>
             <span class="odds">${p.odds}</span>
-            <div class="prediction-text">${p.isUnlocked ? p.predictionText : '🔒 Прогноз заблокирован'}</div>
+            <div class="prediction-text">${p.isUnlocked ? p.predictionText : translations[lang].locked}</div>
         `;
 
         if (!p.isUnlocked) {
             const unlockBtn = document.createElement('button');
             unlockBtn.className = 'buy-btn unlock-btn';
-            unlockBtn.textContent = 'Разблокировать';
+            unlockBtn.textContent = translations[lang].unlock;
             unlockBtn.onclick = () => unlockPrediction(p.id);
             div.appendChild(unlockBtn);
         }
@@ -131,7 +169,6 @@ function renderPredictions() {
 }
 
 setInterval(loadPredictions, 30000);
-window.onunload = () => clearInterval(intervalId);
 
 // Инициализация
 loadUserData();
