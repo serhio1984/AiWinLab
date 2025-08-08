@@ -39,10 +39,105 @@ const translations = {
     }
 };
 
+// ===== Перевод текста прогноза (РУ → UK/EN) =====
+function translatePredictionText(text, lang) {
+    if (!text || lang === 'ru') return text; // оригинал на рус — показываем как есть
+    const t = text.trim();
+
+    // Помощники
+    const num = '([0-9]+(?:[\\.,][0-9]+)?)';
+    const team = '(.+?)';
+
+    // Порядок важен: от более специфичных к общим
+    const patterns = [
+        // Обе забьют: да/нет
+        {
+            re: new RegExp(`^Обе\\s+забьют\\s*[:\\-–]?\\s*(да|нет)$`, 'i'),
+            tr: (m) => {
+                const yn = m[1].toLowerCase();
+                if (lang === 'en') return `Both teams to score — ${yn === 'да' ? 'yes' : 'no'}`;
+                return `Обидві заб'ють — ${yn === 'да' ? 'так' : 'ні'}`;
+            }
+        },
+        // Обе забьют (без да/нет) — трактуем как "да"
+        {
+            re: /^Обе\s+забьют$/i,
+            tr: () => (lang === 'en' ? 'Both teams to score' : "Обидві заб'ють")
+        },
+        // Двойной шанс {TEAM} или ничья
+        {
+            re: new RegExp(`^Двойной\\s+шанс\\s+${team}\\s+или\\s+ничья$`, 'i'),
+            tr: (m) => {
+                const tm = m[1];
+                if (lang === 'en') return `Double chance ${tm} or draw`;
+                return `Подвійний шанс ${tm} або нічия`;
+            }
+        },
+        // Двойной шанс ничья или {TEAM}
+        {
+            re: new RegExp(`^Двойной\\s+шанс\\s+ничья\\s+или\\s+${team}$`, 'i'),
+            tr: (m) => {
+                const tm = m[1];
+                if (lang === 'en') return `Double chance draw or ${tm}`;
+                return `Подвійний шанс нічия або ${tm}`;
+            }
+        },
+        // Тотал больше X
+        {
+            re: new RegExp(`^Тотал\\s+больше\\s+${num}$`, 'i'),
+            tr: (m) => {
+                const n = m[1].replace(',', '.');
+                if (lang === 'en') return `Over ${n} goals`;
+                return `Тотал більше ${n}`;
+            }
+        },
+        // Тотал меньше X
+        {
+            re: new RegExp(`^Тотал\\s+меньше\\s+${num}$`, 'i'),
+            tr: (m) => {
+                const n = m[1].replace(',', '.');
+                if (lang === 'en') return `Under ${n} goals`;
+                return `Тотал менше ${n}`;
+            }
+        },
+        // Фора ±X на {TEAM}
+        {
+            re: new RegExp(`^Фора\\s*([\\+\\-]?${num})\\s*на\\s+${team}$`, 'i'),
+            tr: (m) => {
+                const h = m[1].replace(',', '.');
+                const tm = m[2];
+                if (lang === 'en') return `Handicap ${tm} ${h}`;
+                return `Фора ${tm} ${h}`;
+            }
+        },
+        // Победа {TEAM}
+        {
+            re: new RegExp(`^Победа\\s+${team}$`, 'i'),
+            tr: (m) => {
+                const tm = m[1];
+                if (lang === 'en') return `Win ${tm}`;
+                return `Перемога ${tm}`;
+            }
+        },
+        // Ничья
+        {
+            re: /^Ничья$/i,
+            tr: () => (lang === 'en' ? 'Draw' : 'Нічия')
+        },
+    ];
+
+    for (const p of patterns) {
+        const m = t.match(p.re);
+        if (m) return p.tr(m);
+    }
+    // Не распознали — оставим как есть (лучше показать оригинал, чем ошибиться)
+    return t;
+}
+
 let coins = 0;
 let predictions = [];
 
-// Собираем профиль пользователя из Telegram / localStorage
+// Профиль пользователя из Telegram / localStorage
 function getUserProfile() {
     let u = telegram?.initDataUnsafe?.user;
     if (!u) {
@@ -84,7 +179,6 @@ function loadUserData() {
     if (profile) {
         userName.textContent = `${translations[lang].hello}, ${profile.first_name || translations[lang].guest}`;
         userProfilePic.src = profile.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
-        // сохраняем в localStorage на всякий случай
         localStorage.setItem('tg_user', JSON.stringify(profile));
     } else {
         userName.textContent = `${translations[lang].hello}, ${translations[lang].guest}`;
@@ -96,7 +190,6 @@ function loadUserData() {
 }
 
 async function loadPredictions() {
-    const { predictionsContainer } = getDOMElements();
     const userId = getUserId();
     if (!userId) return;
 
@@ -111,7 +204,7 @@ async function loadPredictions() {
             body: JSON.stringify({
                 userId,
                 action: 'get',
-                profile // <-- отправляем на сервер для сохранения username/имени
+                profile
             })
         });
         const balanceData = await balanceResponse.json();
@@ -158,6 +251,10 @@ function renderPredictions() {
         div.className = `prediction ${p.isUnlocked ? 'unlocked' : 'locked'}`;
         div.setAttribute('data-id', p.id);
 
+        const shownText = p.isUnlocked
+            ? translatePredictionText(p.predictionText, lang)
+            : translations[lang].locked;
+
         div.innerHTML = `
             <div class="teams">
                 <span class="tournament">${p.tournament}</span>
@@ -165,7 +262,7 @@ function renderPredictions() {
                 <div class="team-row"><img src="${p.logo2}"> ${p.team2}</div>
             </div>
             <span class="odds">${p.odds}</span>
-            <div class="prediction-text">${p.isUnlocked ? p.predictionText : translations[lang].locked}</div>
+            <div class="prediction-text">${shownText}</div>
         `;
 
         if (!p.isUnlocked) {
