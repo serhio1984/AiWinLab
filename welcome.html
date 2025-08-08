@@ -25,7 +25,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-around;
-      gap: 40px;
+      gap: 30px;
       padding: 40px;
       flex-grow: 1;
       animation: fadeIn 1.5s ease-in-out;
@@ -70,6 +70,25 @@
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    .lang-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    .lang-btn {
+      background: #222;
+      color: #fff;
+      border: 1px solid #ff6200;
+      padding: 10px 18px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .lang-btn:hover {
+      background: #ff6200;
+      color: #fff;
+      transform: scale(1.05);
+    }
     .buy-btn {
       background: #ff6200;
       color: #ffffff;
@@ -98,13 +117,17 @@
         font-size: 28px;
         margin-right: 10px;
       }
+      .lang-btn {
+        font-size: 14px;
+        padding: 8px 14px;
+      }
       .buy-btn {
         font-size: 18px;
         padding: 12px 24px;
         border-radius: 4px;
       }
       .welcome-container {
-        gap: 30px;
+        gap: 20px;
         padding: 30px;
       }
     }
@@ -120,11 +143,24 @@
       <li style="--order: 2;">5 монет в подарок</li>
       <li style="--order: 3;">1 монета = 1 прогноз</li>
     </ul>
+
+    <!-- Кнопки выбора языка -->
+    <div class="lang-buttons">
+      <button class="lang-btn" onclick="setLanguage('uk')">Українська</button>
+      <button class="lang-btn" onclick="setLanguage('ru')">Русский</button>
+      <button class="lang-btn" onclick="setLanguage('en')">English</button>
+    </div>
+
     <button class="buy-btn" id="startBtn">Начать</button>
   </div>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
+    function setLanguage(lang) {
+      localStorage.setItem('app_lang', lang);
+      console.log('Язык приложения установлен:', lang);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const telegram = window.Telegram?.WebApp;
       telegram?.ready();
