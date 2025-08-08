@@ -25,7 +25,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-around;
-      gap: 30px;
+      gap: 40px;
       padding: 40px;
       flex-grow: 1;
       animation: fadeIn 1.5s ease-in-out;
@@ -70,6 +70,8 @@
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* Кнопки языка */
     .lang-buttons {
       display: flex;
       gap: 10px;
@@ -89,6 +91,12 @@
       color: #fff;
       transform: scale(1.05);
     }
+    .lang-btn.active {
+      background: #ff6200;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(255, 98, 0, 0.5);
+    }
+
     .buy-btn {
       background: #ff6200;
       color: #ffffff;
@@ -106,6 +114,7 @@
       transform: scale(1.1);
       box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
     }
+
     @media (max-width: 600px) {
       .logo h1 {
         font-size: 54px;
@@ -127,7 +136,7 @@
         border-radius: 4px;
       }
       .welcome-container {
-        gap: 20px;
+        gap: 30px;
         padding: 30px;
       }
     }
@@ -138,17 +147,18 @@
     <div class="logo">
       <h1>AiWinLab</h1>
     </div>
+
     <ul class="features">
-      <li style="--order: 1;">Прогнозы от ИИ</li>
-      <li style="--order: 2;">5 монет в подарок</li>
-      <li style="--order: 3;">1 монета = 1 прогноз</li>
+      <li id="feat1" style="--order: 1;">Прогнозы от ИИ</li>
+      <li id="feat2" style="--order: 2;">5 монет в подарок</li>
+      <li id="feat3" style="--order: 3;">1 монета = 1 прогноз</li>
     </ul>
 
     <!-- Кнопки выбора языка -->
     <div class="lang-buttons">
-      <button class="lang-btn" onclick="setLanguage('uk')">Українська</button>
-      <button class="lang-btn" onclick="setLanguage('ru')">Русский</button>
-      <button class="lang-btn" onclick="setLanguage('en')">English</button>
+      <button class="lang-btn" id="btn-uk" onclick="setLanguage('uk')">Українська</button>
+      <button class="lang-btn" id="btn-ru" onclick="setLanguage('ru')">Русский</button>
+      <button class="lang-btn" id="btn-en" onclick="setLanguage('en')">English</button>
     </div>
 
     <button class="buy-btn" id="startBtn">Начать</button>
@@ -156,15 +166,64 @@
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    function setLanguage(lang) {
-      localStorage.setItem('app_lang', lang);
-      console.log('Язык приложения установлен:', lang);
+    // Текущий язык
+    let lang = localStorage.getItem('app_lang') || 'ru';
+
+    const T = {
+      ru: {
+        title: 'AiWinLab - Приветствие',
+        start: 'Начать',
+        f1: 'Прогнозы от ИИ',
+        f2: '5 монет в подарок',
+        f3: '1 монета = 1 прогноз'
+      },
+      uk: {
+        title: 'AiWinLab - Вітання',
+        start: 'Почати',
+        f1: 'Прогнози від ШІ',
+        f2: '5 монет у подарунок',
+        f3: '1 монета = 1 прогноз'
+      },
+      en: {
+        title: 'AiWinLab - Welcome',
+        start: 'Start',
+        f1: 'AI-powered predictions',
+        f2: '5 coins as a gift',
+        f3: '1 coin = 1 prediction'
+      }
+    };
+
+    function applyLang() {
+      // HTML lang и title
+      document.documentElement.lang = lang;
+      document.title = T[lang].title;
+
+      // Тексты
+      document.getElementById('feat1').textContent = T[lang].f1;
+      document.getElementById('feat2').textContent = T[lang].f2;
+      document.getElementById('feat3').textContent = T[lang].f3;
+      document.getElementById('startBtn').textContent = T[lang].start;
+
+      // Активные кнопки языка
+      document.getElementById('btn-uk').classList.toggle('active', lang === 'uk');
+      document.getElementById('btn-ru').classList.toggle('active', lang === 'ru');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    }
+
+    function setLanguage(l) {
+      lang = l;
+      localStorage.setItem('app_lang', l);
+      applyLang();
+      console.log('Язык приложения установлен:', l);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const telegram = window.Telegram?.WebApp;
       telegram?.ready();
       telegram?.expand();
+
+      // применяем язык сразу при загрузке
+      applyLang();
 
       document.getElementById('startBtn').addEventListener('click', () => {
         const user = telegram?.initDataUnsafe?.user;
