@@ -144,36 +144,13 @@
         <div class="logo">
             <h1>AiWinLab</h1>
         </div>
-        <button class="back-btn" onclick="window.location.href='/index.html'">Назад</button>
+        <button class="back-btn" id="backBtn">Назад</button>
     </div>
 
     <div class="buy-coins-container">
-        <h2 class="title">Купить монеты</h2>
-        <div class="coin-packages">
-            <div class="coin-package">
-                <div class="coin-amount">10 монет</div>
-                <div class="coin-image"></div>
-                <div class="coin-price">20 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(10, 20)">Купить</button>
-            </div>
-            <div class="coin-package">
-                <div class="coin-amount">25 монет</div>
-                <div class="coin-image"></div>
-                <div class="coin-price">40 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(25, 40)">Купить</button>
-            </div>
-            <div class="coin-package">
-                <div class="coin-amount">50 монет</div>
-                <div class="coin-image"></div>
-                <div class="coin-price">80 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(50, 80)">Купить</button>
-            </div>
-            <div class="coin-package">
-                <div class="coin-amount">100 монет</div>
-                <div class="coin-image"></div>
-                <div class="coin-price">160 Telegram Stars</div>
-                <button class="buy-btn" onclick="buyCoins(100, 160)">Купить</button>
-            </div>
+        <h2 class="title" id="title">Купить монеты</h2>
+        <div class="coin-packages" id="coinPackages">
+            <!-- пакеты вставляются скриптом -->
         </div>
         <div class="status" id="status">Ожидание оплаты...</div>
     </div>
@@ -182,21 +159,126 @@
 <script>
 const tg = window.Telegram?.WebApp;
 
+// === Языки ===
+const lang = localStorage.getItem('app_lang') || 'ru';
+
+const T = {
+    ru: {
+        back: 'Назад',
+        title: 'Купить монеты',
+        buy: 'Купить',
+        stars: 'Telegram Stars',
+        waiting: 'Ожидание оплаты...',
+        creatingInvoice: 'Создаём инвойс...',
+        onlyInWebApp: 'Оплата доступна только внутри Telegram WebApp.',
+        noUser: 'Не удалось определить пользователя.',
+        invoiceFail: 'Не удалось создать инвойс: ',
+        cancelled: 'Платёж отменён',
+        errorPay: 'Ошибка оплаты: ',
+    },
+    uk: {
+        back: 'Назад', // в Telegram UI чаще используют "Назад", если хочешь — заменю на "Назад/Повернутись"
+        title: 'Купити монети',
+        buy: 'Купити',
+        stars: 'Telegram Stars',
+        waiting: 'Очікування оплати...',
+        creatingInvoice: 'Створюємо інвойс...',
+        onlyInWebApp: 'Оплата доступна лише всередині Telegram WebApp.',
+        noUser: 'Не вдалося визначити користувача.',
+        invoiceFail: 'Не вдалося створити інвойс: ',
+        cancelled: 'Платіж скасовано',
+        errorPay: 'Помилка оплати: ',
+    },
+    en: {
+        back: 'Back',
+        title: 'Buy coins',
+        buy: 'Buy',
+        stars: 'Telegram Stars',
+        waiting: 'Waiting for payment...',
+        creatingInvoice: 'Creating invoice...',
+        onlyInWebApp: 'Payment is available only inside Telegram WebApp.',
+        noUser: 'Failed to identify the user.',
+        invoiceFail: 'Failed to create invoice: ',
+        cancelled: 'Payment cancelled',
+        errorPay: 'Payment error: ',
+    }
+};
+
+// простая функция склонения "монета" / "монеты" / "монет" и укр/англ
+function coinsLabel(n) {
+    if (lang === 'en') return n + ' ' + (n === 1 ? 'coin' : 'coins');
+    if (lang === 'uk') {
+        // укр: 1 монета, 2-4 монети, 5+ монет (как и в русск.)
+        const last = n % 10, last2 = n % 100;
+        let word = 'монет';
+        if (last === 1 && last2 !== 11) word = 'монета';
+        else if ([2,3,4].includes(last) && ![12,13,14].includes(last2)) word = 'монети';
+        return `${n} ${word}`;
+    }
+    // ru
+    const last = n % 10, last2 = n % 100;
+    let word = 'монет';
+    if (last === 1 && last2 !== 11) word = 'монета';
+    else if ([2,3,4].includes(last) && ![12,13,14].includes(last2)) word = 'монеты';
+    return `${n} ${word}`;
+}
+
+// данные пакетов (логика цен остаётся прежней)
+const PACKS = [
+    { coins: 10, stars: 20 },
+    { coins: 25, stars: 40 },
+    { coins: 50, stars: 80 },
+    { coins: 100, stars: 160 },
+];
+
+function renderTexts() {
+    document.getElementById('backBtn').textContent = T[lang].back;
+    document.getElementById('title').textContent = T[lang].title;
+    const status = document.getElementById('status');
+    status.textContent = T[lang].waiting;
+}
+
+function renderPacks() {
+    const root = document.getElementById('coinPackages');
+    root.innerHTML = '';
+    PACKS.forEach(p => {
+        const wrap = document.createElement('div');
+        wrap.className = 'coin-package';
+        wrap.innerHTML = `
+            <div class="coin-amount">${coinsLabel(p.coins)}</div>
+            <div class="coin-image"></div>
+            <div class="coin-price">${p.stars} ${T[lang].stars}</div>
+            <button class="buy-btn" data-coins="${p.coins}" data-stars="${p.stars}">${T[lang].buy}</button>
+        `;
+        root.appendChild(wrap);
+    });
+
+    // навешиваем обработчики на кнопки покупки
+    root.querySelectorAll('.buy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const amount = parseInt(btn.getAttribute('data-coins'), 10);
+            const stars = parseInt(btn.getAttribute('data-stars'), 10);
+            buyCoins(amount, stars);
+        });
+    });
+}
+
 async function buyCoins(amount, stars) {
     if (!tg) {
-        alert('Оплата доступна только внутри Telegram WebApp.');
+        alert(T[lang].onlyInWebApp);
         return;
     }
 
     const user = tg.initDataUnsafe?.user;
     const userId = user?.id;
     if (!userId) {
-        alert('Не удалось определить пользователя.');
+        alert(T[lang].noUser);
         return;
     }
 
-    document.getElementById('status').style.display = 'block';
-    document.getElementById('status').textContent = 'Создаем инвойс...';
+    const statusEl = document.getElementById('status');
+    statusEl.style.display = 'block';
+    statusEl.textContent = T[lang].creatingInvoice;
 
     const resp = await fetch('/create-invoice', {
         method: 'POST',
@@ -206,8 +288,8 @@ async function buyCoins(amount, stars) {
     const data = await resp.json();
 
     if (!data.ok || !data.url) {
-        alert('Не удалось создать инвойс: ' + data.error);
-        document.getElementById('status').style.display = 'none';
+        alert(T[lang].invoiceFail + (data.error || ''));
+        statusEl.style.display = 'none';
         return;
     }
 
@@ -215,21 +297,32 @@ async function buyCoins(amount, stars) {
         if (status === 'paid') {
             tg.sendData(JSON.stringify({ event: 'purchase', coins: amount }));
         } else if (status === 'cancelled') {
-            alert('Платеж отменён');
+            alert(T[lang].cancelled);
         } else {
-            alert('Ошибка оплаты: ' + status);
+            alert(T[lang].errorPay + status);
         }
     });
 }
 
-Telegram.WebApp.ready();
-Telegram.WebApp.expand();
+if (tg) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+}
+
+// Тексты и пакеты при загрузке
+renderTexts();
+renderPacks();
+
 // 🔄 Автоматический редирект после оплаты
-const urlParams = new URLSearchParams(window.Telegram.WebApp.initDataUnsafe?.start_param || '');
+const urlParams = new URLSearchParams(window.Telegram?.WebApp?.initDataUnsafe?.start_param || '');
 if (urlParams.toString() === 'redirect-index') {
     window.location.href = '/index.html';
 }
 
+// Кнопка "Назад"
+document.getElementById('backBtn').addEventListener('click', () => {
+    window.location.href = '/index.html';
+});
 </script>
 
 </body>
