@@ -39,141 +39,128 @@ const translations = {
   }
 };
 
-// ===== Перевод текста прогноза (без падений) =====
+// ==== Перевод текста прогноза (расширенные шаблоны) ====
 function translatePredictionText(text, target) {
   try {
     if (!text || target === 'ru') return text;
-    const t = text.trim();
 
-    // Базовые кусочки без вложенных групп
+    // Нормализация: заменить разные тире на обычное, сжать пробелы
+    const norm = (s) =>
+      s
+        .replace(/[–—−]/g, '-')      // длинные тире → дефис
+        .replace(/\s+/g, ' ')        // множественные пробелы
+        .replace(/\s*-\s*/g, ' - ')  // пробелы вокруг дефиса
+        .trim();
+
+    const t = norm(text);
+
     const NUM = '([0-9]+(?:[\\.,][0-9]+)?)';
     const TEAM = '(.+?)';
 
     const rules = [
-      // Обе забьют: да/нет
+      // ===== ОБЕ ЗАБЬЮТ =====
+      // Варианты: "Обе забьют", "Обе забьют: да/нет", "Обе команды забьют (Да)"
       {
-        re: new RegExp(`^Обе\\s+забьют\\s*[:\\-–]?\\s*(да|нет)$`, 'i'),
+        re: new RegExp(`^Обе(\\s+команды)?\\s+забьют(?:\\s*[:\\-]?\\s*\\(?\\s*(да|нет)\\s*\\)\\s*)?$`, 'i'),
         tr: (m) => {
-          const yn = m[1].toLowerCase();
+          const yn = (m[2] || '').toLowerCase();
+          if (!yn) return target === 'en' ? 'Both teams to score' : "Обидві заб'ють";
           if (target === 'en') return `Both teams to score — ${yn === 'да' ? 'yes' : 'no'}`;
           return `Обидві заб'ють — ${yn === 'да' ? 'так' : 'ні'}`;
         }
       },
-      // Обе забьют (без да/нет)
+
+      // ===== ДВОЙНОЙ ШАНС (команда или ничья / ничья или команда) =====
+      // "Двойной шанс: {TEAM} или ничья"
       {
-        re: /^Обе\s+забьют$/i,
-        tr: () => (target === 'en' ? 'Both teams to score' : "Обидві заб'ють")
-      },
-      // Двойной шанс {TEAM} или ничья
-      {
-        re: new RegExp(`^Двойной\\s+шанс\\s+${TEAM}\\s+или\\s+ничья$`, 'i'),
+        re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*${TEAM}\\s+(?:или|або|or)\\s+ничья$`, 'i'),
         tr: (m) => {
           const tm = m[1];
-          if (target === 'en') return `Double chance ${tm} or draw`;
-          return `Подвійний шанс ${tm} або нічия`;
+          return target === 'en' ? `Double chance ${tm} or draw` : `Подвійний шанс ${tm} або нічия`;
         }
       },
-      // Двойной шанс ничья или {TEAM}
+      // "Двойной шанс: ничья или {TEAM}"
       {
-        re: new RegExp(`^Двойной\\s+шанс\\s+ничья\\s+или\\s+${TEAM}$`, 'i'),
+        re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*ничья\\s+(?:или|або|or)\\s*${TEAM}$`, 'i'),
         tr: (m) => {
           const tm = m[1];
-          if (target === 'en') return `Double chance draw or ${tm}`;
-          return `Подвійний шанс нічия або ${tm}`;
+          return target === 'en' ? `Double chance draw or ${tm}` : `Подвійний шанс нічия або ${tm}`;
         }
       },
-      // Тотал больше X
+      // Частая форма: "{TEAM} не проиграет" (эквивалент 1X/Х2 в зависимости от команды)
       {
+        re: new RegExp(`^${TEAM}\\s+не\\s+проиграет$`, 'i'),
+        tr: (m) => {
+          const tm = m[1];
+          return target === 'en' ? `${tm} not to lose (double chance)` : `${tm} не програє (подвійний шанс)`;
+        }
+      },
+
+      // ===== Тотал =====
+      { // Тотал больше X
         re: new RegExp(`^Тотал\\s+больше\\s+${NUM}$`, 'i'),
         tr: (m) => {
           const n = m[1].replace(',', '.');
-          if (target === 'en') return `Over ${n} goals`;
-          return `Тотал більше ${n}`;
+          return target === 'en' ? `Over ${n} goals` : `Тотал більше ${n}`;
         }
       },
-      // Тотал меньше X
-      {
+      { // Тотал меньше X
         re: new RegExp(`^Тотал\\s+меньше\\s+${NUM}$`, 'i'),
         tr: (m) => {
           const n = m[1].replace(',', '.');
-          if (target === 'en') return `Under ${n} goals`;
-          return `Тотал менше ${n}`;
+          return target === 'en' ? `Under ${n} goals` : `Тотал менше ${n}`;
         }
       },
-      // Фора ±X на {TEAM}
-      {
-        re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'),
-        tr: (m) => {
-          // m[1] — вся фора со знаком, внутри нее m[2] число, m[3] — команда
-          const h = (m[1] || '').replace(',', '.');
-          const tm = m[3];
-          if (target === 'en') return `Handicap ${tm} ${h}`;
-          return `Фора ${tm} ${h}`;
-        }
-      },
-      // Победа {TEAM}
-      {
-        re: new RegExp(`^Победа\\s+${TEAM}$`, 'i'),
-        tr: (m) => {
-          const tm = m[1];
-          if (target === 'en') return `Win ${tm}`;
-          return `Перемога ${tm}`;
-        }
-      },
-      // Ничья
-      {
-        re: /^Ничья$/i,
-        tr: () => (target === 'en' ? 'Draw' : 'Нічия')
-      },
-      // Короткие формы: ТБ/ТМ X
-      {
+      { // Короткие формы: ТБ X
         re: new RegExp(`^ТБ\\s*${NUM}$`, 'i'),
         tr: (m) => {
           const n = m[1].replace(',', '.');
-          if (target === 'en') return `Over ${n} goals`;
-          return `Тотал більше ${n}`;
+          return target === 'en' ? `Over ${n} goals` : `Тотал більше ${n}`;
         }
       },
-      {
+      { // Короткие формы: ТМ X
         re: new RegExp(`^ТМ\\s*${NUM}$`, 'i'),
         tr: (m) => {
           const n = m[1].replace(',', '.');
-          if (target === 'en') return `Under ${n} goals`;
-          return `Тотал менше ${n}`;
+          return target === 'en' ? `Under ${n} goals` : `Тотал менше ${n}`;
         }
       },
-      // Короткие формы: П1 / П2 / Х / 1Х / Х2 / 12
+
+      // ===== Фора =====
+      // "Фора -1.5 на {TEAM}" / "Фора +1 на {TEAM}"
       {
-        re: /^П1$/i,
-        tr: () => (target === 'en' ? 'Home win' : 'Перемога господарів')
+        re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'),
+        tr: (m) => {
+          const h = (m[1] || '').replace(',', '.');
+          const tm = m[2];
+          return target === 'en' ? `Handicap ${tm} ${h}` : `Фора ${tm} ${h}`;
+        }
+      },
+
+      // ===== Победа / Ничья =====
+      {
+        re: new RegExp(`^Победа\\s+${TEAM}$`, 'i'),
+        tr: (m) => target === 'en' ? `Win ${m[1]}` : `Перемога ${m[1]}`
       },
       {
-        re: /^П2$/i,
-        tr: () => (target === 'en' ? 'Away win' : 'Перемога гостей')
+        re: /^Ничья$/i,
+        tr: () => target === 'en' ? 'Draw' : 'Нічия'
       },
-      {
-        re: /^Х$/i,
-        tr: () => (target === 'en' ? 'Draw' : 'Нічия')
-      },
-      {
-        re: /^1Х$/i,
-        tr: () => (target === 'en' ? '1X (home or draw)' : '1X (господарі або нічия)')
-      },
-      {
-        re: /^Х2$/i,
-        tr: () => (target === 'en' ? 'X2 (draw or away)' : 'X2 (нічия або гості)')
-      },
-      {
-        re: /^12$/i,
-        tr: () => (target === 'en' ? '12 (no draw)' : '12 (без нічиєї)')
-      }
+
+      // ===== Короткие двойные шансы =====
+      { re: /^1Х$/i, tr: () => target === 'en' ? '1X (home or draw)' : '1X (господарі або нічия)' },
+      { re: /^Х2$/i, tr: () => target === 'en' ? 'X2 (draw or away)' : 'X2 (нічия або гості)' },
+      { re: /^12$/i, tr: () => target === 'en' ? '12 (no draw)' : '12 (без нічиєї)' },
+      { re: /^П1$/i, tr: () => target === 'en' ? 'Home win' : 'Перемога господарів' },
+      { re: /^П2$/i, tr: () => target === 'en' ? 'Away win' : 'Перемога гостей' },
+      { re: /^Х$/i,  tr: () => target === 'en' ? 'Draw' : 'Нічия' }
     ];
 
     for (const r of rules) {
       const m = t.match(r.re);
       if (m) return r.tr(m);
     }
-    return t; // не распознали — оставим оригинал
+    return t; // не распознали — оригинал
   } catch (e) {
     console.error('translatePredictionText error:', e);
     return text;
