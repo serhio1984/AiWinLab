@@ -138,26 +138,50 @@ app.post('/api/check-password', (req, res) => {
   res.json({ success: password === ADMIN_PASSWORD });
 });
 
-// Баланс
+// Баланс + апдейт профиля пользователя
 app.post('/balance', async (req, res) => {
-  const { userId, action, amount } = req.body;
+  const { userId, action, amount, profile } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
   const users = db.collection('users');
 
+  // Нормализуем приходящий профиль (опционально)
+  const profileSet = profile
+    ? {
+        username: profile.username ?? null,
+        firstName: profile.first_name ?? profile.firstName ?? null,
+        lastName: profile.last_name ?? profile.lastName ?? null,
+        photoUrl: profile.photo_url ?? profile.photoUrl ?? null
+      }
+    : null;
+
   if (action === 'get') {
     let user = await users.findOne({ chatId: userId });
+
     if (!user) {
-      await users.insertOne({ chatId: userId, coins: 5 });
-      user = { coins: 5 };
+      // первый визит — создаём с подарочными 5 монет и профилем (если есть)
+      const doc = {
+        chatId: userId,
+        coins: 5,
+        ...(profileSet || {})
+      };
+      await users.insertOne(doc);
+      user = doc;
+    } else if (profileSet) {
+      // обновим профиль, если он пришёл
+      await users.updateOne({ chatId: userId }, { $set: profileSet });
+      user = await users.findOne({ chatId: userId });
     }
+
     return res.json({ coins: user.coins });
   }
 
   if (action === 'update') {
+    const update = { $inc: { coins: amount }, $setOnInsert: { chatId: userId, coins: 0 } };
+    if (profileSet) update.$set = profileSet;
     const result = await users.findOneAndUpdate(
       { chatId: userId },
-      { $inc: { coins: amount }, $setOnInsert: { chatId: userId, coins: 0 } },
+      update,
       { upsert: true, returnDocument: 'after' }
     );
     return res.json({ coins: result.value.coins });
