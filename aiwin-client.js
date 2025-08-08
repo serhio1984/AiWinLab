@@ -42,15 +42,28 @@ const translations = {
 let coins = 0;
 let predictions = [];
 
-function getUserId() {
-    const tgUser = telegram?.initDataUnsafe?.user;
-    if (tgUser?.id) return tgUser.id;
-    try {
-        const local = JSON.parse(localStorage.getItem('tg_user'));
-        return local?.id || null;
-    } catch {
-        return null;
+// Собираем профиль пользователя из Telegram / localStorage
+function getUserProfile() {
+    let u = telegram?.initDataUnsafe?.user;
+    if (!u) {
+        try {
+            const saved = localStorage.getItem('tg_user');
+            if (saved) u = JSON.parse(saved);
+        } catch {}
     }
+    if (!u) return null;
+    return {
+        id: u.id,
+        username: u.username || null,
+        first_name: u.first_name || null,
+        last_name: u.last_name || null,
+        photo_url: u.photo_url || null
+    };
+}
+
+function getUserId() {
+    const prof = getUserProfile();
+    return prof?.id || null;
 }
 
 function getDOMElements() {
@@ -66,19 +79,13 @@ function getDOMElements() {
 
 function loadUserData() {
     const { userProfilePic, userName, sloganEl, buyBtn } = getDOMElements();
-    let user = telegram?.initDataUnsafe?.user;
+    const profile = getUserProfile();
 
-    if (!user) {
-        try {
-            const saved = localStorage.getItem('tg_user');
-            if (saved) user = JSON.parse(saved);
-        } catch {}
-    }
-
-    if (user) {
-        userName.textContent = `${translations[lang].hello}, ${user.first_name || translations[lang].guest}`;
-        userProfilePic.src = user.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
-        localStorage.setItem('tg_user', JSON.stringify(user));
+    if (profile) {
+        userName.textContent = `${translations[lang].hello}, ${profile.first_name || translations[lang].guest}`;
+        userProfilePic.src = profile.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
+        // сохраняем в localStorage на всякий случай
+        localStorage.setItem('tg_user', JSON.stringify(profile));
     } else {
         userName.textContent = `${translations[lang].hello}, ${translations[lang].guest}`;
         userProfilePic.src = 'https://dummyimage.com/50x50/000/fff&text=User';
@@ -97,10 +104,15 @@ async function loadPredictions() {
         const response = await fetch(`/api/predictions?userId=${userId}`);
         predictions = await response.json();
 
+        const profile = getUserProfile();
         const balanceResponse = await fetch('/balance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, action: 'get' })
+            body: JSON.stringify({
+                userId,
+                action: 'get',
+                profile // <-- отправляем на сервер для сохранения username/имени
+            })
         });
         const balanceData = await balanceResponse.json();
         coins = balanceData.coins || 0;
@@ -168,6 +180,7 @@ function renderPredictions() {
     });
 }
 
+// Автообновление раз в 30 сек
 setInterval(loadPredictions, 30000);
 
 // Инициализация
