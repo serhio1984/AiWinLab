@@ -35,22 +35,29 @@ const TOURNAMENT_TRANSLATIONS = {
 
 // === Европа: расширенный список стран/меток и правила ===
 const EUROPEAN_COUNTRIES = [
-  'England','Scotland','Wales','Northern Ireland','Ireland',
-  'Spain','Italy','Germany','France','Netherlands','Portugal',
-  'Belgium','Switzerland','Austria','Turkey','Greece','Denmark',
-  'Norway','Sweden','Poland','Czech Republic','Czechia','Croatia',
-  'Serbia','Romania','Hungary','Slovakia','Slovenia','Bulgaria',
-  'Bosnia and Herzegovina','Bosnia & Herzegovina','North Macedonia',
-  'Albania','Kosovo','Montenegro','Moldova','Ukraine','Belarus',
-  'Lithuania','Latvia','Estonia','Finland','Iceland','Georgia',
-  'Armenia','Azerbaijan','Cyprus','Malta','Luxembourg',
-  'Liechtenstein','Andorra','San Marino','Monaco','Gibraltar',
-  'Faroe Islands','Israel','Kazakhstan','Russia','International','World','Europe'
+  // UK & Ireland
+  'England', 'Scotland', 'Wales', 'Northern Ireland', 'Ireland',
+  // Топ-5
+  'Spain', 'Italy', 'Germany', 'France', 'Netherlands', 'Portugal',
+  // Другая Европа
+  'Belgium', 'Switzerland', 'Austria', 'Turkey', 'Greece', 'Denmark',
+  'Norway', 'Sweden', 'Poland', 'Czech Republic', 'Czechia', 'Croatia',
+  'Serbia', 'Romania', 'Hungary', 'Slovakia', 'Slovenia', 'Bulgaria',
+  'Bosnia and Herzegovina', 'Bosnia & Herzegovina', 'North Macedonia',
+  'Albania', 'Kosovo', 'Montenegro', 'Moldova', 'Ukraine', 'Belarus',
+  'Lithuania', 'Latvia', 'Estonia', 'Finland', 'Iceland', 'Georgia',
+  'Armenia', 'Azerbaijan', 'Cyprus', 'Malta', 'Luxembourg',
+  'Liechtenstein', 'Andorra', 'San Marino', 'Monaco', 'Gibraltar',
+  'Faroe Islands',
+  // вне ЕС, но в еврокубках/УЕФА
+  'Israel', 'Kazakhstan', 'Russia',
+  // метки API для еврокубков
+  'International', 'World', 'Europe'
 ];
 
 const UEFA_KEYWORDS = [
-  'uefa','euro','europa','conference','champions league',
-  'european championship','qualifying','qualification'
+  'uefa', 'euro', 'europa', 'conference', 'champions league',
+  'european championship', 'qualifying', 'qualification'
 ];
 
 const norm = s => (s || '').toLowerCase().normalize('NFKD');
@@ -58,9 +65,15 @@ const norm = s => (s || '').toLowerCase().normalize('NFKD');
 function isEuropeanMatch(m) {
   const country = norm(m.league?.country);
   const league = norm(m.league?.name);
+
   if (EUROPEAN_COUNTRIES.map(norm).includes(country)) return true;
-  if ((country === 'international' || country === 'world' || country === 'europe') &&
-      UEFA_KEYWORDS.some(k => league.includes(k))) return true;
+
+  if (
+    (country === 'international' || country === 'world' || country === 'europe') &&
+    UEFA_KEYWORDS.some(k => league.includes(k))
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -68,11 +81,14 @@ function isEuropeanMatch(m) {
 function getKievDateRangeForTomorrow() {
   const tz = 'Europe/Kiev';
   const kievNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+
   const start = new Date(kievNow);
   start.setDate(start.getDate() + 1);
   start.setHours(0, 0, 0, 0);
+
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
+
   const from = start.toISOString().split('T')[0];
   const to = end.toISOString().split('T')[0];
   return { from, to };
@@ -136,6 +152,7 @@ async function fetchMatches(maxCount = 40) {
   console.log(`🏷️ Лиги/страны (образцы):\n  - ${leaguesList.slice(0, 80).join('\n  - ')}`);
 
   let selected = all;
+
   if (ONLY_EUROPE) {
     selected = all.filter(isEuropeanMatch);
     console.log(`🎯 После фильтра Европа: ${selected.length}`);
@@ -143,14 +160,33 @@ async function fetchMatches(maxCount = 40) {
     console.log('🟡 Фильтр Европы отключён (ONLY_EUROPE=false): берём все матчи.');
   }
 
-  // Приоритезация
+  // === Приоритезация лиг/турниров ===
   const EURO_REGEX = /(uefa|champions league|europa|conference|european championship|qualifying|qualification)/i;
   const FRIENDLY_REGEX = /(friendly|friendlies|club friendlies|товарищеск)/i;
   const TOP_LEAGUES = new Set([
-    'Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Eredivisie','Primeira Liga',
-    'Scottish Premiership','Ukrainian Premier League','Belgian Pro League','Swiss Super League',
-    'Austrian Bundesliga','Super Lig','Super League','Danish Superliga','Eliteserien','Allsvenskan',
-    'Ekstraklasa','Czech Liga','1. HNL','HNL','NB I','SuperLiga','Liga I'
+    'Premier League',
+    'La Liga',
+    'Serie A',
+    'Bundesliga',
+    'Ligue 1',
+    'Eredivisie',
+    'Primeira Liga',
+    'Scottish Premiership',
+    'Ukrainian Premier League',
+    'Belgian Pro League',
+    'Swiss Super League',
+    'Austrian Bundesliga',
+    'Super Lig',
+    'Super League',
+    'Danish Superliga',
+    'Eliteserien',
+    'Allsvenskan',
+    'Ekstraklasa',
+    'Czech Liga',
+    '1. HNL', 'HNL',
+    'NB I',
+    'SuperLiga',
+    'Liga I'
   ]);
 
   const leagueName = m => String(m.league?.name || '');
@@ -200,59 +236,91 @@ async function fetchMatches(maxCount = 40) {
 // ===================== ОПРЕДЕЛЕНИЕ РЫНКА ДЛЯ ПРОГНОЗА ======================
 function normalize(s) {
   return (s || '').toLowerCase()
-    .replace(/[–—−]/g, '-')
-    .replace(/\s+/g, ' ')
+    .replace(/[–—−]/g, '-') // длинные тире → дефис
+    .replace(/\s+/g, ' ')   // сжать пробелы
+    .trim();
+}
+
+// Вырезаем «хвосты» описания: "в/на матче ...", "в игре ...", "против ..."
+function stripContext(t) {
+  return t
+    .replace(/\s*(?:в|на)\s+(?:матче|игре)\b[^]*$/i, '') // всё после "в/на матче/игре ..."
+    .replace(/\s*против\s+.+$/i, '')                     // всё после "против ..."
+    .replace(/\.+\s*$/, '')                              // точки в конце
     .trim();
 }
 
 function detectMarket(predictionText, homeName, awayName) {
-  const t = normalize(predictionText);
+  const raw = predictionText || '';
+  const t0 = normalize(raw);
+  const t  = stripContext(t0); // ядро без хвостов
 
-  // Победа / ничья
-  if (t.startsWith('победа ')) {
-    if (t.includes(normalize(homeName))) return { market: '1X2', outcome: '1' };
-    if (t.includes(normalize(awayName))) return { market: '1X2', outcome: '2' };
-    return { market: '1X2', outcome: '1' }; // по умолчанию дом
-  }
-  if (t === 'ничья') return { market: '1X2', outcome: 'X' };
+  const home = normalize(homeName);
+  const away = normalize(awayName);
 
-  // Двойной шанс: "{team} или ничья" / "ничья или {team}"
-  const home = normalize(homeName), away = normalize(awayName);
-  if ((t.includes(home) && t.includes('или ничья')) || (t.startsWith('ничья или') && t.includes(home))) {
-    return { market: 'Double Chance', outcome: '1X' };
+  // ===== Победа / ничья =====
+  const mWin = t.match(/^победа\s+(.+?)$/i);
+  if (mWin) {
+    const who = normalize(mWin[1]);
+    if (who.includes(home)) return { market: '1X2', outcome: '1' };
+    if (who.includes(away)) return { market: '1X2', outcome: '2' };
+    return { market: '1X2', outcome: '1' };
   }
-  if ((t.includes(away) && t.includes('или ничья')) || (t.startsWith('ничья или') && t.includes(away))) {
-    return { market: 'Double Chance', outcome: 'X2' };
-  }
-  // "{team} не проиграет"
-  if (t.endsWith('не проиграет')) {
-    if (t.includes(home)) return { market: 'Double Chance', outcome: '1X' };
-    if (t.includes(away)) return { market: 'Double Chance', outcome: 'X2' };
-  }
+  if (/^ничья\b/i.test(t)) return { market: '1X2', outcome: 'X' };
 
-  // Обе забьют (да/нет)
-  const mBTTS = t.match(/^обе(?:\s+команды)?\s+забьют(?:\s*[-:() ]*\s*(да|нет))?$/i);
+  // ===== Двойной шанс =====
+  const mDc1 = t.match(/^(.+?)\s+или\s+ничья$/i);          // "{TEAM} или ничья"
+  if (mDc1) {
+    const who = normalize(mDc1[1]);
+    if (who.includes(home)) return { market: 'Double Chance', outcome: '1X' };
+    if (who.includes(away)) return { market: 'Double Chance', outcome: 'X2' };
+  }
+  const mDc2 = t.match(/^ничья\s+или\s+(.+?)$/i);          // "ничья или {TEAM}"
+  if (mDc2) {
+    const who = normalize(mDc2[1]);
+    if (who.includes(home)) return { market: 'Double Chance', outcome: '1X' };
+    if (who.includes(away)) return { market: 'Double Chance', outcome: 'X2' };
+  }
+  const mDc3 = t.match(/^двойной\s+шанс[:\-]?\s*(.+?)\s+или\s+ничья$/i); // "Двойной шанс: {TEAM} или ничья"
+  if (mDc3) {
+    const who = normalize(mDc3[1]);
+    if (who.includes(home)) return { market: 'Double Chance', outcome: '1X' };
+    if (who.includes(away)) return { market: 'Double Chance', outcome: 'X2' };
+  }
+  const mNoLose = t.match(/^(.+?)\s+не\s+проиграет$/i);    // "{TEAM} не проиграет"
+  if (mNoLose) {
+    const who = normalize(mNoLose[1]);
+    if (who.includes(home)) return { market: 'Double Chance', outcome: '1X' };
+    if (who.includes(away)) return { market: 'Double Chance', outcome: 'X2' };
+  }
+  if (/\b1х\b/i.test(t)) return { market: 'Double Chance', outcome: '1X' };
+  if (/\bх2\b/i.test(t)) return { market: 'Double Chance', outcome: 'X2' };
+  if (/\b12\b/i.test(t)) return { market: 'Double Chance', outcome: '12' };
+
+  // ===== Обе забьют =====
+  const mBTTS = t0.match(/обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)?/i);
   if (mBTTS) {
     const yn = (mBTTS[1] || 'да').toLowerCase();
     return { market: 'Both Teams To Score', outcome: yn === 'да' ? 'Yes' : 'No' };
   }
 
-  // Тоталы
-  const mOver = t.match(/^тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)$/i) || t.match(/^тб\s*([0-9]+(?:[.,][0-9]+)?)$/i);
+  // ===== Тоталы =====
+  const mOver = t0.match(/тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)/i) || t0.match(/\bтб\s*([0-9]+(?:[.,][0-9]+)?)/i);
   if (mOver) return { market: 'Total Goals', outcome: `Over ${mOver[1].replace(',', '.')}` };
-  const mUnder = t.match(/^тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)$/i) || t.match(/^тм\s*([0-9]+(?:[.,][0-9]+)?)$/i);
+
+  const mUnder = t0.match(/тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)/i) || t0.match(/\bтм\s*([0-9]+(?:[.,][0-9]+)?)/i);
   if (mUnder) return { market: 'Total Goals', outcome: `Under ${mUnder[1].replace(',', '.')}` };
 
-  // Фора (оставим фолбэком на 1X2 если не найдём)
-  const mHcap = t.match(/^фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)\s*на\s+(.+)$/i);
+  // ===== Фора =====
+  const mHcap = t0.match(/фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)\s*на\s+(.+?)(?:$|[.,;]|в\s+матче|в\s+игре|против)/i);
   if (mHcap) {
     const sign = mHcap[1].replace(',', '.');
     const who = normalize(mHcap[2]);
     const side = who.includes(home) ? 'home' : who.includes(away) ? 'away' : 'home';
-    return { market: 'Handicap', outcome: `${side} ${sign}` }; // попытаемся позже
+    return { market: 'Handicap', outcome: `${side} ${sign}` };
   }
 
-  // Ничего не распознали — возьмём 1X2 дом/ничья/гость по эвристике
+  // ===== По умолчанию =====
   return { market: '1X2', outcome: '1' };
 }
 
@@ -265,7 +333,6 @@ function isFavbet(name = '') {
 // Найти коэффициент в структуре API-Football для нужного market/outcome
 function pickOddFromBook(book, wantedMarket, wantedOutcome) {
   const bets = book.bets || [];
-  // Нормализуем названия рынков в API-Football к нашим
   const marketAliases = {
     '1X2': ['Match Winner', '1X2', 'Full Time Result'],
     'Double Chance': ['Double Chance'],
@@ -275,16 +342,15 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
   };
 
   const targets = marketAliases[wantedMarket] || [wantedMarket];
+
   for (const bet of bets) {
     if (!targets.some(alias => String(bet.name).toLowerCase() === String(alias).toLowerCase())) continue;
 
-    // Поиск нужного исхода
     const values = bet.values || [];
-    // Приводим подписи исходов к понятным формам
     for (const v of values) {
       const valName = String(v.value || v.handicap || '').replace(',', '.');
       const valOdd = v.odd;
-      // Сопоставление по рынку
+
       switch (wantedMarket) {
         case '1X2':
           if (['1','2','X','Home','Away','Draw'].includes(valName)) {
@@ -295,11 +361,13 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
             }
           }
           break;
+
         case 'Double Chance':
           if (['1X','X2','12'].includes(valName)) {
             if (valName === wantedOutcome) return valOdd;
           }
           break;
+
         case 'Both Teams To Score':
           if (/yes|no/i.test(valName)) {
             if ((wantedOutcome === 'Yes' && /yes/i.test(valName)) ||
@@ -308,16 +376,16 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
             }
           }
           break;
+
         case 'Total Goals': {
-          // Ищем Over/Under N
           const over = wantedOutcome.startsWith('Over ');
           const num = wantedOutcome.split(' ')[1];
           if (over && (/Over/i.test(valName) && valName.includes(num))) return valOdd;
           if (!over && (/Under/i.test(valName) && valName.includes(num))) return valOdd;
           break;
         }
+
         case 'Handicap': {
-          // Пробуем exact match по handicap
           if (valName && wantedOutcome.toLowerCase().includes(valName.toLowerCase())) return valOdd;
           break;
         }
@@ -333,8 +401,6 @@ async function fetchOddsForPrediction(fixtureId, predictionText, homeName, awayN
   if (!data?.length) return getRandomOdds();
 
   const { market, outcome } = detectMarket(predictionText, homeName, awayName);
-
-  // В некоторых ответах несколько «пакетов» по рынкам; берём первый
   const pack = data[0];
   const books = pack.bookmakers || [];
 
@@ -426,7 +492,7 @@ async function generatePredictions() {
   const matches = await fetchMatches(40);
   if (!matches.length) {
     console.warn('Нет матчей для прогнозов.');
-    await saveToDraft([]);
+    await saveToDraft([]); // очистим черновики
     return [];
   }
 
@@ -437,7 +503,7 @@ async function generatePredictions() {
   // Прогнозы ИИ (сначала текст!)
   const aiPredictions = await generateAllPredictions(matches);
 
-  // Коэффициенты (Favbet приоритетно) — под каждый текст прогноза
+  // Коэффициенты — под каждый текст прогноза
   const withOdds = [];
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
