@@ -64,7 +64,7 @@ function isEuropeanMatch(m) {
   return false;
 }
 
-// === Завтрашний диапазон по Киеву ===
+// === Завтрашний диапазон дат по Киеву ===
 function getKievDateRangeForTomorrow() {
   const tz = 'Europe/Kiev';
   const kievNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
@@ -110,7 +110,7 @@ async function safeGet(url, params) {
   }
 }
 
-// === Матчи на завтра ===
+// === Получение матчей на завтра ===
 async function fetchMatches(maxCount = 40) {
   const tz = 'Europe/Kiev';
   const { from, to } = getKievDateRangeForTomorrow();
@@ -201,37 +201,47 @@ function stripContext(raw) {
 }
 
 /**
- * Приводим прогноз к одному из разрешённых форматов:
- * - "Победа <Команда>"
- * - "Тотал больше N"
- * - "Тотал меньше N"
- * - "Обе забьют-да" / "Обе забьют-нет"
- * - "<Команда> Фора +/-N"
- * Если встречен "двойной шанс" → заменяем на "Победа <та команда>".
- * Если встречена "Ничья" (на всякий) → заменяем на "Победа <Команда 1>".
+ * Приводим прогноз к одному из разрешённых форматов.
+ * Если встречен "двойной шанс" → строго "Победа <homeName|awayName>" по совпадению.
+ * Если встречена "Ничья" — для надёжности конвертим в "Победа <Команда 1>" (в твоём списке её нет).
  */
 function sanitizePredictionText(text, homeName, awayName) {
   if (!text) return text;
+
   const original = text.trim();
   const core = stripContext(original);
+
   const t = normalize(core);
   const home = normalize(homeName);
   const away = normalize(awayName);
 
-  // Двойной шанс → Победа {team}
-  let m = t.match(/^двойной\s+шанс[:\-\s]?(.+?)\s+или\s+ничья$/i) || t.match(/^ничья\s+или\s+(.+?)$/i) || t.match(/^(.+?)\s+или\s+ничья$/i);
+  // ===== ДВОЙНОЙ ШАНС → Победа <та команда> =====
+  // "Двойной шанс Команда или ничья", "ничья или Команда", "Команда или ничья"
+  let m =
+    t.match(/^двойной\s+шанс[:\-\s]*(.+?)\s+или\s+ничья$/i) ||
+    t.match(/^ничья\s+или\s+(.+?)$/i) ||
+    t.match(/^(.+?)\s+или\s+ничья$/i);
   if (m) {
-    const who = m[1].trim();
-    return `Победа ${who}`;
+    const whoRaw = m[1].trim();
+    const who = normalize(whoRaw);
+    if (who.includes(home)) return `Победа ${homeName}`;
+    if (who.includes(away)) return `Победа ${awayName}`;
+    return `Победа ${homeName}`;
   }
+  // "{team} не проиграет"
   m = t.match(/^(.+?)\s+не\s+проиграет$/i);
-  if (m) return `Победа ${m[1].trim()}`;
+  if (m) {
+    const who = normalize(m[1]);
+    if (who.includes(home)) return `Победа ${homeName}`;
+    if (who.includes(away)) return `Победа ${awayName}`;
+    return `Победа ${homeName}`;
+  }
 
-  // Обе забьют-да/нет
+  // ===== ОБЕ ЗАБЬЮТ =====
   m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
   if (m) return `Обе забьют-${m[1].toLowerCase()}`;
 
-  // Тоталы
+  // ===== ТОТАЛЫ =====
   m = core.match(/Тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)/i);
   if (m) return `Тотал больше ${m[1].replace(',', '.')}`;
   m = core.match(/Тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)/i);
@@ -241,27 +251,51 @@ function sanitizePredictionText(text, homeName, awayName) {
   m = core.match(/\bТМ\s*([0-9]+(?:[.,][0-9]+)?)\b/i);
   if (m) return `Тотал меньше ${m[1].replace(',', '.')}`;
 
-  // Победа <Команда>
+  // ===== ПОБЕДА КОМАНДЫ =====
   m = core.match(/^Победа\s+(.+)$/i);
-  if (m) return `Победа ${m[1].trim()}`;
+  if (m) {
+    const who = normalize(m[1]);
+    if (who.includes(home)) return `Победа ${homeName}`;
+    if (who.includes(away)) return `Победа ${awayName}`;
+    return `Победа ${homeName}`;
+  }
   m = core.match(/^(.+?)\s+Победа$/i);
-  if (m) return `Победа ${m[1].trim()}`;
+  if (m) {
+    const who = normalize(m[1]);
+    if (who.includes(home)) return `Победа ${homeName}`;
+    if (who.includes(away)) return `Победа ${awayName}`;
+    return `Победа ${homeName}`;
+  }
 
-  // Фора: "Фора +1 на Команда" → "Команда Фора +1"
+  // ===== ФОРА =====
+  // "Фора +1 на Команда" → "Команда Фора +1"
   m = core.match(/^Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)\s*на\s+(.+)$/i);
-  if (m) return `${m[2].trim()} Фора ${m[1].replace(',', '.')}`;
-  // "<Команда> Фора n" — уже целевой формат
+  if (m) {
+    const sign = m[1].replace(',', '.');
+    const whoRaw = m[2].trim();
+    const who = normalize(whoRaw);
+    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : homeName;
+    const signNorm = sign.startsWith('+') || sign.startsWith('-') ? sign : `+${sign}`;
+    return `${outName} Фора ${signNorm}`;
+  }
+  // "<Команда> Фора n"
   m = core.match(/^(.+?)\s+Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)$/i);
-  if (m) return `${m[1].trim()} Фора ${m[2].replace(',', '.')}`;
+  if (m) {
+    const who = normalize(m[1]);
+    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : homeName;
+    const sign = m[2].replace(',', '.');
+    const signNorm = sign.startsWith('+') || sign.startsWith('-') ? sign : `+${sign}`;
+    return `${outName} Фора ${signNorm}`;
+  }
 
-  // На всякий — "Ничья" → Победа Команда 1
+  // На всякий — «Ничья» в твоём списке нет → заменим на Победа хозяев
   if (/^ничья$/i.test(core)) return `Победа ${homeName}`;
 
-  // По умолчанию — Победа хозяев
+  // По умолчанию — безопасно: Победа хозяев
   return `Победа ${homeName}`;
 }
 
-// ===================== ОПРЕДЕЛЕНИЕ РЫНКА (под форматы выше) ======================
+// ===================== ОПРЕДЕЛЕНИЕ РЫНКА ======================
 function detectMarket(predictionText, homeName, awayName) {
   const raw = predictionText || '';
   const core = stripContext(raw);
@@ -275,7 +309,6 @@ function detectMarket(predictionText, homeName, awayName) {
     const who = normalize(m[1]);
     if (who.includes(home)) return { market: '1X2', outcome: '1' };
     if (who.includes(away)) return { market: '1X2', outcome: '2' };
-    // если не смогли — по умолчанию хозяева
     return { market: '1X2', outcome: '1' };
   }
 
@@ -298,7 +331,7 @@ function detectMarket(predictionText, homeName, awayName) {
     return { market: 'Handicap', outcome: `${side} ${sign}` };
   }
 
-  // По умолчанию — Победа хозяев
+  // По умолчанию — 1X2 хозяев
   return { market: '1X2', outcome: '1' };
 }
 
@@ -349,6 +382,7 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
         }
 
         case 'Handicap': {
+          // Сопоставляем по числу гандикапа (у буков форматы могут отличаться)
           const targetH = wantedOutcome.split(' ')[1]; // "+1.0"
           if (valName && (valName === targetH || valName === targetH.replace(/\.0$/, '') || targetH.includes(valName))) {
             return odd;
@@ -407,9 +441,6 @@ async function generateAllPredictions(matches) {
 ЗАПРЕЩЕНО:
 - Любые хвосты ("в матче ...", "против ...", "с ..."), двоеточия, точки.
 - Любые другие типы, включая "Двойной шанс" и "Ничья".
-
-Важно:
-- Разнообразь типы исходов между матчами.
 - Запрещено указывать коэффициенты.
 
 Список матчей:
@@ -427,7 +458,7 @@ ${matchesList}
       .split('\n')
       .map(s => s.trim())
       .filter(Boolean)
-      .map(s => s.replace(/^\d+\.\s*/, '')); // на всякий отрежем нумерацию
+      .map(s => s.replace(/^\d+\.\s*/, '')); // срежем нумерацию, если вдруг
 
     return lines;
   } catch (e) {
