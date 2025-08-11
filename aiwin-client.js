@@ -17,7 +17,9 @@ const translations = {
     buyCoins: "Купить монеты",
     unlock: "Разблокировать",
     locked: "🔒 Прогноз заблокирован",
-    notEnough: "Недостаточно монет"
+    notEnough: "Недостаточно монет",
+    footballWord: "Футбол",
+    handicapWord: "Фора"
   },
   uk: {
     slogan: "Розумні ставки. Великі виграші.",
@@ -26,7 +28,9 @@ const translations = {
     buyCoins: "Купити монети",
     unlock: "Розблокувати",
     locked: "🔒 Прогноз заблоковано",
-    notEnough: "Недостатньо монет"
+    notEnough: "Недостатньо монет",
+    footballWord: "Футбол",
+    handicapWord: "Фора"
   },
   en: {
     slogan: "Smart bets. Big wins.",
@@ -35,9 +39,101 @@ const translations = {
     buyCoins: "Buy coins",
     unlock: "Unlock",
     locked: "🔒 Prediction locked",
-    notEnough: "Not enough coins"
+    notEnough: "Not enough coins",
+    footballWord: "Football",
+    handicapWord: "Handicap"
   }
 };
+
+// ====== Алиасы лиг → канонические ключи и переводы ======
+const LEAGUE_CANON = [
+  { key: 'ucl', aliases: ['лига чемпионов уефа','uefa champions league','champions league'] },
+  { key: 'uel', aliases: ['лига европы уефа','uefa europa league','europa league'] },
+  { key: 'uecl', aliases: ['лига конференций уефа','uefa europa conference league','conference league'] },
+  { key: 'epl', aliases: ['премьер-лига англии','premier league','english premier league'] },
+  { key: 'laliga', aliases: ['ла лига испании','la liga','laliga'] },
+  { key: 'seriea', aliases: ['серия а италии','serie a'] },
+  { key: 'bundes', aliases: ['бундеслига германии','bundesliga'] },
+  { key: 'ligue1', aliases: ['лига 1 франции','ligue 1'] },
+  { key: 'eredivisie', aliases: ['ередивизи нидерландов','eredivisie'] },
+  { key: 'primeira', aliases: ['примейра лига португалии','primeira liga','liga portugal'] },
+  { key: 'upl', aliases: ['украинская премьер лига','ukrainian premier league','upl'] }
+];
+
+const LEAGUE_LABELS = {
+  ru: {
+    ucl: 'Лига Чемпионов УЕФА',
+    uel: 'Лига Европы УЕФА',
+    uecl: 'Лига Конференций УЕФА',
+    epl: 'Премьер-Лига Англии',
+    laliga: 'Ла Лига Испании',
+    seriea: 'Серия А Италии',
+    bundes: 'Бундеслига Германии',
+    ligue1: 'Лига 1 Франции',
+    eredivisie: 'Эредивизи Нидерландов',
+    primeira: 'Примейра Лига Португалии',
+    upl: 'Украинская Премьер Лига'
+  },
+  uk: {
+    ucl: 'Ліга Чемпіонів УЄФА',
+    uel: 'Ліга Європи УЄФА',
+    uecl: 'Ліга Конференцій УЄФА',
+    epl: 'Премʼєр-ліга Англії',
+    laliga: 'Ла Ліга Іспанії',
+    seriea: 'Серія А Італії',
+    bundes: 'Бундесліга Німеччини',
+    ligue1: 'Ліга 1 Франції',
+    eredivisie: 'Ередивізі Нідерландів',
+    primeira: 'Прімейра Ліга Португалії',
+    upl: 'Українська Премʼєр-ліга'
+  },
+  en: {
+    ucl: 'UEFA Champions League',
+    uel: 'UEFA Europa League',
+    uecl: 'UEFA Europa Conference League',
+    epl: 'Premier League',
+    laliga: 'La Liga',
+    seriea: 'Serie A',
+    bundes: 'Bundesliga',
+    ligue1: 'Ligue 1',
+    eredivisie: 'Eredivisie',
+    primeira: 'Primeira Liga',
+    upl: 'Ukrainian Premier League'
+  }
+};
+
+function normLower(s='') {
+  return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
+}
+
+function detectLeagueKey(name='') {
+  const n = normLower(name);
+  for (const {key, aliases} of LEAGUE_CANON) {
+    if (aliases.some(a => n.includes(normLower(a)))) return key;
+  }
+  return null;
+}
+
+function translateTournament(original) {
+  if (!original) return original;
+  if (lang === 'ru') return original;
+
+  // ожидаемый формат от бэка: "Футбол.dd.mm.yy <League>"
+  // берём слово "Футбол" + оставшееся как лига
+  const m = original.match(/^Футбол\.(\d{2}\.\d{2}\.\d{2})\s+(.+)$/i);
+  if (!m) {
+    // если формат другой — просто переводим "Футбол" слово и возвращаем
+    return original.replace(/^Футбол/i, translations[lang].footballWord);
+  }
+  const datePart = m[1];
+  const leagueRaw = m[2];
+
+  const key = detectLeagueKey(leagueRaw) || detectLeagueKey(LEAGUE_LABELS.ru[leagueRaw] || '');
+  const leagueTranslated = key ? (LEAGUE_LABELS[lang][key] || leagueRaw) : leagueRaw;
+
+  const footballWord = translations[lang].footballWord;
+  return `${footballWord}.${datePart} ${leagueTranslated}`;
+}
 
 /**
  * Визуальный перевод текста прогноза.
@@ -47,10 +143,10 @@ function translatePredictionText(original, target) {
   try {
     if (!original || target === 'ru') return original;
 
-    // Нормализация: длинные тире → дефис, сжатие пробелов
+    // Нормализация
     const norm = (s) =>
-      s.replace(/[–—−]/g, '-')
-       .replace(/\s+/g, ' ')
+      s.replace(/[–—−]/g, '-')   // все тире → дефис
+       .replace(/\s+/g, ' ')     // сжать пробелы
        .replace(/\s*-\s*/g, ' - ')
        .trim();
 
@@ -60,7 +156,7 @@ function translatePredictionText(original, target) {
     const TEAM = '(.+?)';
 
     const rules = [
-      // ===== ОБЕ ЗАБЬЮТ (включая формы: "-да", ": да", "(нет)", без пробелов и т.д.) =====
+      // ===== ОБЕ ЗАБЬЮТ =====
       {
         re: /^Обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i,
         tr: (m) => {
@@ -72,33 +168,6 @@ function translatePredictionText(original, target) {
       {
         re: /^Обе(?:\s+команды)?\s+забьют$/i,
         tr: () => (target === 'en' ? 'Both teams to score' : "Обидві заб'ють")
-      },
-
-      // ===== ДВОЙНОЙ ШАНС (с префиксом и без него) =====
-      // "{TEAM} или ничья"
-      {
-        re: new RegExp(`^${TEAM}\\s+(?:или|або|or)\\s+ничья$`, 'i'),
-        tr: (m) => target === 'en' ? `Double chance ${m[1]} or draw` : `Подвійний шанс ${m[1]} або нічия`
-      },
-      // "ничья или {TEAM}"
-      {
-        re: new RegExp(`^ничья\\s+(?:или|або|or)\\s*${TEAM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Double chance draw or ${m[1]}` : `Подвійний шанс нічия або ${m[1]}`
-      },
-      // "Двойной шанс: {TEAM} или ничья"
-      {
-        re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*${TEAM}\\s+(?:или|або|or)\\s+ничья$`, 'i'),
-        tr: (m) => target === 'en' ? `Double chance ${m[1]} or draw` : `Подвійний шанс ${m[1]} або нічия`
-      },
-      // "Двойной шанс: ничья или {TEAM}"
-      {
-        re: new RegExp(`^Двойной\\s+шанс\\s*[:\\-]?\\s*ничья\\s+(?:или|або|or)\\s*${TEAM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Double chance draw or ${m[1]}` : `Подвійний шанс нічия або ${m[1]}`
-      },
-      // "{TEAM} не проиграет"
-      {
-        re: new RegExp(`^${TEAM}\\s+не\\s+проиграет$`, 'i'),
-        tr: (m) => target === 'en' ? `${m[1]} not to lose (double chance)` : `${m[1]} не програє (подвійний шанс)`
       },
 
       // ===== Тоталы =====
@@ -120,12 +189,21 @@ function translatePredictionText(original, target) {
       },
 
       // ===== Форы =====
-      // "Фора -1.5 на {TEAM}"
+      // "Фора -1.5 на {TEAM}" → EN: Handicap TEAM -1.5, UK: Фора TEAM -1.5
       {
         re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'),
         tr: (m) => {
           const h = (m[1] || '').replace(',', '.');
           const tm = m[2];
+          return target === 'en' ? `Handicap ${tm} ${h}` : `Фора ${tm} ${h}`;
+        }
+      },
+      // "{TEAM} Фора -1.5" → EN: Handicap TEAM -1.5 / UK: Фора TEAM -1.5
+      {
+        re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
+        tr: (m) => {
+          const tm = m[1];
+          const h  = (m[2] || '').replace(',', '.');
           return target === 'en' ? `Handicap ${tm} ${h}` : `Фора ${tm} ${h}`;
         }
       },
@@ -137,13 +215,10 @@ function translatePredictionText(original, target) {
       },
       { re: /^Ничья$/i, tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
 
-      // Короткие исходы/двойные шансы
+      // Короткие исходы (на всякий случай)
       { re: /^П1$/i, tr: () => (target === 'en' ? 'Home win' : 'Перемога господарів') },
       { re: /^П2$/i, tr: () => (target === 'en' ? 'Away win' : 'Перемога гостей') },
-      { re: /^Х$/i,  tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
-      { re: /^1Х$/i, tr: () => (target === 'en' ? '1X (home or draw)' : '1X (господарі або нічия)') },
-      { re: /^Х2$/i, tr: () => (target === 'en' ? 'X2 (draw or away)' : 'X2 (нічия або гості)') },
-      { re: /^12$/i, tr: () => (target === 'en' ? '12 (no draw)' : '12 (без нічиєї)') }
+      { re: /^Х$/i,  tr: () => (target === 'en' ? 'Draw' : 'Нічия') }
     ];
 
     for (const r of rules) {
@@ -163,7 +238,6 @@ let predictions = [];
 
 // ===== Профиль пользователя (только чтение для UI и balance) =====
 function getUserProfileRaw() {
-  // Берём как есть из Telegram (без переименований ключей)
   let u = telegram?.initDataUnsafe?.user;
   if (!u) {
     try {
@@ -196,7 +270,6 @@ function loadUserData() {
   if (u) {
     userName.textContent = `${translations[lang].hello}, ${u.first_name || translations[lang].guest}`;
     userProfilePic.src = u.photo_url || 'https://dummyimage.com/50x50/000/fff&text=User';
-    // сохраняем сырые данные (оригинал) — пригодятся при перезапуске
     localStorage.setItem('tg_user', JSON.stringify(u));
   } else {
     userName.textContent = `${translations[lang].hello}, ${translations[lang].guest}`;
@@ -212,11 +285,11 @@ async function loadPredictions() {
   if (!userId) return;
 
   try {
-    // 1) Берём опубликованные прогнозы (оригинал из БД)
+    // 1) Прогнозы
     const response = await fetch(`/api/predictions?userId=${userId}`);
     predictions = await response.json();
 
-    // 2) Обновляем/получаем баланс + сохраняем профиль на сервере (но только профиль, НЕ прогнозы)
+    // 2) Баланс (+ сохраняем профиль на сервере, если бэк это учитывает)
     const u = getUserProfileRaw();
     const balanceResponse = await fetch('/balance', {
       method: 'POST',
@@ -224,14 +297,14 @@ async function loadPredictions() {
       body: JSON.stringify({
         userId,
         action: 'get',
-        profile: u // только профиль
+        profile: u
       })
     });
     const balanceData = await balanceResponse.json();
     coins = balanceData.coins || 0;
 
     updateBalance();
-    renderPredictions(); // визуальный перевод делаем только тут
+    renderPredictions();
   } catch (e) {
     console.error('Ошибка загрузки:', e);
   }
@@ -277,12 +350,15 @@ function renderPredictions() {
 
     const textOriginal = p.predictionText || '';
     const textShown = p.isUnlocked
-      ? translatePredictionText(textOriginal, lang) // только визуально
+      ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
+
+    // !!! Переводим название турнира
+    const tournamentShown = translateTournament(p.tournament);
 
     div.innerHTML = `
       <div class="teams">
-        <span class="tournament">${p.tournament}</span>
+        <span class="tournament">${tournamentShown}</span>
         <div class="team-row"><img src="${p.logo1}"> ${p.team1}</div>
         <div class="team-row"><img src="${p.logo2}"> ${p.team2}</div>
       </div>
