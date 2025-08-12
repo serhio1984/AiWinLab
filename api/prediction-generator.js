@@ -33,7 +33,7 @@ const TOURNAMENT_TRANSLATIONS = {
   'Primeira Liga': 'Примейра Лига Португалии'
 };
 
-// === Европа: расширенный список стран/меток и правила ===
+// === Европа: список стран/меток ===
 const EUROPEAN_COUNTRIES = [
   'England','Scotland','Wales','Northern Ireland','Ireland',
   'Spain','Italy','Germany','France','Netherlands','Portugal',
@@ -202,10 +202,9 @@ function stripContext(raw) {
 
 /**
  * Приводим прогноз к одному из разрешённых форматов.
- * Если встречен "двойной шанс" → строго "Победа <homeName|awayName>" по совпадению.
- * Если встречена "Ничья" — для надёжности конвертим в "Победа <Команда 1>" (в твоём списке её нет).
+ * Если встречен «двойной шанс»/«не проиграет»/«Ничья»/неясность — используем favoriteName.
  */
-function sanitizePredictionText(text, homeName, awayName) {
+function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   if (!text) return text;
 
   const original = text.trim();
@@ -214,9 +213,9 @@ function sanitizePredictionText(text, homeName, awayName) {
   const t = normalize(core);
   const home = normalize(homeName);
   const away = normalize(awayName);
+  const fav  = normalize(favoriteName || homeName);
 
-  // ===== ДВОЙНОЙ ШАНС → Победа <та команда> =====
-  // "Двойной шанс Команда или ничья", "ничья или Команда", "Команда или ничья"
+  // ===== ДВОЙНОЙ ШАНС → Победа <та команда> или фаворит =====
   let m =
     t.match(/^двойной\s+шанс[:\-\s]*(.+?)\s+или\s+ничья$/i) ||
     t.match(/^ничья\s+или\s+(.+?)$/i) ||
@@ -226,15 +225,15 @@ function sanitizePredictionText(text, homeName, awayName) {
     const who = normalize(whoRaw);
     if (who.includes(home)) return `Победа ${homeName}`;
     if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${homeName}`;
+    // не распознали — берём фаворита
+    return `Победа ${favoriteName}`;
   }
-  // "{team} не проиграет"
   m = t.match(/^(.+?)\s+не\s+проиграет$/i);
   if (m) {
     const who = normalize(m[1]);
     if (who.includes(home)) return `Победа ${homeName}`;
     if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${homeName}`;
+    return `Победа ${favoriteName}`;
   }
 
   // ===== ОБЕ ЗАБЬЮТ =====
@@ -257,42 +256,40 @@ function sanitizePredictionText(text, homeName, awayName) {
     const who = normalize(m[1]);
     if (who.includes(home)) return `Победа ${homeName}`;
     if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${homeName}`;
+    return `Победа ${favoriteName}`;
   }
   m = core.match(/^(.+?)\s+Победа$/i);
   if (m) {
     const who = normalize(m[1]);
     if (who.includes(home)) return `Победа ${homeName}`;
     if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${homeName}`;
+    return `Победа ${favoriteName}`;
   }
 
   // ===== ФОРА =====
-  // "Фора +1 на Команда" → "Команда Фора +1"
   m = core.match(/^Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)\s*на\s+(.+)$/i);
   if (m) {
     const sign = m[1].replace(',', '.');
     const whoRaw = m[2].trim();
     const who = normalize(whoRaw);
-    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : homeName;
+    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : favoriteName;
     const signNorm = sign.startsWith('+') || sign.startsWith('-') ? sign : `+${sign}`;
     return `${outName} Фора ${signNorm}`;
   }
-  // "<Команда> Фора n"
   m = core.match(/^(.+?)\s+Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)$/i);
   if (m) {
     const who = normalize(m[1]);
-    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : homeName;
+    const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : favoriteName;
     const sign = m[2].replace(',', '.');
     const signNorm = sign.startsWith('+') || sign.startsWith('-') ? sign : `+${sign}`;
     return `${outName} Фора ${signNorm}`;
   }
 
-  // На всякий — «Ничья» в твоём списке нет → заменим на Победа хозяев
-  if (/^ничья$/i.test(core)) return `Победа ${homeName}`;
+  // «Ничья» в списке форматов нет — переводим в победу фаворита
+  if (/^ничья$/i.test(core)) return `Победа ${favoriteName}`;
 
-  // По умолчанию — безопасно: Победа хозяев
-  return `Победа ${homeName}`;
+  // По умолчанию — Победа фаворита
+  return `Победа ${favoriteName}`;
 }
 
 // ===================== ОПРЕДЕЛЕНИЕ РЫНКА ======================
@@ -309,7 +306,7 @@ function detectMarket(predictionText, homeName, awayName) {
     const who = normalize(m[1]);
     if (who.includes(home)) return { market: '1X2', outcome: '1' };
     if (who.includes(away)) return { market: '1X2', outcome: '2' };
-    return { market: '1X2', outcome: '1' };
+    return { market: '1X2', outcome: '1' }; // дефолт, но до сюда обычно не доходим
   }
 
   // Обе забьют-да/нет
@@ -335,7 +332,7 @@ function detectMarket(predictionText, homeName, awayName) {
   return { market: '1X2', outcome: '1' };
 }
 
-// ================== Приоритет Favbet ==========================
+// ================== Favbet / 1X2 / фаворит ====================
 function isFavbet(name = '') {
   const n = String(name).toLowerCase();
   return n.includes('fav') || n.includes('favbet') || n.includes('fav bet');
@@ -382,7 +379,6 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
         }
 
         case 'Handicap': {
-          // Сопоставляем по числу гандикапа (у буков форматы могут отличаться)
           const targetH = wantedOutcome.split(' ')[1]; // "+1.0"
           if (valName && (valName === targetH || valName === targetH.replace(/\.0$/, '') || targetH.includes(valName))) {
             return odd;
@@ -395,32 +391,56 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
   return null;
 }
 
-async function fetchOddsForPrediction(fixtureId, predictionText, homeName, awayName) {
-  const data = await safeGet(ODDS_URL, { fixture: fixtureId, timezone: 'Europe/Kiev' });
-  if (!data?.length) return getRandomOdds();
-
-  const { market, outcome } = detectMarket(predictionText, homeName, awayName);
-  const pack = data[0];
-  const books = pack.bookmakers || [];
-
-  // 1) Favbet
-  const fav = books.find(b => isFavbet(b.name));
-  if (fav) {
-    const odd = pickOddFromBook(fav, market, outcome);
-    if (odd) return Number(odd).toFixed(2);
+// Достаём 1X2 из пакета котировок (Favbet приоритет)
+function extract1x2FromPack(pack) {
+  const books = pack?.bookmakers || [];
+  const order = [
+    ...books.filter(b => isFavbet(b.name)),
+    ...books.filter(b => !isFavbet(b.name))
+  ];
+  for (const b of order) {
+    const bet = (b.bets || []).find(bt =>
+      ['Match Winner','1X2','Full Time Result'].some(alias =>
+        String(bt.name).toLowerCase() === alias.toLowerCase()
+      )
+    );
+    if (bet && bet.values?.length) {
+      const out = {};
+      for (const v of bet.values) {
+        const name = String(v.value).toLowerCase();
+        if (name === 'home' || name === '1') out.home = Number(v.odd);
+        else if (name === 'away' || name === '2') out.away = Number(v.odd);
+        else if (name === 'draw' || name === 'x') out.draw = Number(v.odd);
+      }
+      if (out.home || out.away) return out;
+    }
   }
-
-  // 2) Любой другой букер — по нужному рынку
-  for (const book of books) {
-    const odd = pickOddFromBook(book, market, outcome);
-    if (odd) return Number(odd).toFixed(2);
-  }
-
-  // 3) Не нашли — фолбэк
-  return getRandomOdds();
+  return null;
 }
 
-// === Генерация прогнозов (Только разрешённые форматы) ===
+function chooseFavoriteName(homeName, awayName, pack) {
+  const oneXTwo = extract1x2FromPack(pack);
+  if (oneXTwo && typeof oneXTwo.home === 'number' && typeof oneXTwo.away === 'number') {
+    return oneXTwo.home <= oneXTwo.away ? homeName : awayName;
+  }
+  // если не нашли — оставим хозяев фаворитом (редкий случай)
+  return homeName;
+}
+
+function pickOddFromPack(pack, wantedMarket, wantedOutcome) {
+  const books = pack?.bookmakers || [];
+  const ordered = [
+    ...books.filter(b => isFavbet(b.name)),
+    ...books.filter(b => !isFavbet(b.name))
+  ];
+  for (const b of ordered) {
+    const odd = pickOddFromBook(b, wantedMarket, wantedOutcome);
+    if (odd) return Number(odd).toFixed(2);
+  }
+  return null;
+}
+
+// === Генерация прогнозов (строго разрешённые форматы, с указанием команды) ===
 async function generateAllPredictions(matches) {
   const matchesList = matches
     .map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`)
@@ -428,20 +448,21 @@ async function generateAllPredictions(matches) {
 
   const prompt = `
 Ты спортивный аналитик.
-СГЕНЕРИРУЙ по одному прогнозу на каждый матч СТРОГО в одном из разрешённых форматов (русский язык):
+СГЕНЕРИРУЙ по одному прогнозу на каждый матч СТРОГО в одном из разрешённых форматов (русский язык).
+ВСЕГДА указывай конкретную команду, если формат требует команду.
 
-ДОПУСТИМЫЕ ШАБЛОНЫ (ровно одна строка на матч, без дополнительных слов и точек):
-1) "Победа <Команда>"
+ДОПУСТИМЫЕ ШАБЛОНЫ (ровно одна строка на матч, без точек/хвостов):
+1) "Победа <точное имя команды из списка ниже>"
 2) "Тотал больше <число>"
 3) "Тотал меньше <число>"
 4) "Обе забьют-да"
 5) "Обе забьют-нет"
-6) "<Команда> Фора <+/-число>"
+6) "<точное имя команды> Фора <+/-число>"
 
 ЗАПРЕЩЕНО:
 - Любые хвосты ("в матче ...", "против ...", "с ..."), двоеточия, точки.
-- Любые другие типы, включая "Двойной шанс" и "Ничья".
-- Запрещено указывать коэффициенты.
+- Любые другие типы (включая "Двойной шанс" и "Ничья").
+- Не указывать команду там, где она требуется.
 
 Список матчей:
 ${matchesList}
@@ -458,7 +479,7 @@ ${matchesList}
       .split('\n')
       .map(s => s.trim())
       .filter(Boolean)
-      .map(s => s.replace(/^\d+\.\s*/, '')); // срежем нумерацию, если вдруг
+      .map(s => s.replace(/^\d+\.\s*/, ''));
 
     return lines;
   } catch (e) {
@@ -491,34 +512,39 @@ async function generatePredictions() {
     return [];
   }
 
-  // 1) Текст ИИ по строгому ТЗ
+  // 1) Черновые тексты от ИИ (могут содержать двусмысленности)
   let aiPredictions = await generateAllPredictions(matches);
 
-  // 2) Санитайзер под нужные форматы + запреты
-  aiPredictions = aiPredictions.map((txt, i) =>
-    sanitizePredictionText(txt, matches[i].teams.home.name, matches[i].teams.away.name)
-  );
-
-  // 3) Коэффициенты под каждый текст
   const cards = [];
+
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
-    const predText = aiPredictions[i] || `Победа ${match.teams.home.name}`;
-    const odd = await fetchOddsForPrediction(
-      match.fixture.id,
-      predText,
-      match.teams.home.name,
-      match.teams.away.name
-    );
-    cards.push({ match, odd, predText });
+
+    // 2) Получаем пакет котировок один раз
+    const oddsPacks = await safeGet(ODDS_URL, { fixture: match.fixture.id, timezone: 'Europe/Kiev' });
+    const pack = oddsPacks?.[0] || null;
+
+    // 3) Определяем фаворита по 1X2
+    const favoriteName = chooseFavoriteName(match.teams.home.name, match.teams.away.name, pack);
+
+    // 4) Санитизируем текст с учётом фаворита
+    const raw = aiPredictions[i] || '';
+    const predText = sanitizePredictionText(raw, match.teams.home.name, match.teams.away.name, favoriteName);
+
+    // 5) Определяем рынок/исход и вытягиваем коэффициент из ТОГО ЖЕ пакета (Favbet приоритет)
+    const { market, outcome } = detectMarket(predText, match.teams.home.name, match.teams.away.name);
+    let odd = pickOddFromPack(pack, market, outcome);
+    if (!odd) odd = getRandomOdds();
+
+    cards.push({ match, predText, odd });
   }
 
-  // 4) Переводы команд для карточек
+  // 6) Переводы команд для карточек
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
-  // 5) Формирование карточек
-  const predictions = cards.map(({ match, odd, predText }, i) => ({
+  // 7) Формирование карточек
+  const predictions = cards.map(({ match, predText, odd }, i) => ({
     id: Date.now() + i,
     tournament: formatTournament(match),
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
