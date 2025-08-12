@@ -45,19 +45,32 @@ const translations = {
   }
 };
 
+function normalizeLower(s='') {
+  return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
+}
+
 // ===== Международные турниры: строгая детекция по ключам =====
 function isInternationalTournament(name = "") {
-  const n = name.toLowerCase();
+  const n = normalizeLower(name);
   return [
     'uefa champions league', 'лига чемпионов', 'ліга чемпіонів',
     'uefa europa league', 'лига европы', 'ліга європи',
     'uefa europa conference', 'лига конференц', 'ліга конференц',
-    'euro', 'european championship', 'чемпионат европы', 'чемпіонат європи',
-    'qualification', 'квалификац', 'відбір',
+    'european championship', 'чемпионат европы', 'чемпіонат європи',
+    'euro ', 'euro-', ' euro', // на всякий
+    'qualification', 'квалификац', 'відбір'
   ].some(k => n.includes(k));
 }
 
-// ===== Переводы названий лиг (только для международных) =====
+function detectInternationalKey(name='') {
+  const n = normalizeLower(name);
+  if (/champions league|ліга чемпіонів|лига чемпионов/.test(n)) return 'ucl';
+  if (/europa league|ліга європи|лига европы/.test(n)) return 'uel';
+  if (/conference league|ліга конференц|лига конференц/.test(n)) return 'uecl';
+  return null;
+}
+
+// ===== Переводы названий еврокубков (визуально) =====
 const INT_LEAGUE_LABELS = {
   ru: {
     ucl: 'Лига Чемпионов УЕФА',
@@ -76,19 +89,7 @@ const INT_LEAGUE_LABELS = {
   }
 };
 
-function normalizeLower(s='') {
-  return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
-}
-
-function detectInternationalKey(name='') {
-  const n = normalizeLower(name);
-  if (/champions league|ліга чемпіонів|лига чемпионов/.test(n)) return 'ucl';
-  if (/europa league|ліга європи|лига европы/.test(n)) return 'uel';
-  if (/conference league|ліга конференц|лига конференц/.test(n)) return 'uecl';
-  return null;
-}
-
-// ===== Страны (локализация, и русские родительные формы для парсинга) =====
+// ===== Страны (локализация подписей; и русские родительные для парсинга) =====
 const COUNTRY_LABELS = {
   ru: {
     england: 'Англия',
@@ -105,7 +106,7 @@ const COUNTRY_LABELS = {
     belgium: 'Бельгия',
     austria: 'Австрия',
     switzerland: 'Швейцария',
-    poland: 'Польша',
+    poland: 'Польша'
   },
   uk: {
     england: 'Англія',
@@ -122,7 +123,7 @@ const COUNTRY_LABELS = {
     belgium: 'Бельгія',
     austria: 'Австрія',
     switzerland: 'Швейцарія',
-    poland: 'Польща',
+    poland: 'Польща'
   },
   en: {
     england: 'England',
@@ -139,11 +140,10 @@ const COUNTRY_LABELS = {
     belgium: 'Belgium',
     austria: 'Austria',
     switzerland: 'Switzerland',
-    poland: 'Poland',
+    poland: 'Poland'
   }
 };
 
-// Русские родительные формы (как в «Премьер-Лига Англии», «Ла Лига Испании»)
 const RU_GENITIVE_TO_KEY = {
   'англии': 'england',
   'испании': 'spain',
@@ -162,7 +162,6 @@ const RU_GENITIVE_TO_KEY = {
   'польши': 'poland'
 };
 
-// Также поддержим английские формы прямо в названии (редко, но бывает)
 const EN_COUNTRY_TO_KEY = {
   'england': 'england',
   'spain': 'spain',
@@ -181,62 +180,47 @@ const EN_COUNTRY_TO_KEY = {
   'poland': 'poland'
 };
 
-// Пытаемся извлечь страну прямо из строки лиги (без угадываний по «Premier League»)
 function extractCountryKeyFromLeagueName(leagueName = '') {
   const n = normalizeLower(leagueName);
-  // Сначала русские родительные формы
   for (const [ruGen, key] of Object.entries(RU_GENITIVE_TO_KEY)) {
     if (n.includes(ruGen)) return key;
   }
-  // Затем английские формы
   for (const [enName, key] of Object.entries(EN_COUNTRY_TO_KEY)) {
     if (n.includes(enName)) return key;
   }
   return null;
 }
 
-/**
- * Финальный рендер строки турнира:
- * - Если международный (явные ключи) → показываем ТОЛЬКО название турнира (локализуем по возможности), БЕЗ даты и без «Футбол».
- * - Иначе: заменяем «Футбол» на локализованную «Страну», извлекая её из названия лиги.
- *   Если страну не смогли извлечь — оставляем «Футбол» (переведённый), чтобы не врать.
- *
- * Формат от сервера: "Футбол.dd.mm.yy <League>"
- */
+// ===== Парсер строки турнира "Футбол.dd.mm.yy LeagueName" =====
+function parseTournament(original='') {
+  const m = original.match(/^Футбол\.(\d{2}\.\d{2}\.\d{2})\s+(.+)$/i);
+  if (!m) return { datePart: null, leagueRaw: original };
+  return { datePart: m[1], leagueRaw: m[2] };
+}
+
+// ===== Преобразование строки турнира для показа =====
 function renderTournamentLine(original) {
   if (!original) return original;
 
-  const m = original.match(/^Футбол\.(\d{2}\.\d{2}\.\d{2})\s+(.+)$/i);
-  if (!m) {
-    // Нестандартный формат — просто локализуем слово "Футбол" и вернём
-    return original.replace(/^Футбол/i, translations[lang].footballWord);
-  }
+  const { datePart, leagueRaw } = parseTournament(original);
+  if (!leagueRaw) return original.replace(/^Футбол/i, translations[lang].footballWord);
 
-  const datePart = m[1];
-  const leagueRaw  = m[2];
-
-  // Международные
+  // Международные → только название турнира (локализуем если можем)
   if (isInternationalTournament(leagueRaw)) {
     const key = detectInternationalKey(leagueRaw);
-    if (key && INT_LEAGUE_LABELS[lang][key]) {
-      return INT_LEAGUE_LABELS[lang][key];
-    }
-    // если не нашли ключ — просто возвращаем название лиги как есть
+    if (key && INT_LEAGUE_LABELS[lang][key]) return INT_LEAGUE_LABELS[lang][key];
     return leagueRaw;
   }
 
-  // Внутренние: вытащим страну из имени лиги
+  // Внутренние → страна из названия лиги
   const countryKey = extractCountryKeyFromLeagueName(leagueRaw);
-  if (countryKey) {
+  if (countryKey && datePart) {
     const countryName = COUNTRY_LABELS[lang][countryKey] || COUNTRY_LABELS.ru[countryKey] || '';
-    if (countryName) {
-      return `${countryName}.${datePart} ${leagueRaw}`;
-    }
+    if (countryName) return `${countryName}.${datePart} ${leagueRaw}`;
   }
 
-  // Фолбэк — не знаем страну: не делаем догадок, просто переводим слово «Футбол»
-  const footballWord = translations[lang].footballWord;
-  return `${footballWord}.${datePart} ${leagueRaw}`;
+  // Фолбэк — просто локализуем "Футбол"
+  return original.replace(/^Футбол/i, translations[lang].footballWord);
 }
 
 /**
@@ -300,7 +284,7 @@ function translatePredictionText(original, target) {
           return target === 'en' ? `Handicap ${tm} ${h}` : `Фора ${tm} ${h}`;
         }
       },
-      // "{TEAM} Фора -1.5" → EN: Handicap TEAM -1.5 / UK: Фора TEAM -1.5
+      // "{TEAM} Фора -1.5"
       {
         re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
         tr: (m) => {
@@ -381,14 +365,67 @@ function loadUserData() {
   if (buyBtn) buyBtn.textContent = translations[lang].buyCoins;
 }
 
+// ======= Сортировка: Еврокубки → страны → дата → лига =======
+const COUNTRY_ORDER = [
+  'england','spain','italy','germany','france','netherlands','portugal',
+  'scotland','turkey','greece','belgium','austria','switzerland','poland','ukraine'
+];
+
+function countryRankFromLeague(leagueRaw='') {
+  const key = extractCountryKeyFromLeagueName(leagueRaw);
+  if (!key) return COUNTRY_ORDER.length + 1; // «остальные»
+  const idx = COUNTRY_ORDER.indexOf(key);
+  return idx === -1 ? COUNTRY_ORDER.length : idx; // неизвестные — в хвост, но перед «остальными»
+}
+
+function parseDatePart(datePart) {
+  // dd.mm.yy -> Date (в локали браузера)
+  if (!datePart) return null;
+  const [d, m, y] = datePart.split('.').map(Number);
+  // y как 20yy
+  const fullY = 2000 + (isNaN(y) ? 0 : y);
+  const dt = new Date(fullY, (m || 1) - 1, d || 1, 0, 0, 0);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+function sortPredictionsClient(arr=[]) {
+  return [...arr].sort((a, b) => {
+    const { datePart: da, leagueRaw: la } = parseTournament(a.tournament);
+    const { datePart: db, leagueRaw: lb } = parseTournament(b.tournament);
+
+    const aIsEuro = isInternationalTournament(la);
+    const bIsEuro = isInternationalTournament(lb);
+    if (aIsEuro !== bIsEuro) return aIsEuro ? -1 : 1;
+
+    if (!aIsEuro && !bIsEuro) {
+      const ra = countryRankFromLeague(la);
+      const rb = countryRankFromLeague(lb);
+      if (ra !== rb) return ra - rb;
+    }
+
+    // внутри группы — по дате
+    const dta = parseDatePart(da)?.getTime() ?? 0;
+    const dtb = parseDatePart(db)?.getTime() ?? 0;
+    if (dta !== dtb) return dta - dtb;
+
+    // стабильность — по названию лиги
+    return String(la || '').localeCompare(String(lb || ''));
+  });
+}
+
 async function loadPredictions() {
   const userId = getUserId();
   if (!userId) return;
 
   try {
+    // 1) Оригинальные прогнозы
     const response = await fetch(`/api/predictions?userId=${userId}`);
     predictions = await response.json();
 
+    // 2) Сортировка (еврокубки → страны → дата → лига)
+    predictions = sortPredictionsClient(predictions);
+
+    // 3) Баланс и профиль
     const u = getUserProfileRaw();
     const balanceResponse = await fetch('/balance', {
       method: 'POST',
@@ -451,7 +488,6 @@ function renderPredictions() {
       ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
 
-    // === ТУРНИР: «Футбол» → «Страна», либо международный — только название турнира
     const tournamentShown = renderTournamentLine(p.tournament);
 
     div.innerHTML = `
