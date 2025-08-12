@@ -45,80 +45,50 @@ const translations = {
   }
 };
 
-// ====== Лиги: алиасы → ключи, переводы и привязка к странам ======
-const LEAGUE_CANON = [
-  { key: 'ucl', aliases: ['лига чемпионов уефа','uefa champions league','champions league'] },
-  { key: 'uel', aliases: ['лига европы уефа','uefa europa league','europa league'] },
-  { key: 'uecl', aliases: ['лига конференций уефа','uefa europa conference league','conference league'] },
+// ===== Международные турниры: строгая детекция по ключам =====
+function isInternationalTournament(name = "") {
+  const n = name.toLowerCase();
+  return [
+    'uefa champions league', 'лига чемпионов', 'ліга чемпіонів',
+    'uefa europa league', 'лига европы', 'ліга європи',
+    'uefa europa conference', 'лига конференц', 'ліга конференц',
+    'euro', 'european championship', 'чемпионат европы', 'чемпіонат європи',
+    'qualification', 'квалификац', 'відбір',
+  ].some(k => n.includes(k));
+}
 
-  { key: 'epl', aliases: ['премьер-лига англии','premier league','english premier league'] },
-  { key: 'laliga', aliases: ['ла лига испании','la liga','laliga'] },
-  { key: 'seriea', aliases: ['серия а италии','serie a'] },
-  { key: 'bundes', aliases: ['бундеслига германии','bundesliga'] },
-  { key: 'ligue1', aliases: ['лига 1 франции','ligue 1'] },
-  { key: 'eredivisie', aliases: ['ередивизи нидерландов','eredivisie'] },
-  { key: 'primeira', aliases: ['примейра лига португалии','primeira liga','liga portugal'] },
-  { key: 'upl', aliases: ['украинская премьер лига','ukrainian premier league','upl'] },
-
-  // можно добавлять по мере необходимости
-];
-
-// Привязка ключа лиги к стране (domestic). Международные лиги не указываем.
-const LEAGUE_COUNTRY = {
-  epl: 'england',
-  laliga: 'spain',
-  seriea: 'italy',
-  bundes: 'germany',
-  ligue1: 'france',
-  eredivisie: 'netherlands',
-  primeira: 'portugal',
-  upl: 'ukraine'
-};
-
-// Переводы названий лиг
-const LEAGUE_LABELS = {
+// ===== Переводы названий лиг (только для международных) =====
+const INT_LEAGUE_LABELS = {
   ru: {
     ucl: 'Лига Чемпионов УЕФА',
     uel: 'Лига Европы УЕФА',
-    uecl: 'Лига Конференций УЕФА',
-    epl: 'Премьер-Лига Англии',
-    laliga: 'Ла Лига Испании',
-    seriea: 'Серия А Италии',
-    bundes: 'Бундеслига Германии',
-    ligue1: 'Лига 1 Франции',
-    eredivisie: 'Эредивизи Нидерландов',
-    primeira: 'Примейра Лига Португалии',
-    upl: 'Украинская Премьер Лига'
+    uecl: 'Лига Конференций УЕФА'
   },
   uk: {
     ucl: 'Ліга Чемпіонів УЄФА',
     uel: 'Ліга Європи УЄФА',
-    uecl: 'Ліга Конференцій УЄФА',
-    epl: 'Премʼєр-ліга Англії',
-    laliga: 'Ла Ліга Іспанії',
-    seriea: 'Серія А Італії',
-    bundes: 'Бундесліга Німеччини',
-    ligue1: 'Ліга 1 Франції',
-    eredivisie: 'Ередивізі Нідерландів',
-    primeira: 'Прімейра Ліга Португалії',
-    upl: 'Українська Премʼєр-ліга'
+    uecl: 'Ліга Конференцій УЄФА'
   },
   en: {
     ucl: 'UEFA Champions League',
     uel: 'UEFA Europa League',
-    uecl: 'UEFA Europa Conference League',
-    epl: 'Premier League',
-    laliga: 'La Liga',
-    seriea: 'Serie A',
-    bundes: 'Bundesliga',
-    ligue1: 'Ligue 1',
-    eredivisie: 'Eredivisie',
-    primeira: 'Primeira Liga',
-    upl: 'Ukrainian Premier League'
+    uecl: 'UEFA Europa Conference League'
   }
 };
 
-// Переводы названий стран (для замены "Футбол" → "Страна")
+function normalizeLower(s='') {
+  return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
+}
+
+function detectInternationalKey(name='') {
+  const n = normalizeLower(name);
+  if (/champions league|ліга чемпіонів|лига чемпионов/.test(n)) return 'ucl';
+  if (/europa league|ліга європи|лига европы/.test(n)) return 'uel';
+  if (/conference league|ліга конференц|лига конференц/.test(n)) return 'uecl';
+  return null;
+}
+
+// ===== Страны (локализация, и русские родительные формы для парсинга) =====
 const COUNTRY_LABELS = {
   ru: {
     england: 'Англия',
@@ -128,7 +98,14 @@ const COUNTRY_LABELS = {
     france: 'Франция',
     netherlands: 'Нидерланды',
     portugal: 'Португалия',
-    ukraine: 'Украина'
+    ukraine: 'Украина',
+    scotland: 'Шотландия',
+    turkey: 'Турция',
+    greece: 'Греция',
+    belgium: 'Бельгия',
+    austria: 'Австрия',
+    switzerland: 'Швейцария',
+    poland: 'Польша',
   },
   uk: {
     england: 'Англія',
@@ -138,7 +115,14 @@ const COUNTRY_LABELS = {
     france: 'Франція',
     netherlands: 'Нідерланди',
     portugal: 'Португалія',
-    ukraine: 'Україна'
+    ukraine: 'Україна',
+    scotland: 'Шотландія',
+    turkey: 'Туреччина',
+    greece: 'Греція',
+    belgium: 'Бельгія',
+    austria: 'Австрія',
+    switzerland: 'Швейцарія',
+    poland: 'Польща',
   },
   en: {
     england: 'England',
@@ -148,79 +132,122 @@ const COUNTRY_LABELS = {
     france: 'France',
     netherlands: 'Netherlands',
     portugal: 'Portugal',
-    ukraine: 'Ukraine'
+    ukraine: 'Ukraine',
+    scotland: 'Scotland',
+    turkey: 'Turkey',
+    greece: 'Greece',
+    belgium: 'Belgium',
+    austria: 'Austria',
+    switzerland: 'Switzerland',
+    poland: 'Poland',
   }
 };
 
-function normLower(s='') {
-  return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
-}
+// Русские родительные формы (как в «Премьер-Лига Англии», «Ла Лига Испании»)
+const RU_GENITIVE_TO_KEY = {
+  'англии': 'england',
+  'испании': 'spain',
+  'италии': 'italy',
+  'германии': 'germany',
+  'франции': 'france',
+  'нидерландов': 'netherlands',
+  'португалии': 'portugal',
+  'украины': 'ukraine',
+  'шотландии': 'scotland',
+  'турции': 'turkey',
+  'греции': 'greece',
+  'бельгии': 'belgium',
+  'австрии': 'austria',
+  'швейцарии': 'switzerland',
+  'польши': 'poland'
+};
 
-function detectLeagueKey(name='') {
-  const n = normLower(name);
-  for (const {key, aliases} of LEAGUE_CANON) {
-    if (aliases.some(a => n.includes(normLower(a)))) return key;
+// Также поддержим английские формы прямо в названии (редко, но бывает)
+const EN_COUNTRY_TO_KEY = {
+  'england': 'england',
+  'spain': 'spain',
+  'italy': 'italy',
+  'germany': 'germany',
+  'france': 'france',
+  'netherlands': 'netherlands',
+  'portugal': 'portugal',
+  'ukraine': 'ukraine',
+  'scotland': 'scotland',
+  'turkey': 'turkey',
+  'greece': 'greece',
+  'belgium': 'belgium',
+  'austria': 'austria',
+  'switzerland': 'switzerland',
+  'poland': 'poland'
+};
+
+// Пытаемся извлечь страну прямо из строки лиги (без угадываний по «Premier League»)
+function extractCountryKeyFromLeagueName(leagueName = '') {
+  const n = normalizeLower(leagueName);
+  // Сначала русские родительные формы
+  for (const [ruGen, key] of Object.entries(RU_GENITIVE_TO_KEY)) {
+    if (n.includes(ruGen)) return key;
+  }
+  // Затем английские формы
+  for (const [enName, key] of Object.entries(EN_COUNTRY_TO_KEY)) {
+    if (n.includes(enName)) return key;
   }
   return null;
 }
 
-function isInternationalLeagueKey(key) {
-  return key === 'ucl' || key === 'uel' || key === 'uecl';
-}
-
 /**
- * Локализованный рендер строки турнира с заменой "Футбол" → "Страна",
- * а для международных турниров — только название турнира без даты/«Футбол».
+ * Финальный рендер строки турнира:
+ * - Если международный (явные ключи) → показываем ТОЛЬКО название турнира (локализуем по возможности), БЕЗ даты и без «Футбол».
+ * - Иначе: заменяем «Футбол» на локализованную «Страну», извлекая её из названия лиги.
+ *   Если страну не смогли извлечь — оставляем «Футбол» (переведённый), чтобы не врать.
  *
- * Ожидаемый формат оригинала: "Футбол.dd.mm.yy <League>"
+ * Формат от сервера: "Футбол.dd.mm.yy <League>"
  */
 function renderTournamentLine(original) {
   if (!original) return original;
 
-  // Если язык русский — всё равно надо заменить "Футбол" на страну, как ты просил.
   const m = original.match(/^Футбол\.(\d{2}\.\d{2}\.\d{2})\s+(.+)$/i);
   if (!m) {
-    // Нестандартный формат — просто вернём как есть (либо можно дополнительно попытаться заменить слово «Футбол»)
+    // Нестандартный формат — просто локализуем слово "Футбол" и вернём
     return original.replace(/^Футбол/i, translations[lang].footballWord);
   }
 
   const datePart = m[1];
   const leagueRaw  = m[2];
 
-  // Определяем ключ лиги и её локализованное имя
-  const key = detectLeagueKey(leagueRaw);
-  const leagueLocalized = key ? (LEAGUE_LABELS[lang][key] || leagueRaw) : leagueRaw;
-
-  // Международные — только название лиги
-  if (key && isInternationalLeagueKey(key)) {
-    return leagueLocalized; // без даты и без "Футбол"
+  // Международные
+  if (isInternationalTournament(leagueRaw)) {
+    const key = detectInternationalKey(leagueRaw);
+    if (key && INT_LEAGUE_LABELS[lang][key]) {
+      return INT_LEAGUE_LABELS[lang][key];
+    }
+    // если не нашли ключ — просто возвращаем название лиги как есть
+    return leagueRaw;
   }
 
-  // Домашние — меняем "Футбол" на страну (если известна)
-  let countryKey = key ? LEAGUE_COUNTRY[key] : null;
+  // Внутренние: вытащим страну из имени лиги
+  const countryKey = extractCountryKeyFromLeagueName(leagueRaw);
   if (countryKey) {
-    const countryName = COUNTRY_LABELS[lang][countryKey] || COUNTRY_LABELS['ru'][countryKey] || '';
+    const countryName = COUNTRY_LABELS[lang][countryKey] || COUNTRY_LABELS.ru[countryKey] || '';
     if (countryName) {
-      return `${countryName}.${datePart} ${leagueLocalized}`;
+      return `${countryName}.${datePart} ${leagueRaw}`;
     }
   }
 
-  // Фолбэк: если страну не определили — оставим как было, только переведём слово «Футбол» при необходимости
+  // Фолбэк — не знаем страну: не делаем догадок, просто переводим слово «Футбол»
   const footballWord = translations[lang].footballWord;
-  return `${footballWord}.${datePart} ${leagueLocalized}`;
+  return `${footballWord}.${datePart} ${leagueRaw}`;
 }
 
 /**
- * Визуальный перевод текста прогноза.
- * Оригинал НЕ модифицируем, только возвращаем строку для отображения.
+ * Визуальный перевод текста прогноза (без изменения оригинала).
  */
 function translatePredictionText(original, target) {
   try {
     if (!original || target === 'ru') return original;
 
-    // Нормализация
     const norm = (s) =>
-      s.replace(/[–—−]/g, '-')   // все тире → дефис
+      s.replace(/[–—−]/g, '-')   // тире → дефис
        .replace(/\s+/g, ' ')     // сжать пробелы
        .replace(/\s*-\s*/g, ' - ')
        .trim();
@@ -260,7 +287,7 @@ function translatePredictionText(original, target) {
       },
       { // "ТМ X"
         re: new RegExp(`^ТМ\\s*${NUM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', ')')}`
+        tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}`
       },
 
       // ===== Форы =====
@@ -290,7 +317,7 @@ function translatePredictionText(original, target) {
       },
       { re: /^Ничья$/i, tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
 
-      // Короткие исходы (на всякий случай)
+      // Короткие исходы (резерв)
       { re: /^П1$/i, tr: () => (target === 'en' ? 'Home win' : 'Перемога господарів') },
       { re: /^П2$/i, tr: () => (target === 'en' ? 'Away win' : 'Перемога гостей') },
       { re: /^Х$/i,  tr: () => (target === 'en' ? 'Draw' : 'Нічия') }
@@ -300,7 +327,6 @@ function translatePredictionText(original, target) {
       const m = t.match(r.re);
       if (m) return r.tr(m);
     }
-    // Если шаблон не распознан — возвращаем оригинал без изменений
     return original;
   } catch (e) {
     console.error('translatePredictionText error:', e);
@@ -360,11 +386,9 @@ async function loadPredictions() {
   if (!userId) return;
 
   try {
-    // 1) Прогнозы
     const response = await fetch(`/api/predictions?userId=${userId}`);
     predictions = await response.json();
 
-    // 2) Баланс (+ сохраняем профиль на сервере, если бэк это учитывает)
     const u = getUserProfileRaw();
     const balanceResponse = await fetch('/balance', {
       method: 'POST',
@@ -411,8 +435,7 @@ function updateBalance() {
 }
 
 /**
- * Рендер карточек: ОРИГИНАЛ из БД остаётся в данных, в DOM показываем перевод,
- * а оригинал кладём в data-original (на будущее/отладку).
+ * Рендер карточек (переводим текст прогноза и «Футбол» → «Страна»/международные).
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
@@ -428,7 +451,7 @@ function renderPredictions() {
       ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
 
-    // === ТУРНИР: «Футбол» → «Страна», международные — только название турнира
+    // === ТУРНИР: «Футбол» → «Страна», либо международный — только название турнира
     const tournamentShown = renderTournamentLine(p.tournament);
 
     div.innerHTML = `
