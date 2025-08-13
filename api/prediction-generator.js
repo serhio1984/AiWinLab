@@ -19,19 +19,75 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// ——— Настройки ———
+// ——— Ключевые настройки ———
 const UEFA_KEYS = [
   'uefa','euro','europa','conference',
   'champions league','european championship',
   'qualifying','qualification'
 ];
 
-const EXCLUDED_COUNTRIES = new Set(['Russia', 'Belarus']); // ← полностью исключаем
+// Полностью исключаем:
+const EXCLUDED_COUNTRIES = new Set(['Russia', 'Belarus']);
 
-const COUNTRY_ORDER = [
-  'England','Spain','Italy','Germany','France','Netherlands','Portugal',
-  'Scotland','Turkey','Greece','Belgium','Austria','Switzerland','Poland','Ukraine'
-];
+// ТОП-лиги (только высшие дивизионы крупных стран)
+const TOP_LEAGUE_BY_COUNTRY = {
+  England:     ['Premier League'],
+  Spain:       ['La Liga'],
+  Italy:       ['Serie A'],
+  Germany:     ['Bundesliga'],
+  France:      ['Ligue 1'],
+  Netherlands: ['Eredivisie'],
+  Portugal:    ['Primeira Liga'],
+};
+
+// Высшие дивизионы других европейских стран (не ТОП-7)
+const OTHER_TOP_DIVISIONS = {
+  Scotland:    ['Premiership','Scottish Premiership'],
+  Turkey:      ['Super Lig','Süper Lig'],
+  Greece:      ['Super League 1','Super League Greece'],
+  Belgium:     ['Pro League','Jupiler Pro League'],
+  Austria:     ['Bundesliga','Austrian Bundesliga'],
+  Switzerland: ['Super League','Swiss Super League'],
+  Poland:      ['Ekstraklasa'],
+  Ukraine:     ['Premier League','Ukrainian Premier League'],
+  Norway:      ['Eliteserien'],
+  Sweden:      ['Allsvenskan'],
+  Denmark:     ['Superliga','Danish Superliga'],
+  Czech Republic: ['Czech Liga','1. Liga','Fortuna Liga'],
+  Czechia:     ['Czech Liga','1. Liga','Fortuna Liga'],
+  Croatia:     ['1. HNL','HNL','SuperSport HNL'],
+  Serbia:      ['SuperLiga','Super Liga'],
+  Romania:     ['Liga I','Superliga'],
+  Hungary:     ['NB I'],
+  Slovakia:    ['Super Liga','Fortuna Liga'],
+  Slovenia:    ['PrvaLiga'],
+  Bulgaria:    ['Parva Liga','First League'],
+  Bosnia and Herzegovina: ['Premier Liga'],
+  North Macedonia: ['First League'],
+  Albania:     ['Kategoria Superiore'],
+  Kosovo:      ['Superliga'],
+  Montenegro:  ['First League'],
+  Moldova:     ['Super Liga','National Division'],
+  Lithuania:   ['A Lyga'],
+  Latvia:      ['Virsliga'],
+  Estonia:     ['Meistriliiga'],
+  Finland:     ['Veikkausliiga'],
+  Iceland:     ['Úrvalsdeild','Urvalsdeild'],
+  Georgia:     ['Erovnuli Liga'],
+  Armenia:     ['Premier League'],
+  Azerbaijan:  ['Premier League','Premyer Liqasi'],
+  Cyprus:      ['First Division'],
+  Malta:       ['Premier League'],
+  Luxembourg:  ['National Division'],
+  Liechtenstein: [], // клубовская система в Швейцарии
+  Andorra:     ['Primera Divisio'],
+  San Marino:  ['Campionato Sammarinese'],
+  Monaco:      [], // играет в Франции
+  Gibraltar:   ['Premier Division','National League'],
+  Faroe Islands: ['Premier League'],
+  Israel:      ['Ligat ha\'Al','Premier League'],
+  Kazakhstan:  ['Premier League']
+};
 
 const lc = (s) => (s || '').toLowerCase().normalize('NFKD');
 
@@ -111,7 +167,34 @@ async function safeGet(url, params) {
   }
 }
 
-// ——— Получение матчей (НОВАЯ группировка) ———
+// ——— Классификация лиги: к какой «корзине» относится ———
+function classifyBucket(m) {
+  const country = m.league?.country || '';
+  const league  = m.league?.name || '';
+  if (EXCLUDED_COUNTRIES.has(country)) return null; // исключаем
+  if (isInternational(m)) return 'EURO';
+
+  // ТОП-7 высшие дивизионы
+  if (TOP_LEAGUE_BY_COUNTRY[country]) {
+    if (TOP_LEAGUE_BY_COUNTRY[country].includes(league)) return 'TOP_MAJOR';
+    // Для ТОП-страны, но не высший дивизион → это LOW (Championship, Serie B и т.п.)
+    return 'LOWER';
+  }
+
+  // Другие европейские высшие дивизионы
+  if (ONLY_EUROPE && !isEuropeanMatch(m)) return null; // если включён фильтр Европы
+  if (OTHER_TOP_DIVISIONS[country]) {
+    if (OTHER_TOP_DIVISIONS[country].includes(league)) return 'TOP_OTHER';
+  }
+
+  // Если страна европейская, но лига не распознана как топ — считаем низшим дивизионом
+  if (isEuropeanMatch(m)) return 'LOWER';
+
+  // вне Европы (если ONLY_EUROPE=false): отправим в LOW, либо отсеется выше
+  return ONLY_EUROPE ? null : 'LOWER';
+}
+
+// ——— Получение матчей с формированием 4 «корзин» ———
 async function fetchMatches(maxCount=40) {
   const tz = 'Europe/Kiev';
   const { from, to } = getKievDateRangeForTomorrow();
@@ -131,42 +214,25 @@ async function fetchMatches(maxCount=40) {
     }
   }
 
-  // Фильтрация Европы (по желанию) и исключение стран
-  let base = ONLY_EUROPE ? all.filter(isEuropeanMatch) : all;
-  base = base.filter(m => !EXCLUDED_COUNTRIES.has(m.league?.country));
+  const EURO = [];
+  const TOP_MAJOR = [];
+  const TOP_OTHER = [];
+  const LOWER = [];
 
-  console.log(`📊 После фильтра: всего=${base.length}, исключены: Russia/Belarus`);
-
-  // ГРУППИРОВКА: 1) Еврокубки, 2) страны по COUNTRY_ORDER, 3) остальные страны
-  const euro = [];
-  const byCountry = new Map(); // country -> [] (порядок как пришло)
-  const others = new Map();
-
-  for (const m of base) {
-    const country = String(m.league?.country || '');
-    if (isInternational(m)) {
-      euro.push(m);
-      continue;
-    }
-    const targetMap = COUNTRY_ORDER.includes(country) ? byCountry : others;
-    if (!targetMap.has(country)) targetMap.set(country, []);
-    targetMap.get(country).push(m);
+  for (const m of all) {
+    const bucket = classifyBucket(m);
+    if (!bucket) continue;
+    if (bucket === 'EURO') EURO.push(m);
+    else if (bucket === 'TOP_MAJOR') TOP_MAJOR.push(m);
+    else if (bucket === 'TOP_OTHER') TOP_OTHER.push(m);
+    else LOWER.push(m);
   }
 
-  // Склейка: еврокубки → страны по COUNTRY_ORDER → остальные страны (алфавит), ВСЕ без сортировки по времени
-  const result = [];
-  result.push(...euro); // как пришло из API
-  for (const c of COUNTRY_ORDER) {
-    if (byCountry.has(c)) result.push(...byCountry.get(c)); // как пришло из API
-  }
-  // Остальные страны (для консистентности пройдём по алфавиту стран), внутри — как пришло из API
-  const restCountries = Array.from(others.keys()).sort((a,b) => String(a).localeCompare(String(b)));
-  for (const c of restCountries) {
-    result.push(...others.get(c));
-  }
+  // ВНИМАНИЕ: НИКАКОЙ сортировки по времени — внутри каждой корзины порядок как пришёл из API
+  const result = [...EURO, ...TOP_MAJOR, ...TOP_OTHER, ...LOWER];
 
   const final = result.slice(0, maxCount);
-  console.log(`✅ Итого к генерации (после группировки): ${final.length}`);
+  console.log(`✅ К генерации (после корзин): EURO=${EURO.length}, TOP_MAJOR=${TOP_MAJOR.length}, TOP_OTHER=${TOP_OTHER.length}, LOWER=${LOWER.length} | total=${final.length}`);
   return final;
 }
 
@@ -463,8 +529,7 @@ async function generatePredictions() {
     cards.push({ match, predText, odd });
   }
 
-  // ВАЖНО: мы больше НЕ сортируем по времени.
-  // Порядок уже сформирован в fetchMatches (еврокубки → страны по списку → остальные), внутри — как пришло из API.
+  // Порядок уже сформирован корзинами (без сортировки по времени).
 
   // Перевод названий команд
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
@@ -476,7 +541,7 @@ async function generatePredictions() {
     country: match.league.country || '',
     league:  match.league.name || '',
     date:    ddmmyy(match.fixture.date),
-    // legacy поле (оставлено для совместимости с админкой до миграции)
+    // legacy поле:
     tournament: `Футбол.${ddmmyy(match.fixture.date)} ${match.league.name || ''}`,
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
