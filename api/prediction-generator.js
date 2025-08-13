@@ -19,8 +19,20 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// ——— Еврокубки (детектор) ———
-const UEFA_KEYS = ['uefa','euro','europa','conference','champions league','european championship','qualifying','qualification'];
+// ——— Настройки ———
+const UEFA_KEYS = [
+  'uefa','euro','europa','conference',
+  'champions league','european championship',
+  'qualifying','qualification'
+];
+
+const EXCLUDED_COUNTRIES = new Set(['Russia', 'Belarus']); // ← полностью исключаем
+
+const COUNTRY_ORDER = [
+  'England','Spain','Italy','Germany','France','Netherlands','Portugal',
+  'Scotland','Turkey','Greece','Belgium','Austria','Switzerland','Poland','Ukraine'
+];
+
 const lc = (s) => (s || '').toLowerCase().normalize('NFKD');
 
 function isInternational(match) {
@@ -90,14 +102,16 @@ async function safeGet(url, params) {
       headers: { 'x-apisports-key': FOOTBALL_API_KEY },
       params
     });
-    return res.data?.response || [];
+    const list = res.data?.response || [];
+    console.log(`🔎 GET ${url} ok | items=${list.length} | params=${JSON.stringify(params)}`);
+    return list;
   } catch (e) {
-    console.error(`❌ GET ${url} fail:`, e.response?.status, e.response?.data || e.message);
+    console.error(`❌ GET ${url} fail | status=${e.response?.status} | data=${JSON.stringify(e.response?.data) || e.message}`);
     return [];
   }
 }
 
-// ——— Получение матчей ———
+// ——— Получение матчей (НОВАЯ группировка) ———
 async function fetchMatches(maxCount=40) {
   const tz = 'Europe/Kiev';
   const { from, to } = getKievDateRangeForTomorrow();
@@ -113,34 +127,47 @@ async function fetchMatches(maxCount=40) {
         const dt = new Date(m.fixture.date);
         return dt >= zStart && dt < zEnd;
       });
+      console.log(`🧩 Фолбэк next=200 → на завтра: ${all.length}`);
     }
   }
 
-  let selected = ONLY_EUROPE ? all.filter(isEuropeanMatch) : all;
+  // Фильтрация Европы (по желанию) и исключение стран
+  let base = ONLY_EUROPE ? all.filter(isEuropeanMatch) : all;
+  base = base.filter(m => !EXCLUDED_COUNTRIES.has(m.league?.country));
 
-  // приоритет: еврокубки → товарищеские → топ-лиги → остальное; внутри — по времени
-  const EURO = /(uefa|champions league|europa|conference|european championship|qualifying|qualification)/i;
-  const FRIENDLY = /(friendly|friendlies|club friendlies|товарищеск)/i;
-  const TOP = new Set([
-    'Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Eredivisie','Primeira Liga',
-    'Scottish Premiership','Ukrainian Premier League','Belgian Pro League','Swiss Super League',
-    'Austrian Bundesliga','Super Lig','Super League','Danish Superliga','Eliteserien','Allsvenskan',
-    'Ekstraklasa','Czech Liga','1. HNL','HNL','NB I','SuperLiga','Liga I','Championship'
-  ]);
-  const leagueName = m => String(m.league?.name || '');
-  const leagueType = m => String(m.league?.type || '');
-  const isEuro = m => EURO.test(leagueName(m)) || (/International|World|Europe/i.test(String(m.league?.country||'')) && EURO.test(leagueName(m)));
-  const isFriendly = m => FRIENDLY.test(leagueName(m)) || /friendly/i.test(leagueType(m));
-  const isTop = m => TOP.has(leagueName(m));
-  const prio = m => (isEuro(m)?1 : isFriendly(m)?2 : isTop(m)?3 : 4);
+  console.log(`📊 После фильтра: всего=${base.length}, исключены: Russia/Belarus`);
 
-  selected.sort((a,b) => {
-    const pa=prio(a), pb=prio(b);
-    if (pa!==pb) return pa-pb;
-    return new Date(a.fixture.date)-new Date(b.fixture.date);
-  });
+  // ГРУППИРОВКА: 1) Еврокубки, 2) страны по COUNTRY_ORDER, 3) остальные страны
+  const euro = [];
+  const byCountry = new Map(); // country -> [] (порядок как пришло)
+  const others = new Map();
 
-  return selected.slice(0, maxCount);
+  for (const m of base) {
+    const country = String(m.league?.country || '');
+    if (isInternational(m)) {
+      euro.push(m);
+      continue;
+    }
+    const targetMap = COUNTRY_ORDER.includes(country) ? byCountry : others;
+    if (!targetMap.has(country)) targetMap.set(country, []);
+    targetMap.get(country).push(m);
+  }
+
+  // Склейка: еврокубки → страны по COUNTRY_ORDER → остальные страны (алфавит), ВСЕ без сортировки по времени
+  const result = [];
+  result.push(...euro); // как пришло из API
+  for (const c of COUNTRY_ORDER) {
+    if (byCountry.has(c)) result.push(...byCountry.get(c)); // как пришло из API
+  }
+  // Остальные страны (для консистентности пройдём по алфавиту стран), внутри — как пришло из API
+  const restCountries = Array.from(others.keys()).sort((a,b) => String(a).localeCompare(String(b)));
+  for (const c of restCountries) {
+    result.push(...others.get(c));
+  }
+
+  const final = result.slice(0, maxCount);
+  console.log(`✅ Итого к генерации (после группировки): ${final.length}`);
+  return final;
 }
 
 // ——— Нормализация/санитайз текста прогнозов ———
@@ -237,7 +264,7 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   return `Победа ${favoriteName}`;
 }
 
-// ——— Детект рынка и выбор коэффициента (Favbet приоритетно) ———
+// ——— Детект рынка/исхода и Favbet-приоритет ———
 function isFavbet(name='') {
   const n = String(name).toLowerCase();
   return n.includes('fav');
@@ -422,6 +449,7 @@ async function generatePredictions() {
   for (let i=0;i<matches.length;i++) {
     const match = matches[i];
 
+    // Берём коэффициенты (Favbet приоритет)
     const oddsPack = (await safeGet(ODDS_URL, { fixture: match.fixture.id, timezone: 'Europe/Kiev' }))?.[0] || null;
     const favorite = chooseFavoriteName(match.teams.home.name, match.teams.away.name, oddsPack);
 
@@ -435,46 +463,21 @@ async function generatePredictions() {
     cards.push({ match, predText, odd });
   }
 
-  // сортировка: еврокубки → страна → время → лига
-  const EURO = /(uefa|champions league|europa|conference|european championship|qualifying|qualification)/i;
-  const COUNTRY_ORDER = [
-    'England','Spain','Italy','Germany','France','Netherlands','Portugal',
-    'Scotland','Turkey','Greece','Belgium','Austria','Switzerland','Poland','Ukraine','Russia'
-  ];
-  const countryRank = (c='') => {
-    const idx = COUNTRY_ORDER.indexOf(String(c));
-    return idx === -1 ? COUNTRY_ORDER.length + 1 : idx;
-  };
-
-  cards.sort((a,b) => {
-    const la = String(a.match.league?.name||'');
-    const lb = String(b.match.league?.name||'');
-    const ca = String(a.match.league?.country||'');
-    const cb = String(b.match.league?.country||'');
-    const aEuro = EURO.test(la) || isInternational(a.match);
-    const bEuro = EURO.test(lb) || isInternational(b.match);
-    if (aEuro!==bEuro) return aEuro ? -1 : 1;
-    if (!aEuro && !bEuro) {
-      const ra = countryRank(ca), rb = countryRank(cb);
-      if (ra!==rb) return ra-rb;
-    }
-    const ta = new Date(a.match.fixture.date).getTime();
-    const tb = new Date(b.match.fixture.date).getTime();
-    if (ta!==tb) return ta-tb;
-    return la.localeCompare(lb);
-  });
+  // ВАЖНО: мы больше НЕ сортируем по времени.
+  // Порядок уже сформирован в fetchMatches (еврокубки → страны по списку → остальные), внутри — как пришло из API.
 
   // Перевод названий команд
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
-  // Формируем документ — ВАЖНО: храним country и league отдельно + date
+  // Формируем документ — храним country/league/date отдельно
   const predictions = cards.map(({ match, predText, odd }, idx) => ({
     id: Date.now() + idx,
-    country: match.league.country || '',             // ← отдельным полем
-    league:  match.league.name || '',                // ← отдельным полем
-    date:    ddmmyy(match.fixture.date),             // ← отдельным полем (dd.mm.yy)
-    tournament: `Футбол.${ddmmyy(match.fixture.date)} ${match.league.name || ''}`, // legacy строка (оставили)
+    country: match.league.country || '',
+    league:  match.league.name || '',
+    date:    ddmmyy(match.fixture.date),
+    // legacy поле (оставлено для совместимости с админкой до миграции)
+    tournament: `Футбол.${ddmmyy(match.fixture.date)} ${match.league.name || ''}`,
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
     team2: teamTranslations[match.teams.away.name] || match.teams.away.name,
