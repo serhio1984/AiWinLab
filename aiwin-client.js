@@ -49,7 +49,7 @@ function normalizeLower(s='') {
   return s.toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
 }
 
-// ===== Международные турниры: строгая детекция по ключам =====
+// ===== Международные турниры: детектор по названию лиги =====
 function isInternationalTournament(name = "") {
   const n = normalizeLower(name);
   return [
@@ -57,17 +57,8 @@ function isInternationalTournament(name = "") {
     'uefa europa league', 'лига европы', 'ліга європи',
     'uefa europa conference', 'лига конференц', 'ліга конференц',
     'european championship', 'чемпионат европы', 'чемпіонат європи',
-    'euro ', 'euro-', ' euro', // на всякий
-    'qualification', 'квалификац', 'відбір'
+    'euro ', 'euro-', ' euro', 'qualification', 'квалификац', 'відбір'
   ].some(k => n.includes(k));
-}
-
-function detectInternationalKey(name='') {
-  const n = normalizeLower(name);
-  if (/champions league|ліга чемпіонів|лига чемпионов/.test(n)) return 'ucl';
-  if (/europa league|ліга європи|лига европы/.test(n)) return 'uel';
-  if (/conference league|ліга конференц|лига конференц/.test(n)) return 'uecl';
-  return null;
 }
 
 // ===== Переводы названий еврокубков (визуально) =====
@@ -89,95 +80,48 @@ const INT_LEAGUE_LABELS = {
   }
 };
 
-// ===== Страны (локализация подписей; и русские родительные для парсинга) =====
+function detectInternationalKey(name='') {
+  const n = normalizeLower(name);
+  if (/champions league|ліга чемпіонів|лига чемпионов/.test(n)) return 'ucl';
+  if (/europa league|ліга європи|лига европы/.test(n)) return 'uel';
+  if (/conference league|ліга конференц|лига конференц/.test(n)) return 'uecl';
+  return null;
+}
+
+// ===== Локализация стран (добавили Russia) =====
 const COUNTRY_LABELS = {
   ru: {
-    england: 'Англия',
-    spain: 'Испания',
-    italy: 'Италия',
-    germany: 'Германия',
-    france: 'Франция',
-    netherlands: 'Нидерланды',
-    portugal: 'Португалия',
-    ukraine: 'Украина',
-    scotland: 'Шотландия',
-    turkey: 'Турция',
-    greece: 'Греция',
-    belgium: 'Бельгия',
-    austria: 'Австрия',
-    switzerland: 'Швейцария',
-    poland: 'Польша'
+    england: 'Англия', spain: 'Испания', italy: 'Италия', germany: 'Германия', france: 'Франция',
+    netherlands: 'Нидерланды', portugal: 'Португалия', ukraine: 'Украина', scotland: 'Шотландия',
+    turkey: 'Турция', greece: 'Греция', belgium: 'Бельгия', austria: 'Австрия', switzerland: 'Швейцария',
+    poland: 'Польша', russia: 'Россия'
   },
   uk: {
-    england: 'Англія',
-    spain: 'Іспанія',
-    italy: 'Італія',
-    germany: 'Німеччина',
-    france: 'Франція',
-    netherlands: 'Нідерланди',
-    portugal: 'Португалія',
-    ukraine: 'Україна',
-    scotland: 'Шотландія',
-    turkey: 'Туреччина',
-    greece: 'Греція',
-    belgium: 'Бельгія',
-    austria: 'Австрія',
-    switzerland: 'Швейцарія',
-    poland: 'Польща'
+    england: 'Англія', spain: 'Іспанія', italy: 'Італія', germany: 'Німеччина', france: 'Франція',
+    netherlands: 'Нідерланди', portugal: 'Португалія', ukraine: 'Україна', scotland: 'Шотландія',
+    turkey: 'Туреччина', greece: 'Греція', belgium: 'Бельгія', austria: 'Австрія', switzerland: 'Швейцарія',
+    poland: 'Польща', russia: 'Росія'
   },
   en: {
-    england: 'England',
-    spain: 'Spain',
-    italy: 'Italy',
-    germany: 'Germany',
-    france: 'France',
-    netherlands: 'Netherlands',
-    portugal: 'Portugal',
-    ukraine: 'Ukraine',
-    scotland: 'Scotland',
-    turkey: 'Turkey',
-    greece: 'Greece',
-    belgium: 'Belgium',
-    austria: 'Austria',
-    switzerland: 'Switzerland',
-    poland: 'Poland'
+    england: 'England', spain: 'Spain', italy: 'Italy', germany: 'Germany', france: 'France',
+    netherlands: 'Netherlands', portugal: 'Portugal', ukraine: 'Ukraine', scotland: 'Scotland',
+    turkey: 'Turkey', greece: 'Greece', belgium: 'Belgium', austria: 'Austria', switzerland: 'Switzerland',
+    poland: 'Poland', russia: 'Russia'
   }
 };
 
+// Для запасного распознавания из текста лиги
 const RU_GENITIVE_TO_KEY = {
-  'англии': 'england',
-  'испании': 'spain',
-  'италии': 'italy',
-  'германии': 'germany',
-  'франции': 'france',
-  'нидерландов': 'netherlands',
-  'португалии': 'portugal',
-  'украины': 'ukraine',
-  'шотландии': 'scotland',
-  'турции': 'turkey',
-  'греции': 'greece',
-  'бельгии': 'belgium',
-  'австрии': 'austria',
-  'швейцарии': 'switzerland',
-  'польши': 'poland'
+  'англии': 'england','испании': 'spain','италии': 'italy','германии': 'germany',
+  'франции': 'france','нидерландов': 'netherlands','португалии': 'portugal','украины': 'ukraine',
+  'шотландии': 'scotland','турции': 'turkey','греции': 'greece','бельгии': 'belgium',
+  'австрии': 'austria','швейцарии': 'switzerland','польши': 'poland','россии': 'russia'
 };
-
 const EN_COUNTRY_TO_KEY = {
-  'england': 'england',
-  'spain': 'spain',
-  'italy': 'italy',
-  'germany': 'germany',
-  'france': 'france',
-  'netherlands': 'netherlands',
-  'portugal': 'portugal',
-  'ukraine': 'ukraine',
-  'scotland': 'scotland',
-  'turkey': 'turkey',
-  'greece': 'greece',
-  'belgium': 'belgium',
-  'austria': 'austria',
-  'switzerland': 'switzerland',
-  'poland': 'poland'
+  'england':'england','spain':'spain','italy':'italy','germany':'germany','france':'france',
+  'netherlands':'netherlands','portugal':'portugal','ukraine':'ukraine','scotland':'scotland',
+  'turkey':'turkey','greece':'greece','belgium':'belgium','austria':'austria',
+  'switzerland':'switzerland','poland':'poland','russia':'russia'
 };
 
 function extractCountryKeyFromLeagueName(leagueName = '') {
@@ -198,29 +142,39 @@ function parseTournament(original='') {
   return { datePart: m[1], leagueRaw: m[2] };
 }
 
-// ===== Преобразование строки турнира для показа =====
-function renderTournamentLine(original) {
+// ===== Преобразование строки турнира для показа (теперь с учётом p.country) =====
+function renderTournamentLine(original, explicitCountry) {
   if (!original) return original;
 
   const { datePart, leagueRaw } = parseTournament(original);
-  if (!leagueRaw) return original.replace(/^Футбол/i, translations[lang].footballWord);
+  if (!leagueRaw) return original;
 
-  // Международные → только название турнира (локализуем если можем)
+  // Если международный турнир — показываем только название турнира
   if (isInternationalTournament(leagueRaw)) {
     const key = detectInternationalKey(leagueRaw);
     if (key && INT_LEAGUE_LABELS[lang][key]) return INT_LEAGUE_LABELS[lang][key];
     return leagueRaw;
   }
 
-  // Внутренние → страна из названия лиги
-  const countryKey = extractCountryKeyFromLeagueName(leagueRaw);
+  // Если сервер прислал страну — используем её напрямую
+  let countryKey = null;
+  if (explicitCountry) {
+    const k = normalizeLower(explicitCountry);
+    countryKey = EN_COUNTRY_TO_KEY[k] || (k === 'czech republic' ? 'czech' : null);
+  }
+
+  // Если не прислал — пытаемся угадать из названия лиги (как раньше)
+  if (!countryKey) {
+    countryKey = extractCountryKeyFromLeagueName(leagueRaw);
+  }
+
   if (countryKey && datePart) {
     const countryName = COUNTRY_LABELS[lang][countryKey] || COUNTRY_LABELS.ru[countryKey] || '';
     if (countryName) return `${countryName}.${datePart} ${leagueRaw}`;
   }
 
-  // Фолбэк — просто локализуем "Футбол"
-  return original.replace(/^Футбол/i, translations[lang].footballWord);
+  // Фолбэк — без подстановки страны
+  return original;
 }
 
 /**
@@ -275,7 +229,6 @@ function translatePredictionText(original, target) {
       },
 
       // ===== Форы =====
-      // "Фора -1.5 на {TEAM}" → EN: Handicap TEAM -1.5, UK: Фора TEAM -1.5
       {
         re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'),
         tr: (m) => {
@@ -284,7 +237,6 @@ function translatePredictionText(original, target) {
           return target === 'en' ? `Handicap ${tm} ${h}` : `Фора ${tm} ${h}`;
         }
       },
-      // "{TEAM} Фора -1.5"
       {
         re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
         tr: (m) => {
@@ -297,7 +249,7 @@ function translatePredictionText(original, target) {
       // ===== Исходы =====
       {
         re: new RegExp(`^Победа\\s+${TEAM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Win ${m[1]}` : `Перемога ${m[1]}`
+        tr: (m) => target === 'en' ? `Win ${m[1]}` : `Перемога ${м[1]}`
       },
       { re: /^Ничья$/i, tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
 
@@ -321,7 +273,7 @@ function translatePredictionText(original, target) {
 let coins = 0;
 let predictions = [];
 
-// ===== Профиль пользователя (только чтение для UI и balance) =====
+// ===== Профиль пользователя =====
 function getUserProfileRaw() {
   let u = telegram?.initDataUnsafe?.user;
   if (!u) {
@@ -368,47 +320,49 @@ function loadUserData() {
 // ======= Сортировка: Еврокубки → страны → дата → лига =======
 const COUNTRY_ORDER = [
   'england','spain','italy','germany','france','netherlands','portugal',
-  'scotland','turkey','greece','belgium','austria','switzerland','poland','ukraine'
+  'scotland','turkey','greece','belgium','austria','switzerland','poland','ukraine','russia'
 ];
 
-function countryRankFromLeague(leagueRaw='') {
-  const key = extractCountryKeyFromLeagueName(leagueRaw);
-  if (!key) return COUNTRY_ORDER.length + 1; // «остальные»
+function countryRankFromExplicit(countryRaw='') {
+  const k = normalizeLower(countryRaw);
+  const key = EN_COUNTRY_TO_KEY[k] || (k === 'czech republic' ? 'czech' : null);
+  if (!key) return COUNTRY_ORDER.length + 1;
   const idx = COUNTRY_ORDER.indexOf(key);
-  return idx === -1 ? COUNTRY_ORDER.length : idx; // неизвестные — в хвост, но перед «остальными»
+  return idx === -1 ? COUNTRY_ORDER.length : idx;
 }
 
 function parseDatePart(datePart) {
-  // dd.mm.yy -> Date (в локали браузера)
   if (!datePart) return null;
   const [d, m, y] = datePart.split('.').map(Number);
-  // y как 20yy
   const fullY = 2000 + (isNaN(y) ? 0 : y);
   const dt = new Date(fullY, (m || 1) - 1, d || 1, 0, 0, 0);
   return isNaN(dt.getTime()) ? null : dt;
 }
 
+function parseTournamentForSort(tournament='') {
+  const { datePart, leagueRaw } = parseTournament(tournament);
+  return { datePart, leagueRaw };
+}
+
 function sortPredictionsClient(arr=[]) {
   return [...arr].sort((a, b) => {
-    const { datePart: da, leagueRaw: la } = parseTournament(a.tournament);
-    const { datePart: db, leagueRaw: lb } = parseTournament(b.tournament);
+    const { datePart: da, leagueRaw: la } = parseTournamentForSort(a.tournament);
+    const { datePart: db, leagueRaw: lb } = parseTournamentForSort(b.tournament);
 
     const aIsEuro = isInternationalTournament(la);
     const bIsEuro = isInternationalTournament(lb);
     if (aIsEuro !== bIsEuro) return aIsEuro ? -1 : 1;
 
     if (!aIsEuro && !bIsEuro) {
-      const ra = countryRankFromLeague(la);
-      const rb = countryRankFromLeague(lb);
+      const ra = countryRankFromExplicit(a.country || '');
+      const rb = countryRankFromExplicit(b.country || '');
       if (ra !== rb) return ra - rb;
     }
 
-    // внутри группы — по дате
     const dta = parseDatePart(da)?.getTime() ?? 0;
     const dtb = parseDatePart(db)?.getTime() ?? 0;
     if (dta !== dtb) return dta - dtb;
 
-    // стабильность — по названию лиги
     return String(la || '').localeCompare(String(lb || ''));
   });
 }
@@ -418,14 +372,13 @@ async function loadPredictions() {
   if (!userId) return;
 
   try {
-    // 1) Оригинальные прогнозы
     const response = await fetch(`/api/predictions?userId=${userId}`);
     predictions = await response.json();
 
-    // 2) Сортировка (еврокубки → страны → дата → лига)
+    // Сортировка учитывает p.country
     predictions = sortPredictionsClient(predictions);
 
-    // 3) Баланс и профиль
+    // Баланс и профиль
     const u = getUserProfileRaw();
     const balanceResponse = await fetch('/balance', {
       method: 'POST',
@@ -472,7 +425,7 @@ function updateBalance() {
 }
 
 /**
- * Рендер карточек (переводим текст прогноза и «Футбол» → «Страна»/международные).
+ * Рендер карточек (используем p.country для заголовка).
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
@@ -488,7 +441,7 @@ function renderPredictions() {
       ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
 
-    const tournamentShown = renderTournamentLine(p.tournament);
+    const tournamentShown = renderTournamentLine(p.tournament, p.country);
 
     div.innerHTML = `
       <div class="teams">
@@ -512,7 +465,7 @@ function renderPredictions() {
   });
 }
 
-// Автообновление раз в 30 сек (только чтение)
+// Автообновление раз в 30 сек
 setInterval(loadPredictions, 30000);
 
 // Инициализация
