@@ -222,10 +222,12 @@ app.post('/api/predictions', async (req, res) => {
   const arr = req.body;
   if (!Array.isArray(arr)) return res.status(400).json({ success: false });
 
-  const cleaned = arr.map(p => {
-    const { id, tournament, team1, logo1, team2, logo2, odds, predictionText } = p;
-    return { id, tournament, team1, logo1, team2, logo2, odds, predictionText };
-  });
+ // СТАЛО (добавили country)
+const cleaned = arr.map(p => {
+  const { id, country, tournament, team1, logo1, team2, logo2, odds, predictionText } = p;
+  return { id, country, tournament, team1, logo1, team2, logo2, odds, predictionText };
+});
+
 
   const coll = db.collection('draft_predictions');
   await coll.deleteMany({});
