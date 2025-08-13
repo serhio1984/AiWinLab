@@ -10,18 +10,28 @@
     .logo h1 { font-size:28px; margin:0; text-shadow:0 0 10px #ff6200; }
     .buy-btn { background:#ff6200; color:#fff; border:none; padding:8px 16px; border-radius:5px; font-size:14px; cursor:pointer; transition:.3s; box-shadow:0 0 15px rgba(255,98,0,.5); }
     .buy-btn:hover { background:#e05600; transform:scale(1.05); }
-    .admin-container { background:#fff; color:#000; padding:20px; border-radius:10px; width:90%; max-width:900px; box-shadow:0 0 15px rgba(255,98,0,.3); }
+    .admin-container { background:#fff; color:#000; padding:20px; border-radius:10px; width:90%; max-width:1100px; box-shadow:0 0 15px rgba(255,98,0,.3); }
     .login-section, .form-section, .predictions-list { display:none; }
     .login-section.active, .form-section.active, .predictions-list.active { display:block; }
     .login-section input { width:80%; max-width:300px; padding:8px; margin:10px 0; border:1px solid #ccc; border-radius:5px; }
-    .form-group { margin-bottom:12px; }
-    .form-group label { display:block; margin-bottom:5px; font-weight:bold; }
+    .form-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+    .form-group { display:flex; flex-direction:column; }
+    .form-group label { margin-bottom:5px; font-weight:bold; }
     .form-group input { width:100%; padding:8px; border:1px solid #ccc; border-radius:5px; font-size:14px; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { padding:8px; border:1px solid #ccc; text-align:left; }
-    th { background:#ff6200; color:#fff; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th, td { padding:8px; border:1px solid #ccc; text-align:left; vertical-align:top; }
+    th { background:#ff6200; color:#fff; position:sticky; top:0; }
     input.editable { width:100%; border:1px solid #ddd; padding:4px; font-size:13px; }
-    @media (max-width:600px){ .logo h1{font-size:24px} .form-group input,.buy-btn{font-size:12px} th,td{font-size:12px;padding:6px}}
+    .muted { color:#666; font-size:12px; }
+    @media (max-width:900px){
+      .form-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width:600px){
+      .logo h1{font-size:24px}
+      .form-group input,.buy-btn{font-size:12px}
+      th,td{font-size:12px;padding:6px}
+    }
   </style>
 </head>
 <body>
@@ -31,6 +41,7 @@
   </div>
 
   <div class="admin-container">
+    <!-- ВХОД -->
     <div class="login-section active" id="loginSection">
       <h2>Вход в админ-панель</h2>
       <input type="password" id="adminPassword" placeholder="Введите пароль">
@@ -38,30 +49,50 @@
       <div id="loginStatus" style="margin-top:10px;color:red;"></div>
     </div>
 
+    <!-- ФОРМА ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ -->
     <div class="form-section" id="formSection">
       <h2>Черновики прогнозов</h2>
 
-      <div class="form-group"><label>Турнир:</label><input type="text" id="tournament"></div>
-      <div class="form-group"><label>Команда 1:</label><input type="text" id="team1"></div>
-      <div class="form-group"><label>URL логотипа 1:</label><input type="text" id="logo1"></div>
-      <div class="form-group"><label>Команда 2:</label><input type="text" id="team2"></div>
-      <div class="form-group"><label>URL логотипа 2:</label><input type="text" id="logo2"></div>
-      <div class="form-group"><label>Коэффициент:</label><input type="number" id="odds" step="0.01"></div>
-      <div class="form-group"><label>Прогноз:</label><input type="text" id="predictionText"></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Страна (как в API):</label><input type="text" id="country" placeholder="England / Russia / Ukraine / International"></div>
+        <div class="form-group"><label>Лига (как в API):</label><input type="text" id="league" placeholder="Premier League / Championship / UEFA Champions League"></div>
+        <div class="form-group"><label>Дата (dd.mm.yy):</label><input type="text" id="date" placeholder="16.08.25"></div>
 
-      <button class="buy-btn" onclick="addPrediction()">Добавить</button>
-      <button class="buy-btn" onclick="saveDrafts()">Сохранить черновики</button>
-      <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
-      <button class="buy-btn" onclick="generateDraftsNow()">Сгенерировать черновики</button>
-      <button class="buy-btn" onclick="loadDrafts()">Обновить черновики</button>
+        <div class="form-group"><label>Команда 1:</label><input type="text" id="team1"></div>
+        <div class="form-group"><label>URL логотипа 1:</label><input type="text" id="logo1"></div>
+        <div class="form-group"><label>Команда 2:</label><input type="text" id="team2"></div>
+
+        <div class="form-group"><label>URL логотипа 2:</label><input type="text" id="logo2"></div>
+        <div class="form-group"><label>Коэффициент:</label><input type="number" id="odds" step="0.01" placeholder="1.95"></div>
+        <div class="form-group"><label>Прогноз:</label><input type="text" id="predictionText" placeholder='Например: "Победа Команда 1", "Тотал больше 2.5", "Обе забьют-да", "Команда 1 Фора +1"'></div>
+      </div>
+
+      <div class="actions">
+        <button class="buy-btn" onclick="addPrediction()">Добавить</button>
+        <button class="buy-btn" onclick="saveDrafts()">Сохранить черновики</button>
+        <button class="buy-btn" onclick="publishNextDay()">Опубликовать</button>
+        <button class="buy-btn" onclick="generateDraftsNow()">Сгенерировать черновики</button>
+        <button class="buy-btn" onclick="loadDrafts()">Обновить черновики</button>
+      </div>
+
+      <div class="muted">Примечание: международные турниры (UEFA, Euro и т.п.) отображаются без страны — только название соревнования.</div>
     </div>
 
+    <!-- СПИСОК -->
     <div class="predictions-list" id="predictionsList">
       <h3>Существующие черновики</h3>
       <table>
         <thead>
           <tr>
-            <th>Турнир</th><th>Команда 1</th><th>Команда 2</th><th>Коэфф.</th><th>Прогноз</th><th>Действие</th>
+            <th>Заголовок (как в приложении)</th>
+            <th>Страна</th>
+            <th>Дата (dd.mm.yy)</th>
+            <th>Лига</th>
+            <th>Команда 1</th>
+            <th>Команда 2</th>
+            <th>Коэфф.</th>
+            <th>Прогноз</th>
+            <th>Действие</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -69,245 +100,233 @@
     </div>
   </div>
 
-  <script>
-    // ===== вспомогательные функции для сортировки (как на клиенте) =====
-    function normalizeLower(s='') {
-      return String(s).toLowerCase().normalize('NFKD').replace(/\s+/g,' ').trim();
+<script>
+  // ======= Модель данных =======
+  let predictions = [];
+
+  // ======= Локализация для предпросмотра заголовка (как у клиента) =======
+  function nlc(s=''){ return s.toLowerCase().normalize('NFKD'); }
+  function isInternationalName(country, league) {
+    const c = String(country||'');
+    const l = nlc(league||'');
+    return c==='International' || c==='World' || c==='Europe' ||
+           ['champions league','europa league','conference','european championship','qualifying','qualification'].some(k=>l.includes(k));
+  }
+  const COUNTRY_I18N_RU = {
+    England:'Англия', Spain:'Испания', Italy:'Италия', Germany:'Германия', France:'Франция',
+    Netherlands:'Нидерланды', Portugal:'Португалия', Scotland:'Шотландия', Turkey:'Турция',
+    Greece:'Греция', Belgium:'Бельгия', Austria:'Австрия', Switzerland:'Швейцария',
+    Poland:'Польша', Ukraine:'Украина', Russia:'Россия'
+  };
+  const LEAGUE_I18N_RU = {
+    International: {
+      'UEFA Champions League': 'Лига Чемпионов УЕФА',
+      'UEFA Europa League': 'Лига Европы УЕФА',
+      'UEFA Europa Conference League': 'Лига Конференций УЕФА'
+    },
+    England: {
+      'Premier League': 'Премьер-Лига Англии',
+      'Championship': 'Чемпионшип'
+    },
+    Spain: { 'La Liga': 'Ла Лига Испании' },
+    Italy: { 'Serie A': 'Серия А Италии' },
+    Germany: { 'Bundesliga': 'Бундеслига Германии' },
+    France: { 'Ligue 1': 'Лига 1 Франции' },
+    Netherlands: { 'Eredivisie': 'Эредивизи Нидерландов' },
+    Portugal: { 'Primeira Liga': 'Примейра Лига Португалии' },
+    Scotland: { 'Premiership': 'Шотландская Премьер-Лига' },
+    Russia: { 'Premier League': 'Премьер-Лига России' },
+    Ukraine: { 'Premier League': 'Премьер-Лига Украины' },
+    Belgium: { 'Pro League': 'Про Лига Бельгии' },
+    Austria: { 'Bundesliga': 'Бундеслига Австрии' },
+    Switzerland: { 'Super League': 'Суперлига Швейцарии' },
+    Turkey: { 'Super Lig': 'Супер Лиг Турции' },
+    Greece: { 'Super League 1': 'Суперлига Греции' },
+    Poland: { 'Ekstraklasa': 'Экстракляса Польши' }
+  };
+  function i18nLeagueRU(country, league) {
+    const cMap = LEAGUE_I18N_RU[country] || LEAGUE_I18N_RU['International'] || {};
+    return cMap[league] || league || '';
+  }
+  function i18nCountryRU(country) {
+    return COUNTRY_I18N_RU[country] || country || '';
+  }
+  function headerPreview(p) {
+    // как у клиента: международный — только лига, иначе "Страна.dd.mm.yy Лига"
+    if (isInternationalName(p.country, p.league)) {
+      return i18nLeagueRU('International', p.league);
     }
+    const cn = i18nCountryRU(p.country);
+    const dt = p.date || '';
+    const lg = i18nLeagueRU(p.country, p.league);
+    if (cn && dt) return `${cn}.${dt} ${lg}`;
+    if (cn) return `${cn} ${lg}`;
+    return lg || p.tournament || '';
+  }
 
-    // Еврокубки (распознавание по имени лиги)
-    function isInternationalTournament(name = "") {
-      const n = normalizeLower(name);
-      return [
-        'uefa champions league', 'лига чемпионов', 'ліга чемпіонів',
-        'uefa europa league', 'лига европы', 'ліга європи',
-        'uefa europa conference', 'лига конференц', 'ліга конференц',
-        'european championship', 'чемпионат европы', 'чемпіонат європи',
-        'euro ', 'euro-', ' euro',
-        'qualification', 'квалификац', 'відбір'
-      ].some(k => n.includes(k));
-    }
-
-    // Парсим "Футбол.dd.mm.yy LeagueName"
-    function parseTournament(original='') {
-      const m = String(original).match(/^Футбол\.(\d{2}\.\d{2}\.\d{2})\s+(.+)$/i);
-      if (!m) return { datePart: null, leagueRaw: original };
-      return { datePart: m[1], leagueRaw: m[2] };
-    }
-
-    // Страны (по названию лиги) — ключи
-    const RU_GENITIVE_TO_KEY = {
-      'англии': 'england','испании': 'spain','италии': 'italy','германии': 'germany',
-      'франции': 'france','нидерландов': 'netherlands','португалии': 'portugal','украины': 'ukraine',
-      'шотландии': 'scotland','турции': 'turkey','греции': 'greece','бельгии': 'belgium',
-      'австрии': 'austria','швейцарии': 'switzerland','польши': 'poland'
-    };
-    const EN_COUNTRY_TO_KEY = {
-      'england':'england','spain':'spain','italy':'italy','germany':'germany','france':'france',
-      'netherlands':'netherlands','portugal':'portugal','ukraine':'ukraine','scotland':'scotland',
-      'turkey':'turkey','greece':'greece','belgium':'belgium','austria':'austria',
-      'switzerland':'switzerland','poland':'poland'
-    };
-    function extractCountryKeyFromLeagueName(leagueName = '') {
-      const n = normalizeLower(leagueName);
-      for (const [ruGen, key] of Object.entries(RU_GENITIVE_TO_KEY)) {
-        if (n.includes(ruGen)) return key;
-      }
-      for (const [enName, key] of Object.entries(EN_COUNTRY_TO_KEY)) {
-        if (n.includes(enName)) return key;
-      }
-      return null;
-    }
-
-    // Порядок стран
-    const COUNTRY_ORDER = [
-      'england','spain','italy','germany','france','netherlands','portugal',
-      'scotland','turkey','greece','belgium','austria','switzerland','poland','ukraine'
-    ];
-    function countryRankFromLeague(leagueRaw='') {
-      const key = extractCountryKeyFromLeagueName(leagueRaw);
-      if (!key) return COUNTRY_ORDER.length + 1; // «остальные»
-      const idx = COUNTRY_ORDER.indexOf(key);
-      return idx === -1 ? COUNTRY_ORDER.length : idx;
-    }
-    function parseDatePart(datePart) {
-      if (!datePart) return null;
-      const [d, m, y] = datePart.split('.').map(Number);
-      const fullY = 2000 + (isNaN(y) ? 0 : y);
-      const dt = new Date(fullY, (m || 1) - 1, d || 1, 0, 0, 0);
-      return isNaN(dt.getTime()) ? null : dt;
-    }
-    function sortPredictionsAdmin(arr=[]) {
-      return [...arr].sort((a, b) => {
-        const { datePart: da, leagueRaw: la } = parseTournament(a.tournament);
-        const { datePart: db, leagueRaw: lb } = parseTournament(b.tournament);
-
-        const aIsEuro = isInternationalTournament(la);
-        const bIsEuro = isInternationalTournament(lb);
-        if (aIsEuro !== bIsEuro) return aIsEuro ? -1 : 1;
-
-        if (!aIsEuro && !bIsEuro) {
-          const ra = countryRankFromLeague(la);
-          const rb = countryRankFromLeague(lb);
-          if (ra !== rb) return ra - rb;
-        }
-
-        const dta = parseDatePart(da)?.getTime() ?? 0;
-        const dtb = parseDatePart(db)?.getTime() ?? 0;
-        if (dta !== dtb) return dta - dtb;
-
-        return String(la || '').localeCompare(String(lb || ''));
-      });
-    }
-
-    // ===== исходный код админки (с добавленной сортировкой) =====
-    let predictions = [];
-
-    async function loadDrafts() {
-      try {
-        const res = await fetch('/api/drafts'); // читаем черновики
-        const raw = await res.json();
-        // применяем сортировку ТОЛЬКО для отображения
-        predictions = sortPredictionsAdmin(raw);
-        renderPredictions();
-      } catch (e) {
-        console.error('Ошибка загрузки черновиков:', e.message);
-      }
-    }
-
-    async function login() {
-      const password = document.getElementById('adminPassword').value;
-      const status = document.getElementById('loginStatus');
-      if (!password) return status.textContent = 'Введите пароль!';
-      try {
-        const res = await fetch('/api/check-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-        const result = await res.json();
-        if (result.success) {
-          document.getElementById('loginSection').classList.remove('active');
-          document.getElementById('formSection').classList.add('active');
-          document.getElementById('predictionsList').classList.add('active');
-          document.getElementById('exitBtn').style.display = 'block';
-          await loadDrafts();
-          status.textContent = '';
-        } else {
-          status.textContent = result.message || 'Ошибка входа!';
-        }
-      } catch (e) {
-        status.textContent = 'Ошибка подключения: ' + e.message;
-      }
-    }
-
-    function logout() {
-      document.getElementById('loginSection').classList.add('active');
-      document.getElementById('formSection').classList.remove('active');
-      document.getElementById('predictionsList').classList.remove('active');
-      document.getElementById('exitBtn').style.display = 'none';
-      document.getElementById('adminPassword').value = '';
-      document.getElementById('loginStatus').textContent = '';
-    }
-
-    function addPrediction() {
-      const id = Date.now();
-      const p = {
-        id,
-        tournament: document.getElementById('tournament').value,
-        team1: document.getElementById('team1').value,
-        logo1: document.getElementById('logo1').value,
-        team2: document.getElementById('team2').value,
-        logo2: document.getElementById('logo2').value,
-        odds: document.getElementById('odds').value,
-        predictionText: document.getElementById('predictionText').value
-      };
-      if (Object.values(p).some(v => !v)) return alert('Заполните все поля!');
-      predictions.push(p);
-      // после добавления — пересортировать чтобы придерживаться порядка
-      predictions = sortPredictionsAdmin(predictions);
+  // ======= API =======
+  async function loadDrafts() {
+    try {
+      const res = await fetch('/api/drafts');
+      predictions = await res.json();
       renderPredictions();
-      ['tournament','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => (document.getElementById(id).value = ''));
+    } catch (e) {
+      console.error('Ошибка загрузки черновиков:', e.message);
     }
+  }
 
-    function makeEditableCell(rowIdx, key, value) {
-      const input = document.createElement('input');
-      input.value = value ?? '';
-      input.className = 'editable';
-      input.oninput = e => { predictions[rowIdx][key] = e.target.value; };
-      return input;
-    }
-
-    function renderPredictions() {
-      const tbody = document.querySelector('tbody');
-      tbody.innerHTML = '';
-      predictions.forEach((p, i) => {
-        const row = tbody.insertRow();
-        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'tournament', p.tournament));
-        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team1', p.team1));
-        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'team2', p.team2));
-        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'odds', p.odds));
-        row.appendChild(document.createElement('td')).appendChild(makeEditableCell(i, 'predictionText', p.predictionText));
-        const act = row.insertCell();
-        const delBtn = document.createElement('button');
-        delBtn.className = 'buy-btn';
-        delBtn.textContent = 'Удалить';
-        delBtn.onclick = () => {
-          predictions = predictions.filter(x => x.id !== p.id);
-          renderPredictions();
-        };
-        act.appendChild(delBtn);
+  async function login() {
+    const password = document.getElementById('adminPassword').value;
+    const status = document.getElementById('loginStatus');
+    if (!password) return status.textContent = 'Введите пароль!';
+    try {
+      const res = await fetch('/api/check-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
       });
-    }
-
-    async function saveDrafts() {
-      try {
-        const res = await fetch('/api/predictions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(predictions)
-        });
-        if (res.ok) alert('Черновики сохранены!');
-        else alert('Ошибка сохранения');
-      } catch (e) {
-        alert('Ошибка подключения: ' + e.message);
+      const result = await res.json();
+      if (result.success) {
+        document.getElementById('loginSection').classList.remove('active');
+        document.getElementById('formSection').classList.add('active');
+        document.getElementById('predictionsList').classList.add('active');
+        document.getElementById('exitBtn').style.display = 'block';
+        await loadDrafts();
+        status.textContent = '';
+      } else {
+        status.textContent = result.message || 'Ошибка входа!';
       }
+    } catch (e) {
+      status.textContent = 'Ошибка подключения: ' + e.message;
     }
+  }
 
-    async function publishNextDay() {
-      try {
-        const res = await fetch('/api/publish-next-day', { method: 'POST' });
-        const result = await res.json();
-        if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
-        else alert('Ошибка публикации: ' + (result.message || 'неизвестно'));
-      } catch (e) {
-        alert('Ошибка подключения: ' + e.message);
+  function logout() {
+    document.getElementById('loginSection').classList.add('active');
+    document.getElementById('formSection').classList.remove('active');
+    document.getElementById('predictionsList').classList.remove('active');
+    document.getElementById('exitBtn').style.display = 'none';
+    document.getElementById('adminPassword').value = '';
+    document.getElementById('loginStatus').textContent = '';
+  }
+
+  // ======= Добавление/редактирование =======
+  function addPrediction() {
+    const id = Date.now();
+    const p = {
+      id,
+      country: document.getElementById('country').value.trim(),
+      league: document.getElementById('league').value.trim(),
+      date: document.getElementById('date').value.trim(),
+      // legacy строка — можно не трогать; оставим пустой, сервер не требует
+      tournament: `Футбол.${document.getElementById('date').value.trim()} ${document.getElementById('league').value.trim()}`,
+      team1: document.getElementById('team1').value.trim(),
+      logo1: document.getElementById('logo1').value.trim(),
+      team2: document.getElementById('team2').value.trim(),
+      logo2: document.getElementById('logo2').value.trim(),
+      odds: document.getElementById('odds').value.trim(),
+      predictionText: document.getElementById('predictionText').value.trim()
+    };
+    if ([p.country,p.league,p.date,p.team1,p.logo1,p.team2,p.logo2,p.odds,p.predictionText].some(v => !v)) {
+      return alert('Заполните все поля!');
+    }
+    predictions.push(p);
+    renderPredictions();
+    ['country','league','date','team1','logo1','team2','logo2','odds','predictionText'].forEach(id => (document.getElementById(id).value = ''));
+  }
+
+  function makeEditableCell(rowIdx, key, value) {
+    const input = document.createElement('input');
+    input.value = value ?? '';
+    input.className = 'editable';
+    input.oninput = e => { predictions[rowIdx][key] = e.target.value; };
+    return input;
+  }
+
+  function renderPredictions() {
+    const tbody = document.querySelector('tbody');
+    tbody.innerHTML = '';
+    predictions.forEach((p, i) => {
+      const row = tbody.insertRow();
+
+      // Заголовок превью
+      const headerCell = row.insertCell();
+      headerCell.textContent = headerPreview(p);
+
+      // Страна / Дата / Лига — редактируемые
+      row.insertCell().appendChild(makeEditableCell(i, 'country', p.country || ''));
+      row.insertCell().appendChild(makeEditableCell(i, 'date', p.date || ''));
+      row.insertCell().appendChild(makeEditableCell(i, 'league', p.league || ''));
+
+      // Команды
+      row.insertCell().appendChild(makeEditableCell(i, 'team1', p.team1 || ''));
+      row.insertCell().appendChild(makeEditableCell(i, 'team2', p.team2 || ''));
+
+      // Коэфф.
+      row.insertCell().appendChild(makeEditableCell(i, 'odds', p.odds || ''));
+
+      // Прогноз
+      row.insertCell().appendChild(makeEditableCell(i, 'predictionText', p.predictionText || ''));
+
+      // Действие
+      const act = row.insertCell();
+      const delBtn = document.createElement('button');
+      delBtn.className = 'buy-btn';
+      delBtn.textContent = 'Удалить';
+      delBtn.onclick = () => { predictions = predictions.filter(x => x.id !== p.id); renderPredictions(); };
+      act.appendChild(delBtn);
+    });
+  }
+
+  async function saveDrafts() {
+    try {
+      const res = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(predictions)
+      });
+      if (res.ok) alert('Черновики сохранены!');
+      else alert('Ошибка сохранения');
+    } catch (e) {
+      alert('Ошибка подключения: ' + e.message);
+    }
+  }
+
+  async function publishNextDay() {
+    try {
+      const res = await fetch('/api/publish-next-day', { method: 'POST' });
+      const result = await res.json();
+      if (res.ok && result.success) alert('Прогнозы готовы к публикации завтра!');
+      else alert('Ошибка публикации: ' + (result.message || 'неизвестно'));
+    } catch (e) {
+      alert('Ошибка подключения: ' + e.message);
+    }
+  }
+
+  async function generateDraftsNow() {
+    const btns = document.querySelectorAll('.buy-btn');
+    btns.forEach(b => (b.disabled = true));
+    try {
+      const res = await fetch('/api/generate-drafts-now', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Сгенерировано черновиков: ${data.count}`);
+        await loadDrafts();
+      } else {
+        alert('Ошибка генерации: ' + (data.message || 'неизвестно'));
       }
+    } catch (e) {
+      alert('Ошибка подключения: ' + e.message);
+    } finally {
+      btns.forEach(b => (b.disabled = false));
     }
+  }
 
-    async function generateDraftsNow() {
-      const btns = document.querySelectorAll('.buy-btn');
-      btns.forEach(b => (b.disabled = true));
-      try {
-        const res = await fetch('/api/generate-drafts-now', { method: 'POST' });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          alert(`Сгенерировано черновиков: ${data.count}`);
-          await loadDrafts();
-        } else {
-          alert('Ошибка генерации: ' + (data.message || 'неизвестно'));
-        }
-      } catch (e) {
-        alert('Ошибка подключения: ' + e.message);
-      } finally {
-        btns.forEach(b => (b.disabled = false));
-      }
-    }
-
-    if (window.Telegram?.WebApp) {
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
-    }
-  </script>
+  // Инициализация TG WebApp (необязательно, но оставим)
+  if (window.Telegram?.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+  }
+</script>
 </body>
 </html>
