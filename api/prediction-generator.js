@@ -19,35 +19,38 @@ const openai = new OpenAI({ apiKey: OPENAI_KEY });
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// === Переводы популярных турниров (для заголовка карточки) ===
-const TOURNAMENT_TRANSLATIONS = {
-  'UEFA Champions League': 'Лига Чемпионов УЕФА',
-  'UEFA Europa League': 'Лига Европы УЕФА',
-  'UEFA Europa Conference League': 'Лига Конференций УЕФА',
-  'Premier League': 'Премьер-Лига Англии',
-  'La Liga': 'Ла Лига Испании',
-  'Serie A': 'Серия А Италии',
-  'Bundesliga': 'Бундеслига Германии',
-  'Ligue 1': 'Лига 1 Франции',
-  Eredivisie: 'Эредивизи Нидерландов',
-  'Primeira Liga': 'Примейра Лига Португалии'
+// === Переводы лиг с учётом страны (КЛЮЧ: `${country}|${league}`) ===
+const LEAGUE_TRANSLATIONS_BY_COUNTRY = {
+  'International|UEFA Champions League': 'Лига Чемпионов УЕФА',
+  'International|UEFA Europa League': 'Лига Европы УЕФА',
+  'International|UEFA Europa Conference League': 'Лига Конференций УЕФА',
+  'Europe|UEFA Champions League': 'Лига Чемпионов УЕФА',
+  'Europe|UEFA Europa League': 'Лига Европы УЕФА',
+  'Europe|UEFA Europa Conference League': 'Лига Конференций УЕФА',
+  'World|UEFA Champions League': 'Лига Чемпионов УЕФА',
+  'World|UEFA Europa League': 'Лига Европы УЕФА',
+  'World|UEFA Europa Conference League': 'Лига Конференций УЕФА',
+
+  'England|Premier League': 'Премьер-Лига Англии',
+  'Spain|La Liga': 'Ла Лига Испании',
+  'Italy|Serie A': 'Серия А Италии',
+  'Germany|Bundesliga': 'Бундеслига Германии',
+  'France|Ligue 1': 'Лига 1 Франции',
+  'Netherlands|Eredivisie': 'Эредивизи Нидерландов',
+  'Portugal|Primeira Liga': 'Примейра Лига Португалии',
+
+  'Scotland|Premiership': 'Шотландская Премьер-Лига',
+  'Russia|Premier League': 'Премьер-Лига России',
+  'Ukraine|Premier League': 'Премьер-Лига Украины',
+  'Belgium|Pro League': 'Про Лига Бельгии',
+  'Austria|Bundesliga': 'Бундеслига Австрии',
+  'Switzerland|Super League': 'Суперлига Швейцарии',
+  'Turkey|Super Lig': 'Супер Лиг Турции',
+  'Greece|Super League 1': 'Суперлига Греции',
+  'Poland|Ekstraklasa': 'Экстракляса Польши'
 };
 
-// === Европа: список стран/меток ===
-const EUROPEAN_COUNTRIES = [
-  'England','Scotland','Wales','Northern Ireland','Ireland',
-  'Spain','Italy','Germany','France','Netherlands','Portugal',
-  'Belgium','Switzerland','Austria','Turkey','Greece','Denmark',
-  'Norway','Sweden','Poland','Czech Republic','Czechia','Croatia',
-  'Serbia','Romania','Hungary','Slovakia','Slovenia','Bulgaria',
-  'Bosnia and Herzegovina','Bosnia & Herzegovina','North Macedonia',
-  'Albania','Kosovo','Montenegro','Moldova','Ukraine','Belarus',
-  'Lithuania','Latvia','Estonia','Finland','Iceland','Georgia',
-  'Armenia','Azerbaijan','Cyprus','Malta','Luxembourg',
-  'Liechtenstein','Andorra','San Marino','Monaco','Gibraltar',
-  'Faroe Islands','Israel','Kazakhstan','Russia','International','World','Europe'
-];
-
+// Еврокубки — детектор по имени/стране
 const UEFA_KEYWORDS = [
   'uefa','euro','europa','conference','champions league',
   'european championship','qualifying','qualification'
@@ -58,7 +61,20 @@ const lc = s => (s || '').toLowerCase().normalize('NFKD');
 function isEuropeanMatch(m) {
   const country = lc(m.league?.country);
   const league = lc(m.league?.name);
-  if (EUROPEAN_COUNTRIES.map(lc).includes(country)) return true;
+  const EUROPEAN_COUNTRIES = [
+    'england','scotland','wales','northern ireland','ireland',
+    'spain','italy','germany','france','netherlands','portugal',
+    'belgium','switzerland','austria','turkey','greece','denmark',
+    'norway','sweden','poland','czech republic','czechia','croatia',
+    'serbia','romania','hungary','slovakia','slovenia','bulgaria',
+    'bosnia and herzegovina','north macedonia','albania','kosovo',
+    'montenegro','moldova','ukraine','belarus','lithuania','latvia',
+    'estonia','finland','iceland','georgia','armenia','azerbaijan',
+    'cyprus','malta','luxembourg','liechtenstein','andorra','san marino',
+    'monaco','gibraltar','faroe islands','israel','kazakhstan','russia',
+    'international','world','europe'
+  ];
+  if (EUROPEAN_COUNTRIES.includes(country)) return true;
   if ((country === 'international' || country === 'world' || country === 'europe') &&
       UEFA_KEYWORDS.some(k => league.includes(k))) return true;
   return false;
@@ -83,13 +99,27 @@ function getRandomOdds() {
   return odds[Math.floor(Math.random() * odds.length)].toFixed(2);
 }
 
+function translateLeagueNameByCountry(leagueName, country) {
+  const key = `${country}|${leagueName}`;
+  if (LEAGUE_TRANSLATIONS_BY_COUNTRY[key]) return LEAGUE_TRANSLATIONS_BY_COUNTRY[key];
+  // если нет точного перевода — возвращаем оригинал
+  return leagueName;
+}
+
 function formatTournament(match) {
   const date = new Date(match.fixture.date);
   const d = String(date.getDate()).padStart(2, '0');
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const y = String(date.getFullYear()).slice(2);
-  const league = TOURNAMENT_TRANSLATIONS[match.league.name] || match.league.name;
-  return `Футбол.${d}.${m}.${y} ${league}`;
+
+  const leagueName = match.league.name || '';
+  const country = match.league.country || '';
+
+  // Перевод с учётом страны
+  const leagueLabel = translateLeagueNameByCountry(leagueName, country);
+
+  // Оставляем прежний формат строки (клиент заменит "Футбол" на страну)
+  return `Футбол.${d}.${m}.${y} ${leagueLabel}`;
 }
 
 // === Безопасный GET с логами ===
@@ -202,7 +232,7 @@ function stripContext(raw) {
 
 /**
  * Приводим прогноз к одному из разрешённых форматов.
- * Если встречен «двойной шанс»/«не проиграет»/«Ничья»/неясность — используем favoriteName.
+ * Если «двойной шанс»/«не проиграет»/«ничья»/неясность — выбираем favoriteName.
  */
 function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   if (!text) return text;
@@ -213,19 +243,16 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   const t = normalize(core);
   const home = normalize(homeName);
   const away = normalize(awayName);
-  const fav  = normalize(favoriteName || homeName);
 
-  // ===== ДВОЙНОЙ ШАНС → Победа <та команда> или фаворит =====
+  // Двойной шанс → Победа команды (или фаворита)
   let m =
     t.match(/^двойной\s+шанс[:\-\s]*(.+?)\s+или\s+ничья$/i) ||
     t.match(/^ничья\s+или\s+(.+?)$/i) ||
     t.match(/^(.+?)\s+или\s+ничья$/i);
   if (m) {
-    const whoRaw = m[1].trim();
-    const who = normalize(whoRaw);
+    const who = normalize(m[1]);
     if (who.includes(home)) return `Победа ${homeName}`;
     if (who.includes(away)) return `Победа ${awayName}`;
-    // не распознали — берём фаворита
     return `Победа ${favoriteName}`;
   }
   m = t.match(/^(.+?)\s+не\s+проиграет$/i);
@@ -236,11 +263,11 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
     return `Победа ${favoriteName}`;
   }
 
-  // ===== ОБЕ ЗАБЬЮТ =====
+  // Обе забьют
   m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
   if (m) return `Обе забьют-${m[1].toLowerCase()}`;
 
-  // ===== ТОТАЛЫ =====
+  // Тоталы
   m = core.match(/Тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)/i);
   if (m) return `Тотал больше ${m[1].replace(',', '.')}`;
   m = core.match(/Тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)/i);
@@ -250,7 +277,7 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   m = core.match(/\bТМ\s*([0-9]+(?:[.,][0-9]+)?)\b/i);
   if (m) return `Тотал меньше ${m[1].replace(',', '.')}`;
 
-  // ===== ПОБЕДА КОМАНДЫ =====
+  // Победа команды
   m = core.match(/^Победа\s+(.+)$/i);
   if (m) {
     const who = normalize(m[1]);
@@ -266,12 +293,11 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
     return `Победа ${favoriteName}`;
   }
 
-  // ===== ФОРА =====
+  // Фора
   m = core.match(/^Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)\s*на\s+(.+)$/i);
   if (m) {
     const sign = m[1].replace(',', '.');
-    const whoRaw = m[2].trim();
-    const who = normalize(whoRaw);
+    const who = normalize(m[2]);
     const outName = who.includes(home) ? homeName : who.includes(away) ? awayName : favoriteName;
     const signNorm = sign.startsWith('+') || sign.startsWith('-') ? sign : `+${sign}`;
     return `${outName} Фора ${signNorm}`;
@@ -285,7 +311,7 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
     return `${outName} Фора ${signNorm}`;
   }
 
-  // «Ничья» в списке форматов нет — переводим в победу фаворита
+  // «Ничья» → Победа фаворита
   if (/^ничья$/i.test(core)) return `Победа ${favoriteName}`;
 
   // По умолчанию — Победа фаворита
@@ -306,7 +332,7 @@ function detectMarket(predictionText, homeName, awayName) {
     const who = normalize(m[1]);
     if (who.includes(home)) return { market: '1X2', outcome: '1' };
     if (who.includes(away)) return { market: '1X2', outcome: '2' };
-    return { market: '1X2', outcome: '1' }; // дефолт, но до сюда обычно не доходим
+    return { market: '1X2', outcome: '1' };
   }
 
   // Обе забьют-да/нет
@@ -391,7 +417,6 @@ function pickOddFromBook(book, wantedMarket, wantedOutcome) {
   return null;
 }
 
-// Достаём 1X2 из пакета котировок (Favbet приоритет)
 function extract1x2FromPack(pack) {
   const books = pack?.bookmakers || [];
   const order = [
@@ -423,7 +448,6 @@ function chooseFavoriteName(homeName, awayName, pack) {
   if (oneXTwo && typeof oneXTwo.home === 'number' && typeof oneXTwo.away === 'number') {
     return oneXTwo.home <= oneXTwo.away ? homeName : awayName;
   }
-  // если не нашли — оставим хозяев фаворитом (редкий случай)
   return homeName;
 }
 
@@ -440,7 +464,7 @@ function pickOddFromPack(pack, wantedMarket, wantedOutcome) {
   return null;
 }
 
-// === Генерация прогнозов (строго разрешённые форматы, с указанием команды) ===
+// === Генерация прогнозов (строго разрешённые форматы) ===
 async function generateAllPredictions(matches) {
   const matchesList = matches
     .map((m, i) => `${i + 1}. ${m.teams.home.name} vs ${m.teams.away.name}`)
@@ -449,7 +473,6 @@ async function generateAllPredictions(matches) {
   const prompt = `
 Ты спортивный аналитик.
 СГЕНЕРИРУЙ по одному прогнозу на каждый матч СТРОГО в одном из разрешённых форматов (русский язык).
-ВСЕГДА указывай конкретную команду, если формат требует команду.
 
 ДОПУСТИМЫЕ ШАБЛОНЫ (ровно одна строка на матч, без точек/хвостов):
 1) "Победа <точное имя команды из списка ниже>"
@@ -503,6 +526,18 @@ async function saveToDraft(predictions) {
   console.log(`💾 Черновики сохранены: ${predictions.length}`);
 }
 
+// ====== СОРТИРОВКА ПО СТРАНЕ (для финального порядка) ======
+const COUNTRY_ORDER = [
+  'England','Spain','Italy','Germany','France','Netherlands','Portugal',
+  'Scotland','Turkey','Greece','Belgium','Austria','Switzerland','Poland','Ukraine'
+];
+
+function countryRank(countryRaw) {
+  const c = String(countryRaw || '').trim();
+  const idx = COUNTRY_ORDER.indexOf(c);
+  return idx !== -1 ? idx : COUNTRY_ORDER.length + 1;
+}
+
 // === Основная функция генерации ===
 async function generatePredictions() {
   const matches = await fetchMatches(40);
@@ -512,26 +547,27 @@ async function generatePredictions() {
     return [];
   }
 
-  // 1) Черновые тексты от ИИ (могут содержать двусмысленности)
+  // 1) Черновые тексты от ИИ
   let aiPredictions = await generateAllPredictions(matches);
 
+  // 2) Собираем карточки (матч + прогноз + коэффициент)
   const cards = [];
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i];
 
-    // 2) Получаем пакет котировок один раз
+    // Пакет котировок (один раз на матч)
     const oddsPacks = await safeGet(ODDS_URL, { fixture: match.fixture.id, timezone: 'Europe/Kiev' });
     const pack = oddsPacks?.[0] || null;
 
-    // 3) Определяем фаворита по 1X2
+    // Фаворит по 1X2
     const favoriteName = chooseFavoriteName(match.teams.home.name, match.teams.away.name, pack);
 
-    // 4) Санитизируем текст с учётом фаворита
+    // Санитайзер
     const raw = aiPredictions[i] || '';
     const predText = sanitizePredictionText(raw, match.teams.home.name, match.teams.away.name, favoriteName);
 
-    // 5) Определяем рынок/исход и вытягиваем коэффициент из ТОГО ЖЕ пакета (Favbet приоритет)
+    // Детект рынка и вытаскивание коэффициента
     const { market, outcome } = detectMarket(predText, match.teams.home.name, match.teams.away.name);
     let odd = pickOddFromPack(pack, market, outcome);
     if (!odd) odd = getRandomOdds();
@@ -539,14 +575,40 @@ async function generatePredictions() {
     cards.push({ match, predText, odd });
   }
 
-  // 6) Переводы команд для карточек
+  // 3) СОРТИРОВКА: еврокубки → страны → дата → лига
+  const EURO_REGEX = /(uefa|champions league|europa|conference|european championship|qualifying|qualification)/i;
+  cards.sort((a, b) => {
+    const la = String(a.match.league?.name || '');
+    const lb = String(b.match.league?.name || '');
+    const ca = String(a.match.league?.country || '');
+    const cb = String(b.match.league?.country || '');
+
+    const aIsEuro = EURO_REGEX.test(la) || /International|World|Europe/i.test(ca) && EURO_REGEX.test(la);
+    const bIsEuro = EURO_REGEX.test(lb) || /International|World|Europe/i.test(cb) && EURO_REGEX.test(lb);
+    if (aIsEuro !== bIsEuro) return aIsEuro ? -1 : 1;
+
+    if (!aIsEuro && !bIsEuro) {
+      const ra = countryRank(ca);
+      const rb = countryRank(cb);
+      if (ra !== rb) return ra - rb;
+    }
+
+    const ta = new Date(a.match.fixture.date).getTime();
+    const tb = new Date(b.match.fixture.date).getTime();
+    if (ta !== tb) return ta - tb;
+
+    return la.localeCompare(lb);
+  });
+
+  // 4) Переводы команд для карточек
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
-  // 7) Формирование карточек
+  // 5) Формирование карточек для БД — ДОБАВЛЯЕМ country
   const predictions = cards.map(({ match, predText, odd }, i) => ({
     id: Date.now() + i,
-    tournament: formatTournament(match),
+    country: match.league.country || '',                         // <— добавили явную страну
+    tournament: formatTournament(match),                         // текст «Футбол.dd.mm.yy …» (уже без ошибки Англии)
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
     team2: teamTranslations[match.teams.away.name] || match.teams.away.name,
@@ -555,6 +617,7 @@ async function generatePredictions() {
     predictionText: predText
   }));
 
+  // 6) Сохранение
   await saveToDraft(predictions);
   return predictions;
 }
