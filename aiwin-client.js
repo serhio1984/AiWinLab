@@ -17,7 +17,9 @@ const translations = {
     buyCoins: "Купить монеты",
     unlock: "Разблокировать",
     locked: "🔒 Прогноз заблокирован",
-    notEnough: "Недостаточно монет"
+    notEnough: "Недостаточно монет",
+    openAll: "Открыть всё за 60 монет",
+    openedAllOk: "Все прогнозы успешно открыты!"
   },
   uk: {
     slogan: "Розумні ставки. Великі виграші.",
@@ -26,7 +28,9 @@ const translations = {
     buyCoins: "Купити монети",
     unlock: "Розблокувати",
     locked: "🔒 Прогноз заблоковано",
-    notEnough: "Недостатньо монет"
+    notEnough: "Недостатньо монет",
+    openAll: "Відкрити все за 60 монет",
+    openedAllOk: "Усі прогнози успішно відкриті!"
   },
   en: {
     slogan: "Smart bets. Big wins.",
@@ -35,7 +39,9 @@ const translations = {
     buyCoins: "Buy coins",
     unlock: "Unlock",
     locked: "🔒 Prediction locked",
-    notEnough: "Not enough coins"
+    notEnough: "Not enough coins",
+    openAll: "Unlock all for 60 coins",
+    openedAllOk: "All predictions unlocked!"
   }
 };
 
@@ -167,10 +173,8 @@ const COUNTRY_I18N = {
   }
 };
 
-// Больше вариантов и синонимов лиг (включая диакритику/варианты)
 const LEAGUE_I18N = {
   ru: {
-    // UEFA / International
     "UEFA Champions League": "Лига Чемпионов УЕФА",
     "Champions League": "Лига Чемпионов УЕФА",
     "UEFA Europa League": "Лига Европы УЕФА",
@@ -181,32 +185,26 @@ const LEAGUE_I18N = {
     "UEFA Nations League": "Лига Наций УЕФА",
     "UEFA European Championship": "Чемпионат Европы УЕФА",
 
-    // Top 5
     "Premier League": "Премьер-Лига Англии",
     "La Liga": "Ла Лига Испании",
     "Serie A": "Серия А Италии",
     "Bundesliga": "Бундеслига Германии",
     "Ligue 1": "Лига 1 Франции",
-
-    // Нидерланды / Португалия
     "Eredivisie": "Эредивизи Нидерландов",
     "Primeira Liga": "Примейра Лига Португалии",
 
-    // Шотландия, Турция (оба варианта), Греция
     "Scottish Premiership": "Шотландская Премьершип",
     "Süper Lig": "Суперлига Турции",
     "Super Lig": "Суперлига Турции",
     "Super League 1": "Суперлига Греции",
     "Super League Greece": "Суперлига Греции",
 
-    // Бельгия, Австрия, Швейцария
     "Pro League": "Про Лига Бельгии",
     "Jupiler Pro League": "Про Лига Бельгии",
     "First Division A": "Про Лига Бельгии",
     "Austrian Bundesliga": "Бундеслига Австрии",
     "Swiss Super League": "Суперлига Швейцарии",
 
-    // Польша, Украина, Скандинавия
     "Ekstraklasa": "Экстракляса Польши",
     "Ukrainian Premier League": "Украинская Премьер-Лига",
     "Allsvenskan": "Алльсвенскан Швеции",
@@ -214,7 +212,6 @@ const LEAGUE_I18N = {
     "Superliga": "Суперлига Дании",
     "Danish Superliga": "Суперлига Дании",
 
-    // Частые вторые дивизионы (на всякий случай)
     "Championship": "Чемпионшип Англии",
     "Segunda División": "Сегунда Испании",
     "Segunda Division": "Сегунда Испании",
@@ -238,7 +235,6 @@ const LEAGUE_I18N = {
     "Serie A": "Серія А Італії",
     "Bundesliga": "Бундесліга Німеччини",
     "Ligue 1": "Ліга 1 Франції",
-
     "Eredivisie": "Ередивізі Нідерландів",
     "Primeira Liga": "Прімейра Ліга Португалії",
 
@@ -284,7 +280,6 @@ const LEAGUE_I18N = {
     "Serie A": "Serie A",
     "Bundesliga": "Bundesliga",
     "Ligue 1": "Ligue 1",
-
     "Eredivisie": "Eredivisie",
     "Primeira Liga": "Primeira Liga",
 
@@ -316,89 +311,42 @@ const LEAGUE_I18N = {
   }
 };
 
-// Дополнительные ключевые слова для определения междунар. турниров
 const INTERNATIONAL_KEYS = ['uefa','champions','europa','conference','nations','european','qualifying','qualification','world cup','fifa'];
 
-// Быстрый поиск перевода с учётом синонимов и диакритики
 function i18nLookup(dictByLang, value) {
   if (!value) return '';
   const raw = String(value);
   const direct = dictByLang[lang]?.[raw];
   if (direct) return direct;
-
-  // Нормализованный поиск по ключам текущего языка
   const needle = normKey(raw);
   const langDict = dictByLang[lang] || {};
   for (const k of Object.keys(langDict)) {
     if (normKey(k) === needle) return langDict[k];
   }
-  return raw; // фолбэк — как есть
+  return raw;
 }
-
 const i18nCountry = (name) => i18nLookup(COUNTRY_I18N, name);
 const i18nLeague  = (name) => i18nLookup(LEAGUE_I18N, name);
 
-// ===== Перевод текста прогноза (визуально) =====
 function translatePredictionText(original, target) {
   try {
     if (!original || target === 'ru') return original;
-
-    const norm = (s) =>
-      s.replace(/[–—−]/g, '-')
-       .replace(/\s+/g, ' ')
-       .replace(/\s*-\s*/g, ' - ')
-       .trim();
-
+    const norm = (s) => s.replace(/[–—−]/g, '-').replace(/\s+/g, ' ').replace(/\s*-\s*/g, ' - ').trim();
     const t = norm(original);
-
     const NUM  = '([0-9]+(?:[\\.,][0-9]+)?)';
     const TEAM = '(.+?)';
-
     const rules = [
-      // ОБЕ ЗАБЬЮТ
-      {
-        re: /^Обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i,
-        tr: (m) => {
-          const yn = (m[1] || '').toLowerCase();
-          if (target === 'en') return `Both teams to score — ${yn === 'да' ? 'yes' : 'no'}`;
-          return `Обидві заб'ють — ${yn === 'да' ? 'так' : 'ні'}`;
-        }
-      },
-      {
-        re: /^Обе(?:\s+команды)?\s+забьют$/i,
-        tr: () => (target === 'en' ? 'Both teams to score' : "Обидві заб'ють")
-      },
-
-      // Тоталы
-      {
-        re: new RegExp(`^Тотал\\s+больше\\s+${NUM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Over ${m[1].replace(',', '.')} goals` : `Тотал більше ${m[1].replace(',', '.')}`
-      },
-      {
-        re: new RegExp(`^Тотал\\s+меньше\\s+${NUM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}`
-      },
+      { re: /^Обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i,
+        tr: (m) => (target === 'en' ? `Both teams to score — ${m[1].toLowerCase()==='да'?'yes':'no'}` : `Обидві заб'ють — ${m[1].toLowerCase()==='да'?'так':'ні'}`)},
+      { re: /^Обе(?:\s+команды)?\s+забьют$/i, tr: () => (target === 'en' ? 'Both teams to score' : "Обидві заб'ють") },
+      { re: new RegExp(`^Тотал\\s+больше\\s+${NUM}$`, 'i'), tr: (m) => target === 'en' ? `Over ${m[1].replace(',', '.')} goals` : `Тотал більше ${m[1].replace(',', '.')}` },
+      { re: new RegExp(`^Тотал\\s+меньше\\s+${NUM}$`, 'i'), tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}` },
       { re: new RegExp(`^ТБ\\s*${NUM}$`, 'i'), tr: (m) => target === 'en' ? `Over ${m[1].replace(',', '.')} goals` : `Тотал більше ${m[1].replace(',', '.')}` },
       { re: new RegExp(`^ТМ\\s*${NUM}$`, 'i'), tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}` },
-
-      // Форы "<Команда> Фора n" и "Фора n на <Команда>"
-      {
-        re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'),
-        tr: (m) => (target === 'en' ? `Handicap ${m[2]} ${m[1].replace(',', '.')}` : `Фора ${m[2]} ${m[1].replace(',', '.')}`)
-      },
-      {
-        re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
-        tr: (m) => (target === 'en' ? `Handicap ${m[1]} ${m[2].replace(',', '.')}` : `Фора ${m[1]} ${m[2].replace(',', '.')}`)
-      },
-
-      // Исходы
-      {
-        re: new RegExp(`^Победа\\s+${TEAM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Win ${m[1]}` : `Перемога ${m[1]}`
-      },
+      { re: new RegExp(`^Фора\\s*([\\+\\-]?${NUM})\\s*на\\s+${TEAM}$`, 'i'), tr: (m) => (target === 'en' ? `Handicap ${m[2]} ${m[1].replace(',', '.')}` : `Фора ${m[2]} ${m[1].replace(',', '.')}`) },
+      { re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'), tr: (m) => (target === 'en' ? `Handicap ${m[1]} ${m[2].replace(',', '.')}` : `Фора ${m[1]} ${m[2].replace(',', '.')}`) },
+      { re: new RegExp(`^Победа\\s+${TEAM}$`, 'i'), tr: (m) => target === 'en' ? `Win ${m[1]}` : `Перемога ${м[1]}` },
       { re: /^Ничья$/i, tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
-
-      // Короткие обозначения
       { re: /^П1$/i, tr: () => (target === 'en' ? 'Home win' : 'Перемога господарів') },
       { re: /^П2$/i, tr: () => (target === 'en' ? 'Away win' : 'Перемога гостей') },
       { re: /^Х$/i,  tr: () => (target === 'en' ? 'Draw' : 'Нічия') },
@@ -406,16 +354,9 @@ function translatePredictionText(original, target) {
       { re: /^Х2$/i, tr: () => (target === 'en' ? 'X2 (draw or away)' : 'X2 (нічия або гості)') },
       { re: /^12$/i, tr: () => (target === 'en' ? '12 (no draw)' : '12 (без нічиєї)') }
     ];
-
-    for (const r of rules) {
-      const m = t.match(r.re);
-      if (m) return r.tr(m);
-    }
+    for (const r of rules) { const m = t.match(r.re); if (m) return r.tr(m); }
     return original;
-  } catch (e) {
-    console.error('translatePredictionText error:', e);
-    return original;
-  }
+  } catch (e) { console.error('translatePredictionText error:', e); return original; }
 }
 
 let coins = 0;
@@ -425,10 +366,7 @@ let predictions = [];
 function getUserProfileRaw() {
   let u = telegram?.initDataUnsafe?.user;
   if (!u) {
-    try {
-      const saved = localStorage.getItem('tg_user');
-      if (saved) u = JSON.parse(saved);
-    } catch {}
+    try { const saved = localStorage.getItem('tg_user'); if (saved) u = JSON.parse(saved); } catch {}
   }
   return u || null;
 }
@@ -444,12 +382,13 @@ function getDOMElements() {
     userProfilePic: document.getElementById('userProfilePic'),
     userName: document.getElementById('userName'),
     sloganEl: document.querySelector('.logo p'),
-    buyBtn: document.querySelector('.buy-btn')
+    buyBtn: document.querySelector('.buy-btn'),
+    unlockAllBtn: document.getElementById('unlockAllBtn')
   };
 }
 
 function loadUserData() {
-  const { userProfilePic, userName, sloganEl, buyBtn } = getDOMElements();
+  const { userProfilePic, userName, sloganEl, buyBtn, unlockAllBtn } = getDOMElements();
   const u = getUserProfileRaw();
 
   if (u) {
@@ -463,6 +402,7 @@ function loadUserData() {
 
   if (sloganEl) sloganEl.textContent = translations[lang].slogan;
   if (buyBtn) buyBtn.textContent = translations[lang].buyCoins;
+  if (unlockAllBtn) unlockAllBtn.textContent = translations[lang].openAll;
 }
 
 // ===== Парсинг старого поля tournament =====
@@ -471,56 +411,39 @@ function parseDateFromTournament(tournamentStr='') {
   return m ? m[1] : '';
 }
 function parseLeagueFromTournament(tournamentStr='') {
-  // Формат: "Футбол.DD.MM.YY <Лига>", берём часть после даты
   const m = tournamentStr.match(/\d{2}\.\d{2}\.\d{2}\s+(.+)$/);
   if (m) return m[1].trim();
-  // Если даты нет — возможно просто "<Лига>"
   const parts = tournamentStr.split(/\s+/);
   if (parts.length >= 2 && tournamentStr.toLowerCase().startsWith('футбол')) {
     return tournamentStr.replace(/^футбол\.?/i,'').trim();
   }
   return tournamentStr.trim();
 }
-
-// Детектор международных турниров при отсутствии country
 function isInternationalByLeagueName(leagueName='') {
   const k = normKey(leagueName);
   return INTERNATIONAL_KEYS.some(w => k.includes(w));
 }
-
 const INTERNATIONAL_TAGS = new Set(['International','World','Europe','']);
 
-// ===== Формат заголовка турнира (перевод страны/лиги + дата) =====
+// ===== Формат заголовка =====
 function formatTournament(p) {
-  // 1) Источник данных
   const rawCountry = p.country || '';
   const rawLeague  = p.league  || '' || parseLeagueFromTournament(p.tournament || '');
   const rawDate    = p.date || parseDateFromTournament(p.tournament || '');
 
-  // 2) Переводы
-  const countryTranslated = rawCountry
-    ? i18nCountry(rawCountry)
-    : ''; // если нет страны — не пытаемся «угадывать»
+  const countryTranslated = rawCountry ? i18nCountry(rawCountry) : '';
+  const leagueTranslated  = i18nLeague(rawLeague);
 
-  const leagueTranslated = i18nLeague(rawLeague);
-
-  // 3) Международный ли матч?
   const isInternational =
     (rawCountry && INTERNATIONAL_TAGS.has(rawCountry.trim())) ||
     (!rawCountry && isInternationalByLeagueName(rawLeague));
 
-  // 4) Вывод
   if (isInternational) {
-    // "<дата> <Лига>"
     return `${rawDate ? (rawDate + ' ') : ''}${leagueTranslated}`.trim();
   }
-
   if (countryTranslated) {
-    // "<Страна> <дата> <Лига>"
     return `${countryTranslated}${rawDate ? ' ' + rawDate : ''} ${leagueTranslated}`.trim();
   }
-
-  // Если страны нет (старые записи) — показываем "<дата> <Лига>"
   return `${rawDate ? rawDate + ' ' : ''}${leagueTranslated}`.trim();
 }
 
@@ -530,11 +453,9 @@ async function loadPredictions() {
   if (!userId) return;
 
   try {
-    // 1) Прогнозы
     const response = await fetch(`/api/predictions?userId=${userId}`);
     predictions = await response.json();
 
-    // 2) Баланс + профиль
     const u = getUserProfileRaw();
     const balanceResponse = await fetch('/balance', {
       method: 'POST',
@@ -571,14 +492,43 @@ async function unlockPrediction(predictionId) {
   }
 }
 
+// ✅ Массовая разблокировка
+async function unlockAllPredictions() {
+  const userId = getUserId();
+  if (!userId || coins < 60) return alert(translations[lang].notEnough);
+
+  const res = await fetch('/api/unlock-all', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId })
+  });
+
+  const result = await res.json();
+  if (result.success) {
+    coins = result.coins;
+    updateBalance();
+    await loadPredictions();
+    alert(translations[lang].openedAllOk);
+  } else {
+    alert(result.message || 'Ошибка при разблокировке');
+  }
+}
+
 function updateBalance() {
   const { coinBalance } = getDOMElements();
   if (coinBalance) coinBalance.textContent = coins;
 }
 
-// ===== Рендер =====
+function translatePredictionText(original, target) {
+  // (дублирование уже сверху — оставлено один раз; если у вас было, не дублируйте)
+  return original; // <-- заглушка если у вас уже есть реализация выше
+}
+
+/**
+ * Рендер карточек
+ */
 function renderPredictions() {
-  const { predictionsContainer } = getDOMElements();
+  const predictionsContainer = document.getElementById('predictions');
   predictionsContainer.innerHTML = '';
 
   predictions.forEach(p => {
