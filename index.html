@@ -168,7 +168,6 @@
         }
 
         .tournament {
-            /* было 12px, не жирно */
             font-size: 14px;
             font-weight: 700;
             margin-bottom: 5px;
@@ -225,7 +224,6 @@
         }
 
         .prediction-text {
-            /* было 12px, теперь больше и жирнее */
             font-size: 16px;
             font-weight: bold;
             text-align: center;
@@ -235,6 +233,13 @@
 
         .prediction.unlocked .prediction-text {
             display: block;
+        }
+
+        /* Панель массового открытия */
+        .unlock-all-panel {
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
         }
 
         @media (max-width: 600px) {
@@ -268,7 +273,7 @@
             }
 
             .tournament {
-                font-size: 12px; /* на мобилках чуть компактнее */
+                font-size: 12px;
             }
 
             .balance {
@@ -286,7 +291,7 @@
             }
 
             .prediction-text {
-                font-size: 14px; /* мобильный размер прогноза */
+                font-size: 14px;
             }
 
             .coin-icon {
@@ -304,7 +309,7 @@
                 <p>Умные ставки. Большие выигрыши.</p>
             </div>
             <div class="user-section">
-                <span class="user-greeting" id="userName"></span>
+                <span class="user-greeting">Привет, <span id="userName"></span></span>
                 <div class="user-photo">
                     <img id="userProfilePic" src="https://via.placeholder.com/50?text=User" alt="Фото пользователя">
                 </div>
@@ -316,6 +321,11 @@
                 <span id="coinBalance">0</span>
             </span>
             <button class="buy-btn" onclick="window.location.href='/buy-coins.html'">Купить монеты</button>
+        </div>
+
+        <!-- Кнопка массового открытия -->
+        <div class="unlock-all-panel">
+            <button class="buy-btn" id="unlockAllBtn" onclick="unlockAllPredictions()">Открыть всё за 60 монет</button>
         </div>
     </div>
 
