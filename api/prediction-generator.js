@@ -1,3 +1,4 @@
+// prediction-generator.js
 const axios = require('axios');
 const OpenAI = require('openai');
 const { MongoClient } = require('mongodb');
@@ -10,37 +11,23 @@ const MONGODB_URI =
   process.env.MONGODB_URI ||
   'mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true';
 
-// Если хочешь оставить чисто Европу, поставь true.
-// Мы теперь добавляем КОНМЕБОЛ/КОНКАКАФ/CAF явно, поэтому этот флаг используется мягко.
-const ONLY_EUROPE = process.env.ONLY_EUROPE === 'true';
-
 const openai = new OpenAI({ apiKey: OPENAI_KEY });
 
 // === API URLs ===
 const FIXTURES_URL = 'https://v3.football.api-sports.io/fixtures';
 const ODDS_URL = 'https://v3.football.api-sports.io/odds';
 
-// ——— Маркеры/константы ———
+// ——— Константы/настройки ———
 
-// Еврокубки/турниры УЕФА
-const UEFA_KEYS = [
-  'uefa','euro','europa','conference',
-  'champions league','european championship',
-  'qualifying','qualification','super cup','nations league'
-];
+// Полностью исключаем страны:
+const EXCLUDED_COUNTRIES = new Set(['Russia', 'Belarus']);
 
-// Полностью исключаем
-const EXCLUDED_COUNTRIES = new Set([
-  'Russia',
-  'Belarus'
-]);
-
-// Маленькие европейские страны — исключаем из блока “Остальная Европа”
+// Маленькие европейские страны для исключения из блока «Остальная Европа»
 const SMALL_EURO_STATES = new Set([
   'Andorra','Faroe Islands','Gibraltar','Liechtenstein','Luxembourg','Malta','Monaco','San Marino'
 ]);
 
-// КОНФЕДЕРАЦИИ: упрощённое сопоставление страны → конфедерация
+// Списки стран по конфедерациям (упрощённо)
 const UEFA_COUNTRIES = new Set([
   'England','Scotland','Wales','Northern Ireland','Ireland',
   'Spain','Italy','Germany','France','Netherlands','Portugal',
@@ -68,7 +55,7 @@ const CONCACAF_COUNTRIES = new Set([
 
 const CAF_COUNTRIES = new Set([
   'Morocco','Algeria','Tunisia','Egypt','Libya',
-  'Ghana','Nigeria','Senegal','Cameroon','Ivory Coast','Côte d\'Ivoire',
+  'Ghana','Nigeria','Senegal','Cameroon','Ivory Coast',"Côte d'Ivoire",
   'South Africa','Ethiopia','Kenya','Uganda','Tanzania','Zambia','Zimbabwe',
   'Mali','Burkina Faso','Guinea','Guinea-Bissau','Cape Verde','Sierra Leone',
   'Liberia','Gambia','Benin','Togo','Niger','Chad','Central African Republic',
@@ -89,10 +76,10 @@ const TOP_LEAGUE_BY_COUNTRY = {
   "Portugal":    ["Primeira Liga"]
 };
 
-// Жёсткий порядок стран в блоке ТОП-лиг
+// Жёсткий порядок стран для ТОП-лиг
 const TOP_MAJOR_ORDER = ["England","Spain","Italy","Germany","France","Netherlands","Portugal"];
 
-// Высшие дивизионы остальных стран УЕФА (кроме маленьких)
+// Высшие дивизионы прочих стран УЕФА (без «маленьких»)
 const OTHER_TOP_DIVISIONS_UEFA = {
   "Scotland":    ["Premiership","Scottish Premiership"],
   "Turkey":      ["Super Lig","Süper Lig"],
@@ -124,40 +111,43 @@ const OTHER_TOP_DIVISIONS_UEFA = {
   "Kazakhstan":  ["Premier League"]
 };
 
-// Низшие лиги Европы и прочие будут попадать в «низшие/прочие», но для нашей новой схемы это не отдельный блок — они уйдут в «остальная Европа» только если являются высшими дивизионами. Остальные просто игнорируем (чтобы не раздувать список).
+// Ключевые слова для обнаружения международных турниров
+const UEFA_KEYS = ['uefa','champions league','europa league','europe conference','conference league','european championship','nations league','super cup','qualifying','qualification'];
+const CONMEBOL_KEYS = ['conmebol','copa america','libertadores','sudamericana','recopa'];
+const CONCACAF_KEYS = ['concacaf','gold cup','leagues cup','champions cup','champions league'];
+const CAF_KEYS = ['africa','caf','african cup','africa cup of nations','afcon'];
 
+// ——— Утилиты ———
 const lc = (s) => (s || '').toLowerCase().normalize('NFKD');
 
-// Еврокубок/международный под эгидой УЕФА?
-function isInternationalUEFA(match) {
-  const country = lc(match.league?.country);
-  const league  = lc(match.league?.name);
-  if (country === 'international' || country === 'world' || country === 'europe') return true;
-  return UEFA_KEYS.some(k => league.includes(k));
+function isFriendlyMatch(m) {
+  const name = lc(m.league?.name);
+  const type = lc(m.league?.type);
+  return /friendly|friendlies|товарищес/i.test(m.league?.name || '') ||
+         /friendly/i.test(type);
 }
 
-// Конфедерация по стране
-function confedOf(country) {
-  if (!country) return 'OTHER';
+function detectConfedByLeagueName(name='') {
+  const n = lc(name);
+  if (UEFA_KEYS.some(k => n.includes(k))) return 'UEFA';
+  if (CONMEBOL_KEYS.some(k => n.includes(k))) return 'CONMEBOL';
+  if (CONCACAF_KEYS.some(k => n.includes(k))) return 'CONCACAF';
+  if (CAF_KEYS.some(k => n.includes(k))) return 'CAF';
+  return 'OTHER';
+}
+
+function confedOf(country, leagueName) {
   if (UEFA_COUNTRIES.has(country)) return 'UEFA';
   if (CONMEBOL_COUNTRIES.has(country)) return 'CONMEBOL';
   if (CONCACAF_COUNTRIES.has(country)) return 'CONCACAF';
   if (CAF_COUNTRIES.has(country)) return 'CAF';
-  return 'OTHER';
+  return detectConfedByLeagueName(leagueName);
 }
 
-// ——— Дата (Киев): завтра ———
-function getKievDateRangeForTomorrow() {
-  const tz = 'Europe/Kiev';
-  const kievNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
-  const start = new Date(kievNow);
-  start.setDate(start.getDate() + 1);
-  start.setHours(0,0,0,0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  const from = start.toISOString().split('T')[0];
-  const to   = end.toISOString().split('T')[0];
-  return { from, to };
+function inListByCountry(map, country, league) {
+  const arr = map[country];
+  if (!arr || !arr.length) return false;
+  return arr.includes(league);
 }
 
 function ddmmyy(dateIso) {
@@ -166,11 +156,6 @@ function ddmmyy(dateIso) {
   const mm = String(d.getMonth()+1).padStart(2,'0');
   const yy = String(d.getFullYear()).slice(2);
   return `${dd}.${mm}.${yy}`;
-}
-
-function getRandomOdds() {
-  const odds = [1.5,1.7,1.9,2.0,2.3,2.5,3.0,3.5];
-  return odds[Math.floor(Math.random()*odds.length)].toFixed(2);
 }
 
 // ——— Безопасный GET ———
@@ -189,49 +174,50 @@ async function safeGet(url, params) {
   }
 }
 
-// ——— Утилиты ———
-function inListByCountry(map, country, league) {
-  const arr = map[country];
-  if (!arr || !arr.length) return false;
-  return arr.includes(league);
+// ——— Завтрашний день по Киеву ———
+function getKievDateRangeForTomorrow() {
+  const tz = 'Europe/Kiev';
+  const kievNow = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+  const start = new Date(kievNow);
+  start.setDate(start.getDate() + 1);
+  start.setHours(0,0,0,0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  const from = start.toISOString().split('T')[0];
+  const to   = end.toISOString().split('T')[0];
+  return { from, to };
+}
+
+function getRandomOdds() {
+  const odds = [1.5,1.7,1.9,2.0,2.3,2.5,3.0,3.5];
+  return odds[Math.floor(Math.random()*odds.length)].toFixed(2);
 }
 
 // ——— Классификация по корзинам ———
-// Корзины: EURO, TOP_MAJOR, REST_EURO, CONMEBOL, CONCACAF, CAF
 function classifyBucket(m) {
   const country = m.league?.country || '';
   const league  = m.league?.name || '';
 
-  // Полное исключение
   if (EXCLUDED_COUNTRIES.has(country)) return null;
+  if (isFriendlyMatch(m)) return null;
 
-  // Еврокубки УЕФА
-  if (isInternationalUEFA(m)) return 'EURO';
-
-  const conf = confedOf(country);
-
-  // ТОП-лиги Европы
-  if (conf === 'UEFA' && inListByCountry(TOP_LEAGUE_BY_COUNTRY, country, league)) {
-    return 'TOP_MAJOR';
+  const confByLeague = detectConfedByLeagueName(league);
+  if (confByLeague === 'UEFA' && /(champions|europa|conference|nations|european|qualif)/i.test(league)) {
+    return 'EURO';
   }
 
-  // Остальная Европа (только высшие дивизионы из списка, и без маленьких стран)
-  if (conf === 'UEFA' &&
-      !SMALL_EURO_STATES.has(country) &&
-      inListByCountry(OTHER_TOP_DIVISIONS_UEFA, country, league)) {
+  const conf = confedOf(country, league);
+
+  if (conf === 'UEFA' && inListByCountry(TOP_LEAGUE_BY_COUNTRY, country, league)) return 'TOP_MAJOR';
+  if (conf === 'UEFA' && !SMALL_EURO_STATES.has(country) && inListByCountry(OTHER_TOP_DIVISIONS_UEFA, country, league)) {
     return 'REST_EURO';
   }
-
-  // Конфедерации вне Европы
   if (conf === 'CONMEBOL') return 'CONMEBOL';
   if (conf === 'CONCACAF') return 'CONCACAF';
   if (conf === 'CAF') return 'CAF';
-
-  // Всё остальное игнорируем (чтобы список был “чистым”).
   return null;
 }
 
-// ——— Стабильные сортировщики ———
 function sortByCountryStable(arr, getCountry) {
   return arr
     .map((m, idx) => ({ m, idx }))
@@ -248,23 +234,23 @@ function sortTopMajor(arr) {
   return arr
     .map((m, idx) => ({ m, idx }))
     .sort((a, b) => {
-      const oa = orderMap.has(a.m.league?.country) ? orderMap.get(a.m.league.country) : 999;
-      const ob = orderMap.has(b.m.league?.country) ? orderMap.get(b.m.league.country) : 999;
-      if (oa !== ob) return oa - ob;
-      return a.idx - b.idx; // исходный порядок внутри страны
+      const ca = (orderMap.get(mCountry(a.m)) ?? 999) - (orderMap.get(mCountry(b.m)) ?? 999);
+      if (ca !== 0) return ca;
+      return a.idx - b.idx;
     })
     .map(x => x.m);
 }
+function mCountry(m){ return m.league?.country || ''; }
 
-// ——— Получение матчей и раскладка по корзинам ———
-async function fetchMatches(maxCount=60) {
+// ——— Получение матчей и порядок ———
+async function fetchMatches(maxCount=100) {
   const tz = 'Europe/Kiev';
   const { from, to } = getKievDateRangeForTomorrow();
 
   let all = await safeGet(FIXTURES_URL, { date: from, timezone: tz });
   if (all.length === 0) all = await safeGet(FIXTURES_URL, { from, to, timezone: tz });
   if (all.length === 0) {
-    const next = await safeGet(FIXTURES_URL, { next: 300, timezone: tz });
+    const next = await safeGet(FIXTURES_URL, { next: 400, timezone: tz });
     if (next.length) {
       const zStart = new Date(`${from}T00:00:00.000Z`);
       const zEnd   = new Date(`${to}T00:00:00.000Z`);
@@ -272,45 +258,31 @@ async function fetchMatches(maxCount=60) {
         const dt = new Date(m.fixture.date);
         return dt >= zStart && dt < zEnd;
       });
-      console.log(`🧩 Фолбэк next=300 → на завтра: ${all.length}`);
+      console.log(`🧩 Фолбэк next=400 → на завтра: ${all.length}`);
     }
   }
 
-  const EURO = [];
-  const TOP_MAJOR = [];
-  const REST_EURO = [];
-  const CONMEBOL = [];
-  const CONCACAF = [];
-  const CAF = [];
-
+  const EURO = [], TOP_MAJOR = [], REST_EURO = [], CONMEBOL = [], CONCACAF = [], CAF = [];
   for (const m of all) {
-    const bucket = classifyBucket(m);
-    if (!bucket) continue;
-    if (bucket === 'EURO') EURO.push(m);
-    else if (bucket === 'TOP_MAJOR') TOP_MAJOR.push(m);
-    else if (bucket === 'REST_EURO') REST_EURO.push(m);
-    else if (bucket === 'CONMEBOL') CONMEBOL.push(m);
-    else if (bucket === 'CONCACAF') CONCACAF.push(m);
-    else if (bucket === 'CAF') CAF.push(m);
+    const b = classifyBucket(m);
+    if (!b) continue;
+    if (b === 'EURO') EURO.push(m);
+    else if (b === 'TOP_MAJOR') TOP_MAJOR.push(m);
+    else if (b === 'REST_EURO') REST_EURO.push(m);
+    else if (b === 'CONMEBOL') CONMEBOL.push(m);
+    else if (b === 'CONCACAF') CONCACAF.push(m);
+    else if (b === 'CAF') CAF.push(m);
   }
 
-  // Сортировки (без сортировки по времени!)
-  const EURO_sorted = EURO
-    .map((m, idx) => ({ m, idx }))
-    .sort((a, b) => {
-      const la = (a.m.league?.name || '').localeCompare(b.m.league?.name || '');
-      if (la !== 0) return la;
-      return a.idx - b.idx;
-    })
-    .map(x => x.m);
-
+  const EURO_sorted      = EURO.map((m,idx)=>({m,idx}))
+    .sort((a,b)=> (a.m.league?.name||'').localeCompare(b.m.league?.name||'') || (a.idx-b.idx))
+    .map(x=>x.m);
   const TOP_MAJOR_sorted = sortTopMajor(TOP_MAJOR);
-  const REST_EURO_sorted = sortByCountryStable(REST_EURO, m => m.league?.country);
-  const CONMEBOL_sorted = sortByCountryStable(CONMEBOL, m => m.league?.country);
-  const CONCACAF_sorted = sortByCountryStable(CONCACAF, m => m.league?.country);
-  const CAF_sorted = sortByCountryStable(CAF, m => m.league?.country);
+  const REST_EURO_sorted = sortByCountryStable(REST_EURO, mCountry);
+  const CONMEBOL_sorted  = sortByCountryStable(CONMEBOL, mCountry);
+  const CONCACAF_sorted  = sortByCountryStable(CONCACAF, mCountry);
+  const CAF_sorted       = sortByCountryStable(CAF, mCountry);
 
-  // Финальный порядок
   const result = [
     ...EURO_sorted,
     ...TOP_MAJOR_sorted,
@@ -321,11 +293,88 @@ async function fetchMatches(maxCount=60) {
   ];
 
   const final = result.slice(0, maxCount);
-  console.log(`✅ K генерации: EURO=${EURO_sorted.length}, TOP_MAJOR=${TOP_MAJOR_sorted.length}, REST_EURO=${REST_EURO_sorted.length}, CONMEBOL=${CONMEBOL_sorted.length}, CONCACAF=${CONCACAF_sorted.length}, CAF=${CAF_sorted.length} | total=${final.length}`);
+  console.log(`✅ К генерации: EURO=${EURO_sorted.length}, TOP=${TOP_MAJOR_sorted.length}, REST_EURO=${REST_EURO_sorted.length}, CONMEBOL=${CONMEBOL_sorted.length}, CONCACAF=${CONCACAF_sorted.length}, CAF=${CAF_sorted.length} | total=${final.length}`);
   return final;
 }
 
-// ——— Нормализация текста прогнозов ———
+// ——— Вспомогательные для «*.5» тоталов и разнообразия ———
+function toHalfString(x) {
+  // любая цифра → ближайшее *.5
+  const n = Number(String(x).replace(',', '.')) || 2.5;
+  const target = Math.max(0.5, Math.round(n - 0.5) + 0.5); // 2 -> 1.5; 2.8 -> 2.5; 3.2 -> 3.5
+  return target.toFixed(1);
+}
+function quantizeOverNumber(n) {
+  // предпочтительные уровни для ОЗ/тоталов
+  const v = Number(String(n).replace(',', '.')) || 2.5;
+  if (v <= 1.9) return '1.5';
+  if (v <= 2.9) return '2.5';
+  if (v <= 3.9) return '3.5';
+  return '4.5';
+}
+function quantizeUnderNumber(n) {
+  const v = Number(String(n).replace(',', '.')) || 2.5;
+  if (v <= 1.9) return '1.5';
+  if (v <= 2.9) return '2.5';
+  if (v <= 3.9) return '3.5';
+  return '4.5';
+}
+
+// ——— Генерация ИИ (с требованием разнообразия и половинок) ———
+async function generateAllPredictions(matches) {
+  const list = matches.map((m,i)=>`${i+1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join('\n');
+  const prompt = `
+Ты спортивный аналитик. СГЕНЕРИРУЙ по одному прогнозу на каждый матч (строго русский язык). 
+Форматы РАЗРЕШЕНЫ только такие (без точек/хвостов):
+
+1) "Победа <точное имя команды>"
+2) "Тотал больше <1.5|2.5|3.5|4.5>"
+3) "Тотал меньше <1.5|2.5|3.5|4.5>"
+4) "Обе забьют-да"
+5) "Обе забьют-нет"
+6) "<точное имя команды> Фора <+1|+1.5|+2|−1|−1.5|−2>"
+
+ТРЕБОВАНИЯ:
+- Используй РАЗНООБРАЗИЕ типов (не более 40% строк — "Победа ...").
+- Все тоталы — ТОЛЬКО половинки (.5), никаких целых.
+- Одна строка на матч. Никаких пояснений.
+- Без "Двойной шанс", без "Ничья", без доп. текста.
+
+Список матчей:
+${list}
+`.trim();
+
+  try {
+    const r = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4
+    });
+    const lines = (r.choices?.[0]?.message?.content || '')
+      .split('\n').map(s => s.trim()).filter(Boolean)
+      .map(s => s.replace(/^\d+\.\s*/, ''));
+    if (lines.length >= matches.length) return lines.slice(0, matches.length);
+  } catch (e) {
+    console.error('AI error:', e.message);
+  }
+
+  // Фолбэк: простая ротация шаблонов с половинками
+  const templates = ['WIN_FAV','OVER','BTTS_YES','HANDICAP_FAV','UNDER','WIN_DOG','BTTS_NO','HANDICAP_DOG'];
+  let ti = 0;
+  return matches.map((m,i) => {
+    const t = templates[ti++ % templates.length];
+    if (t === 'OVER') return `Тотал больше 2.5`;
+    if (t === 'UNDER') return `Тотал меньше 2.5`;
+    if (t === 'BTTS_YES') return `Обе забьют-да`;
+    if (t === 'BTTS_NO') return `Обе забьют-нет`;
+    if (t === 'HANDICAP_FAV') return `${m.teams.home.name} Фора -1`;
+    if (t === 'HANDICAP_DOG') return `${m.teams.away.name} Фора +1.5`;
+    if (t === 'WIN_DOG') return `Победа ${m.teams.away.name}`;
+    return `Победа ${m.teams.home.name}`;
+  });
+}
+
+// ——— Пост-обработка прогнозов (строгие форматы + половинки тоталов) ———
 function normalize(s) {
   return (s||'').toLowerCase().replace(/[–—−]/g,'-').replace(/\s+/g,' ').trim();
 }
@@ -346,38 +395,36 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
   const home = normalize(homeName);
   const away = normalize(awayName);
 
-  // Двойной шанс/не проиграет → Победа нужной команды
-  let m =
-    t.match(/^двойной\s+шанс[:\-\s]*(.+?)\s+или\s+ничья$/i) ||
-    t.match(/^ничья\s+или\s+(.+?)$/i) ||
-    t.match(/^(.+?)\s+или\s+ничья$/i);
-  if (m) {
-    const who = normalize(m[1]);
-    if (who.includes(home)) return `Победа ${homeName}`;
-    if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${favoriteName}`;
-  }
-  m = t.match(/^(.+?)\s+не\s+проиграет$/i);
-  if (m) {
-    const who = normalize(m[1]);
-    if (who.includes(home)) return `Победа ${homeName}`;
-    if (who.includes(away)) return `Победа ${awayName}`;
-    return `Победа ${favoriteName}`;
-  }
-
   // Обе забьют
-  m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
-  if (m) return `Обе забьют-${m[1].toLowerCase()}`;
+  let m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
+  if (m) return `Обе забьют-${m[1].toLowerCase()==='да'?'да':'нет'}`;
 
-  // Тоталы
+  // Тотал больше X (приводим к *.5)
   m = core.match(/Тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)/i);
-  if (m) return `Тотал больше ${m[1].replace(',', '.')}`;
+  if (m) {
+    const q = quantizeOverNumber(m[1]);
+    return `Тотал больше ${q}`;
+  }
+  // Тотал меньше X (к *.5)
   m = core.match(/Тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)/i);
-  if (m) return `Тотал меньше ${m[1].replace(',', '.')}`;
+  if (m) {
+    const num = Number(String(m[1]).replace(',', '.'));
+    // логика: если целое 3 → 2.5; 2 → 1.5
+    if (Number.isInteger(num)) {
+      const half = (num - 0.5);
+      return `Тотал меньше ${half.toFixed(1)}`;
+    }
+    return `Тотал меньше ${toHalfString(num)}`;
+  }
+  // Короткие ТБ/ТМ → к *.5
   m = core.match(/\bТБ\s*([0-9]+(?:[.,][0-9]+)?)\b/i);
-  if (m) return `Тотал больше ${m[1].replace(',', '.')}`;
+  if (m) return `Тотал больше ${quantizeOverNumber(m[1])}`;
   m = core.match(/\bТМ\s*([0-9]+(?:[.,][0-9]+)?)\b/i);
-  if (m) return `Тотал меньше ${m[1].replace(',', '.')}`;
+  if (m) {
+    const num = Number(String(m[1]).replace(',', '.'));
+    if (Number.isInteger(num)) return `Тотал меньше ${(num-0.5).toFixed(1)}`;
+    return `Тотал меньше ${toHalfString(num)}`;
+  }
 
   // Победа
   m = core.match(/^Победа\s+(.+)$/i);
@@ -413,13 +460,11 @@ function sanitizePredictionText(text, homeName, awayName, favoriteName) {
     return `${out} Фора ${s}`;
   }
 
-  // «Ничья» → Победа фаворита
-  if (/^ничья$/i.test(core)) return `Победа ${favoriteName}`;
-
+  // Всё остальное → Победа фаворита (как фолбэк)
   return `Победа ${favoriteName}`;
 }
 
-// Favbet приоритет
+// ——— Favbet приоритет и выбор коэффициента ———
 function isFavbet(name='') { return String(name).toLowerCase().includes('fav'); }
 
 function extract1x2FromPack(pack) {
@@ -448,45 +493,6 @@ function chooseFavoriteName(homeName, awayName, pack) {
     return one.home <= one.away ? homeName : awayName;
   }
   return homeName; // фолбэк
-}
-
-function detectMarketAndOutcome(predText, homeName, awayName) {
-  const raw = predText||'';
-  const core = stripContext(raw);
-  const t = normalize(core);
-  const home = normalize(homeName);
-  const away = normalize(awayName);
-
-  // Победа
-  let m = core.match(/^Победа\s+(.+)$/i);
-  if (m) {
-    const who = normalize(m[1]);
-    if (who.includes(home)) return { market:'1X2', outcome:'1' };
-    if (who.includes(away)) return { market:'1X2', outcome:'2' };
-    return { market:'1X2', outcome:'1' };
-  }
-
-  // Обе забьют
-  m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
-  if (m) return { market:'Both Teams To Score', outcome: m[1]==='да'?'Yes':'No' };
-
-  // Тоталы
-  m = core.match(/^Тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)$/i);
-  if (m) return { market:'Total Goals', outcome:`Over ${m[1].replace(',', '.')}` };
-  m = core.match(/^Тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)$/i);
-  if (m) return { market:'Total Goals', outcome:`Under ${m[1].replace(',', '.')}` };
-
-  // Фора "<Команда> Фора n"
-  m = core.match(/^(.+?)\s+Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)$/i);
-  if (m) {
-    const who = normalize(m[1]);
-    const sign = m[2].replace(',', '.');
-    const side = who.includes(home) ? 'home' : who.includes(away) ? 'away' : 'home';
-    return { market:'Handicap', outcome:`${side} ${sign}` };
-  }
-
-  // По умолчанию — 1X2 хозяев
-  return { market:'1X2', outcome:'1' };
 }
 
 function pickOddFromBook(book, market, outcome) {
@@ -521,7 +527,7 @@ function pickOddFromBook(book, market, outcome) {
           break;
         }
         case 'Handicap': {
-          const target = outcome.split(' ')[1]; // +1.0
+          const target = outcome.split(' ')[1];
           if (nm === target || nm === target.replace(/\.0$/,'') || target.includes(nm)) return odd;
           break;
         }
@@ -541,41 +547,44 @@ function pickOddFromPack(pack, market, outcome) {
   return null;
 }
 
-// ——— Генерация ИИ (строго ограниченные шаблоны) ———
-async function generateAllPredictions(matches) {
-  const list = matches.map((m,i)=>`${i+1}. ${m.teams.home.name} vs ${m.teams.away.name}`).join('\n');
-  const prompt = `
-Ты спортивный аналитик.
-СГЕНЕРИРУЙ по одному прогнозу на каждый матч СТРОГО в одном из шаблонов (русский язык). ОДНА строка на матч, без точек/хвостов:
+function detectMarketAndOutcome(predText, homeName, awayName) {
+  const raw = predText||'';
+  const core = stripContext(raw);
+  const t = normalize(core);
+  const home = normalize(homeName);
+  const away = normalize(awayName);
 
-1) "Победа <точное имя команды>" 
-2) "Тотал больше <число>"
-3) "Тотал меньше <число>"
-4) "Обе забьют-да"
-5) "Обе забьют-нет"
-6) "<точное имя команды> Фора <+/-число>"
-
-Запрещены "Двойной шанс", "Ничья" и любые хвосты/дополнения.
-
-Список:
-${list}
-`.trim();
-
-  try {
-    const r = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7
-    });
-    return (r.choices?.[0]?.message?.content || '')
-      .split('\n')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(s => s.replace(/^\d+\.\s*/, ''));
-  } catch (e) {
-    console.error('AI error:', e.message);
-    return matches.map(m => `Победа ${m.teams.home.name}`);
+  // Победа
+  let m = core.match(/^Победа\s+(.+)$/i);
+  if (m) {
+    const who = normalize(m[1]);
+    if (who.includes(home)) return { market:'1X2', outcome:'1' };
+    if (who.includes(away)) return { market:'1X2', outcome:'2' };
+    return { market:'1X2', outcome:'1' };
   }
+
+  // Обе забьют
+  m = t.match(/^обе(?:\s+команды)?\s+забьют\s*[-:() ]*\s*(да|нет)$/i);
+  if (m) return { market:'Both Teams To Score', outcome: m[1]==='да'?'Yes':'No' };
+
+  // Тоталы
+  m = core.match(/^Тотал\s+больше\s+([0-9]+(?:[.,][0-9]+)?)$/i);
+  if (m) return { market:'Total Goals', outcome:`Over ${quantizeOverNumber(m[1])}` };
+  m = core.match(/^Тотал\s+меньше\s+([0-9]+(?:[.,][0-9]+)?)$/i);
+  if (m) return { market:'Total Goals', outcome:`Under ${quantizeUnderNumber(m[1])}` };
+
+  // Фора "<Команда> Фора n"
+  m = core.match(/^(.+?)\s+Фора\s*([+\-]?[0-9]+(?:[.,][0-9]+)?)$/i);
+  if (m) {
+    const who = normalize(m[1]);
+    const sign = String(m[2]).replace(',', '.');
+    const side = who.includes(home) ? 'home' : who.includes(away) ? 'away' : 'home';
+    // Для рынка Handicap ожидается "home +1.5" / "away -1"
+    const signNorm = (/^[+-]/.test(sign) ? sign : `+${sign}`);
+    return { market:'Handicap', outcome:`${side} ${signNorm}` };
+  }
+
+  return { market:'1X2', outcome:'1' };
 }
 
 // ——— Сохранение ———
@@ -589,29 +598,45 @@ async function saveToDraft(preds) {
   await client.close();
 }
 
-// ——— Основная ———
+// ——— Основная функция ———
 async function generatePredictions() {
-  const matches = await fetchMatches(80);
+  const matches = await fetchMatches(100);
   if (!matches.length) {
     await saveToDraft([]);
     return [];
   }
 
+  // Берём пакет коэффициентов на каждый матч заранее (для фаворита и рынков)
+  const oddsPacks = {};
+  for (const m of matches) {
+    try {
+      oddsPacks[m.fixture.id] = (await safeGet(ODDS_URL, { fixture: m.fixture.id, timezone: 'Europe/Kiev' }))?.[0] || null;
+    } catch { oddsPacks[m.fixture.id] = null; }
+  }
+
   const ai = await generateAllPredictions(matches);
 
   const cards = [];
+  let winCount = 0;
   for (let i=0;i<matches.length;i++) {
     const match = matches[i];
+    const pack = oddsPacks[match.fixture.id];
+    const favorite = chooseFavoriteName(match.teams.home.name, match.teams.away.name, pack);
 
-    // Коэффициенты: Favbet приоритет
-    const oddsPack = (await safeGet(ODDS_URL, { fixture: match.fixture.id, timezone: 'Europe/Kiev' }))?.[0] || null;
-    const favorite = chooseFavoriteName(match.teams.home.name, match.teams.away.name, oddsPack);
+    // пост-обработка ИИ → наши форматы + половинки
+    let predText = sanitizePredictionText(ai[i] || '', match.teams.home.name, match.teams.away.name, favorite);
 
-    const raw = ai[i] || '';
-    const predText = sanitizePredictionText(raw, match.teams.home.name, match.teams.away.name, favorite);
+    // Доп. ограничение однообразия: не более 40% побед
+    if (/^Победа\s+/i.test(predText)) winCount++;
+    const limitWins = Math.floor(matches.length * 0.4);
+    if (winCount > limitWins) {
+      // Сменим на тотал с половинкой
+      predText = Math.random() < 0.5 ? `Тотал больше 2.5` : `Тотал меньше 2.5`;
+    }
 
+    // Подбор коэффициента под итоговый рынок/исход
     const { market, outcome } = detectMarketAndOutcome(predText, match.teams.home.name, match.teams.away.name);
-    let odd = pickOddFromPack(oddsPack, market, outcome);
+    let odd = pickOddFromPack(pack, market, outcome);
     if (!odd) odd = getRandomOdds();
 
     cards.push({ match, predText, odd });
@@ -621,13 +646,12 @@ async function generatePredictions() {
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
-  // Запись в черновики
+  // Сохраняем
   const predictions = cards.map(({ match, predText, odd }, idx) => ({
     id: Date.now() + idx,
     country: match.league.country || '',
     league:  match.league.name || '',
     date:    ddmmyy(match.fixture.date),
-    // legacy поле (клиент берёт country/league/date для красивого вывода)
     tournament: `Футбол.${ddmmyy(match.fixture.date)} ${match.league.name || ''}`,
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
