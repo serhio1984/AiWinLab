@@ -138,9 +138,9 @@ app.post('/api/check-password', (req, res) => {
   res.json({ success: password === ADMIN_PASSWORD });
 });
 
-// Баланс (+ возможно обновление профиля при первом заходе)
+// Баланс
 app.post('/balance', async (req, res) => {
-  const { userId, action, amount, profile } = req.body;
+  const { userId, action, amount } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
   const users = db.collection('users');
@@ -148,29 +148,10 @@ app.post('/balance', async (req, res) => {
   if (action === 'get') {
     let user = await users.findOne({ chatId: userId });
     if (!user) {
-      // стартовый бонус 5 монет
-      await users.insertOne({
-        chatId: userId,
-        coins: 5,
-        username: profile?.username || null,
-        first_name: profile?.first_name || null,
-        last_name: profile?.last_name || null
-      });
+      await users.insertOne({ chatId: userId, coins: 5 });
       user = { coins: 5 };
-    } else if (profile) {
-      // обновим ник/имя (не критично, но полезно)
-      await users.updateOne(
-        { chatId: userId },
-        {
-          $set: {
-            username: profile.username || user.username || null,
-            first_name: profile.first_name || user.first_name || null,
-            last_name: profile.last_name || user.last_name || null
-          }
-        }
-      );
     }
-    return res.json({ coins: user.coins ?? 0 });
+    return res.json({ coins: user.coins });
   }
 
   if (action === 'update') {
@@ -218,11 +199,8 @@ app.post('/api/predictions', async (req, res) => {
   if (!Array.isArray(arr)) return res.status(400).json({ success: false });
 
   const cleaned = arr.map(p => {
-    const {
-      id, country, league, date, // поддерживаем новые поля
-      tournament, team1, logo1, team2, logo2, odds, predictionText
-    } = p;
-    return { id, country, league, date, tournament, team1, logo1, team2, logo2, odds, predictionText };
+    const { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date } = p;
+    return { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date };
   });
 
   const coll = db.collection('draft_predictions');
@@ -277,35 +255,39 @@ app.post('/api/unlock', async (req, res) => {
   res.json({ success: true, coins: updated.coins });
 });
 
-// ✅ Разблокировка ВСЕХ прогнозов за 60 монет
+// === НОВОЕ: Разблокировать ВСЁ за динамическую стоимость ===
 app.post('/api/unlock-all', async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: 'User ID required' });
+  const { userId, cost } = req.body;
+  if (!userId || typeof cost !== 'number') {
+    return res.status(400).json({ success: false, message: 'User ID and cost required' });
+  }
 
   const users = db.collection('users');
   const unlocks = db.collection('unlocks');
-  const predsCol = db.collection('predictions');
+  const preds = db.collection('predictions');
 
   const user = await users.findOne({ chatId: userId });
-  if (!user || user.coins < 60) {
+  if (!user || user.coins < cost) {
     return res.json({ success: false, message: 'Недостаточно монет' });
   }
 
-  // Списываем 60 монет
-  await users.updateOne({ chatId: userId }, { $inc: { coins: -60 } });
-
-  // Получаем все текущие прогнозы и массово отмечаем разблокированными
-  const allPreds = await predsCol.find().toArray();
-  if (allPreds.length > 0) {
-    const ops = allPreds.map(p => ({
-      updateOne: {
-        filter: { userId, predictionId: p.id },
-        update: { $set: { userId, predictionId: p.id } },
-        upsert: true
-      }
-    }));
-    await unlocks.bulkWrite(ops, { ordered: false });
+  const allPreds = await preds.find().toArray();
+  if (!allPreds.length) {
+    return res.json({ success: false, message: 'Нет прогнозов' });
   }
+
+  // Списываем монеты один раз
+  await users.updateOne({ chatId: userId }, { $inc: { coins: -cost } });
+
+  // Отмечаем все как разблокированные для пользователя
+  const ops = allPreds.map(p => ({
+    updateOne: {
+      filter: { userId, predictionId: p.id },
+      update: { $set: { userId, predictionId: p.id } },
+      upsert: true
+    }
+  }));
+  if (ops.length) await unlocks.bulkWrite(ops);
 
   const updated = await users.findOne({ chatId: userId });
   res.json({ success: true, coins: updated.coins });
