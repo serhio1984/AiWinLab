@@ -255,42 +255,61 @@ app.post('/api/unlock', async (req, res) => {
   res.json({ success: true, coins: updated.coins });
 });
 
-// === НОВОЕ: Разблокировать ВСЁ за динамическую стоимость ===
+// === Разблокировать ВСЁ за динамическую стоимость (с защитой от повторной покупки) ===
 app.post('/api/unlock-all', async (req, res) => {
-  const { userId, cost } = req.body;
-  if (!userId || typeof cost !== 'number') {
-    return res.status(400).json({ success: false, message: 'User ID and cost required' });
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ success: false, message: 'User ID required' });
   }
 
   const users = db.collection('users');
   const unlocks = db.collection('unlocks');
-  const preds = db.collection('predictions');
+  const predsColl = db.collection('predictions');
 
   const user = await users.findOne({ chatId: userId });
-  if (!user || user.coins < cost) {
-    return res.json({ success: false, message: 'Недостаточно монет' });
+  if (!user) {
+    return res.json({ success: false, message: 'Пользователь не найден' });
   }
 
-  const allPreds = await preds.find().toArray();
-  if (!allPreds.length) {
+  // Берём список всех опубликованных прогнозов (id)
+  const allPreds = await predsColl.find({}, { projection: { id: 1 } }).toArray();
+  const totalCount = allPreds.length;
+  if (!totalCount) {
     return res.json({ success: false, message: 'Нет прогнозов' });
   }
 
-  // Списываем монеты один раз
-  await users.updateOne({ chatId: userId }, { $inc: { coins: -cost } });
+  // Вычисляем, какие ещё закрыты
+  const already = await unlocks.find({ userId }, { projection: { predictionId: 1 } }).toArray();
+  const unlockedSet = new Set(already.map(u => u.predictionId));
+  const lockedIds = allPreds.map(p => p.id).filter(id => !unlockedSet.has(id));
 
-  // Отмечаем все как разблокированные для пользователя
-  const ops = allPreds.map(p => ({
+  if (lockedIds.length === 0) {
+    // Ничего не списываем — всё уже открыто
+    return res.json({ success: false, message: 'Все прогнозы уже открыты', coins: user.coins });
+  }
+
+  // Серверный расчёт цены (защита от подмены на клиенте)
+  const serverCost = Math.floor(totalCount / 1.3);
+
+  if (user.coins < serverCost) {
+    return res.json({ success: false, message: 'Недостаточно монет', coins: user.coins });
+  }
+
+  // Списываем монеты ОДИН раз
+  await users.updateOne({ chatId: userId }, { $inc: { coins: -serverCost } });
+
+  // Открываем только реально оставшиеся закрытые
+  const ops = lockedIds.map(id => ({
     updateOne: {
-      filter: { userId, predictionId: p.id },
-      update: { $set: { userId, predictionId: p.id } },
+      filter: { userId, predictionId: id },
+      update: { $set: { userId, predictionId: id } },
       upsert: true
     }
   }));
   if (ops.length) await unlocks.bulkWrite(ops);
 
   const updated = await users.findOne({ chatId: userId });
-  res.json({ success: true, coins: updated.coins });
+  res.json({ success: true, coins: updated.coins, unlocked: lockedIds.length, charged: serverCost });
 });
 
 // Создание инвойса
