@@ -19,7 +19,8 @@ const translations = {
     locked: "🔒 Прогноз заблокирован",
     notEnough: "Недостаточно монет",
     unlockAll: (n) => `Открыть всё за ${n} монет`,
-    allOpened: "Все прогнозы успешно открыты!"
+    allOpened: "Все прогнозы успешно открыты!",
+    alreadyOpened: "Все прогнозы уже открыты"
   },
   uk: {
     slogan: "Розумні ставки. Великі виграші.",
@@ -30,7 +31,8 @@ const translations = {
     locked: "🔒 Прогноз заблоковано",
     notEnough: "Недостатньо монет",
     unlockAll: (n) => `Відкрити все за ${n} монет`,
-    allOpened: "Усі прогнози успішно відкрито!"
+    allOpened: "Усі прогнози успішно відкрито!",
+    alreadyOpened: "Усі прогнози вже відкриті"
   },
   en: {
     slogan: "Smart bets. Big wins.",
@@ -41,7 +43,8 @@ const translations = {
     locked: "🔒 Prediction locked",
     notEnough: "Not enough coins",
     unlockAll: (n) => `Unlock all for ${n} coins`,
-    allOpened: "All predictions are unlocked!"
+    allOpened: "All predictions are unlocked!",
+    alreadyOpened: "All predictions are already unlocked"
   }
 };
 
@@ -231,16 +234,14 @@ async function unlockPrediction(predictionId) {
 }
 
 // === Разблокировать все за динамическую стоимость ===
-async function unlockAllPredictions(cost) {
+async function unlockAllPredictions() {
   const userId = getUserId();
-  if (!userId || coins < cost) {
-    return alert(translations[lang].notEnough);
-  }
+  if (!userId) return;
 
   const res = await fetch('/api/unlock-all', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, cost })
+    body: JSON.stringify({ userId })
   });
 
   const result = await res.json();
@@ -250,7 +251,8 @@ async function unlockAllPredictions(cost) {
     await loadPredictions();
     alert(translations[lang].allOpened);
   } else {
-    alert(result.message || 'Ошибка при разблокировке всех прогнозов');
+    if (result.message) alert(result.message);
+    else alert(translations[lang].notEnough);
   }
 }
 
@@ -261,30 +263,30 @@ function updateBalance() {
 
 /**
  * Рендер карточек + ДИНАМИЧЕСКАЯ КНОПКА "Открыть всё"
- * Стоимость = floor(кол-во прогнозов / 1.3)
- * Кнопка закреплена (sticky) сверху списка.
+ * Стоимость = floor(кол-во прогнозов / 1.3) — рассчитывается на лету в кнопке,
+ * но реальное списание и защита — на сервере (тот же расчёт).
+ * Кнопка показывается ТОЛЬКО если есть ещё закрытые прогнозы.
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
   predictionsContainer.innerHTML = '';
 
-  // === динамическая кнопка "Открыть всё" (единственная) ===
-  if (predictions.length > 0) {
-    const total = predictions.length;
-    const cost = Math.floor(total / 1.3); // по твоему правилу
+  const lockedCount = predictions.filter(p => !p.isUnlocked).length;
+  const total = predictions.length;
 
+  if (total > 0 && lockedCount > 0) {
+    const cost = Math.floor(total / 1.3);
     const bar = document.createElement('div');
     bar.className = 'unlock-all-bar';
 
     const unlockAllBtn = document.createElement('button');
     unlockAllBtn.className = 'buy-btn';
     unlockAllBtn.textContent = translations[lang].unlockAll(cost);
-    unlockAllBtn.onclick = () => unlockAllPredictions(cost);
+    unlockAllBtn.onclick = () => unlockAllPredictions();
 
     bar.appendChild(unlockAllBtn);
     predictionsContainer.appendChild(bar);
   }
-  // =========================================
 
   predictions.forEach(p => {
     const div = document.createElement('div');
