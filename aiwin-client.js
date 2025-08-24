@@ -101,10 +101,10 @@ function translatePredictionText(original, target) {
       {
         re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
         tr: (m) => {
-          const tm = m[1]; // команда
+          const tm = m[1];
           const h = (m[2] || '').replace(',', '.');
           if (target === 'en') return `${tm} Handicap ${h}`;
-          return `${tm} Фора ${h}`; // в укр. тоже «Фора»
+          return `${tm} Фора ${h}`;
         }
       },
 
@@ -230,7 +230,7 @@ async function unlockPrediction(predictionId) {
   }
 }
 
-// === НОВОЕ: разблокировать все за динамическую стоимость ===
+// === Разблокировать все за динамическую стоимость ===
 async function unlockAllPredictions(cost) {
   const userId = getUserId();
   if (!userId || coins < cost) {
@@ -262,28 +262,27 @@ function updateBalance() {
 /**
  * Рендер карточек + ДИНАМИЧЕСКАЯ КНОПКА "Открыть всё"
  * Стоимость = floor(кол-во прогнозов / 1.3)
+ * Кнопка закреплена (sticky) сверху списка.
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
   predictionsContainer.innerHTML = '';
 
-  // === динамическая кнопка "Открыть всё" ===
+  // === динамическая кнопка "Открыть всё" (единственная) ===
   if (predictions.length > 0) {
     const total = predictions.length;
-    const cost = Math.floor(total / 1.3); // соответствует вашим примерам 80→61, 47→36
+    const cost = Math.floor(total / 1.3); // по твоему правилу
 
-    const unlockAllDiv = document.createElement('div');
-    unlockAllDiv.style.textAlign = 'center';
-    unlockAllDiv.style.margin = '10px';
-    unlockAllDiv.style.gridColumn = '1 / -1'; // на всю ширину сетки
+    const bar = document.createElement('div');
+    bar.className = 'unlock-all-bar';
 
     const unlockAllBtn = document.createElement('button');
     unlockAllBtn.className = 'buy-btn';
     unlockAllBtn.textContent = translations[lang].unlockAll(cost);
     unlockAllBtn.onclick = () => unlockAllPredictions(cost);
 
-    unlockAllDiv.appendChild(unlockAllBtn);
-    predictionsContainer.appendChild(unlockAllDiv);
+    bar.appendChild(unlockAllBtn);
+    predictionsContainer.appendChild(bar);
   }
   // =========================================
 
