@@ -175,7 +175,6 @@ function isEuroCups(leagueName) {
   return EURO_CUPS_KEYS.some(k => n.includes(k));
 }
 function isNationalTeams(m) {
-  // Определяем по имени турнира (Евро, отбор, ЛН, friendly) И по признакам "International/Europe/World"
   const country = String(m.league?.country || '');
   const type = String(m.league?.type || '');
   const name = lc(m.league?.name || '');
@@ -186,7 +185,6 @@ function isNationalTeams(m) {
 function isEuroDomesticCup(country, leagueName) {
   if (!isUEFA(country)) return false;
   const n = lc(leagueName);
-  // исключаем еврокубки (они уже отнесены раньше)
   if (isEuroCups(leagueName)) return false;
   return EURO_DOMESTIC_CUPS_KEYS.some(k => n.includes(k)) || /\b(cup|super\s*cup|beker|pokal|coppa|coupe|supertaca|taça)\b/i.test(leagueName);
 }
@@ -204,9 +202,7 @@ function isLowerDivisionUEFA(country, leagueName) {
   if (isEuroCups(leagueName)) return false;
   if (isEuroDomesticCup(country, leagueName)) return false;
   if (isNationalTeams({ league: { country, name: leagueName } })) return false;
-  // по известным ключам низших дивизионов
   if (LOWER_DIVS_KEYS.some(k => n.includes(k))) return true;
-  // если лига выглядит как "2 / B / II / Liga 2" и т.п.
   if (/\b(2\.|ii|b|liga\s*2|division\s*2|segunda|ligue\s*2)\b/i.test(leagueName)) return true;
   return false;
 }
@@ -235,9 +231,7 @@ async function fetchMatches(maxCount = 100) {
   all = all.filter(m => {
     const country = m.league?.country || '';
     if (EXCLUDED_COUNTRIES.has(country)) return false;
-    // Сборные помечены как International/Europe/World — для них пропустим дальше (категория NATIONAL_TEAMS),
-    // а для клубов — оставим только UEFA страны.
-    if (/international|world|europe/i.test(country)) return true;
+    if (/international|world|europe/i.test(country)) return true; // для сборных — пропускаем как International
     return isUEFA(country);
   });
 
@@ -277,10 +271,10 @@ async function fetchMatches(maxCount = 100) {
       LOWER_DIVS.push(m);
       continue;
     }
-    // всё остальное отбрасываем (нам не нужно)
+    // остальное отбрасываем
   }
 
-  // Внутри каждого ведра упорядочим стабильно: страна → лига → исходный индекс
+  // Внутри каждого ведра: страна → лига → стабильно
   const byCountry = (x) => x.league?.country || '';
   const byLeague  = (x) => x.league?.name || '';
   const stableSort = (arr) =>
@@ -530,7 +524,6 @@ function pickOddFromBook(book, market, outcome) {
           break;
         }
         case 'Handicap': {
-          // outcome: "home +1.5" или "away -1"
           const target = outcome.split(' ')[1];
           if (nmRaw === target || target.includes(nmRaw)) return odd;
           break;
@@ -650,12 +643,30 @@ async function generatePredictions() {
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
 
+  // === Формирование названия турнира с учётом КУБКОВ ===
+  function buildTournamentTitle(m) {
+    const datePart = ddmmyy(m.fixture.date);
+    const leagueName = m.league?.name || '';
+    const country = m.league?.country || '';
+
+    if (isEuroCups(leagueName)) {
+      // Еврокубки — страна не пишем
+      return `Футбол.${datePart} ${leagueName}`;
+    }
+    if (isEuroDomesticCup(country, leagueName)) {
+      // Национальные кубки — добавляем страну
+      return `Футбол.${datePart} ${country} ${leagueName}`;
+    }
+    // Остальные турниры — страна + лига (чтобы было однозначно)
+    return `Футбол.${datePart} ${country} ${leagueName}`;
+  }
+
   const predictions = cards.map(({ match, predText, odd }, idx) => ({
     id: Date.now() + idx,
     country: match.league.country || '',
     league:  match.league.name || '',
     date:    ddmmyy(match.fixture.date),
-    tournament: `Футбол.${ddmmyy(match.fixture.date)} ${match.league.name || ''}`,
+    tournament: buildTournamentTitle(match),
     team1: teamTranslations[match.teams.home.name] || match.teams.home.name,
     logo1: match.teams.home.logo,
     team2: teamTranslations[match.teams.away.name] || match.teams.away.name,
