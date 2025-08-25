@@ -36,6 +36,21 @@ const UEFA_COUNTRIES = new Set([
   'Malta','Monaco','San Marino','Israel','Kazakhstan'
 ]);
 
+// Переводы стран (RU)
+const COUNTRY_TR = {
+  'England':'Англия','Scotland':'Шотландия','Wales':'Уэльс','Northern Ireland':'Северная Ирландия','Ireland':'Ирландия',
+  'Spain':'Испания','Italy':'Италия','Germany':'Германия','France':'Франция','Netherlands':'Нидерланды','Portugal':'Португалия',
+  'Belgium':'Бельгия','Switzerland':'Швейцария','Austria':'Австрия','Turkey':'Турция','Greece':'Греция','Denmark':'Дания',
+  'Norway':'Норвегия','Sweden':'Швеция','Poland':'Польша','Czech Republic':'Чехия','Czechia':'Чехия','Croatia':'Хорватия',
+  'Serbia':'Сербия','Romania':'Румыния','Hungary':'Венгрия','Slovakia':'Словакия','Slovenia':'Словения','Bulgaria':'Болгария',
+  'Bosnia and Herzegovina':'Босния и Герцеговина','North Macedonia':'Северная Македония','Albania':'Албания','Kosovo':'Косово',
+  'Montenegro':'Черногория','Moldova':'Молдова','Ukraine':'Украина','Lithuania':'Литва','Latvia':'Латвия','Estonia':'Эстония',
+  'Finland':'Финляндия','Iceland':'Исландия','Georgia':'Грузия','Armenia':'Армения','Azerbaijan':'Азербайджан','Cyprus':'Кипр',
+  'Andorra':'Андорра','Faroe Islands':'Фарерские о-ва','Gibraltar':'Гибралтар','Luxembourg':'Люксембург','Liechtenstein':'Лихтенштейн',
+  'Malta':'Мальта','Monaco':'Монако','San Marino':'Сан-Марино','Israel':'Израиль','Kazakhstan':'Казахстан',
+  'International':'Международный','World':'Мир','Europe':'Европа'
+};
+
 // ТОП-лиги (высшие дивизионы)
 const TOP_LEAGUE_BY_COUNTRY = {
   "England":     ["Premier League"],
@@ -79,6 +94,115 @@ const OTHER_TOP_DIVISIONS_UEFA = {
   "Kazakhstan":  ["Premier League"]
 };
 
+// Переводы лиг/кубков/еврокубков
+const LEAGUE_TR = {
+  // Еврокубки
+  'UEFA Champions League':'Лига Чемпионов УЕФА',
+  'Champions League':'Лига Чемпионов УЕФА',
+  'UEFA Europa League':'Лига Европы УЕФА',
+  'Europa League':'Лига Европы УЕФА',
+  'UEFA Europa Conference League':'Лига Конференций УЕФА',
+  'Europa Conference League':'Лига Конференций УЕФА',
+  'UEFA Super Cup':'Суперкубок УЕФА',
+  'Super Cup':'Суперкубок УЕФА',
+
+  // Топ-лиги
+  'Premier League':'Премьер-Лига Англии',
+  'La Liga':'Ла Лига Испании',
+  'Serie A':'Серия А Италии',
+  'Bundesliga':'Бундеслига Германии',
+  'Ligue 1':'Лига 1 Франции',
+  'Eredivisie':'Эредивизи Нидерландов',
+  'Primeira Liga':'Примейра Лига Португалии',
+
+  // Примеры других высших
+  'Scottish Premiership':'Премьер-лига Шотландии',
+  'Premiership':'Премьер-лига Шотландии',
+  'Super Lig':'Суперлига Турции',
+  'Süper Lig':'Суперлига Турции',
+  'Super League 1':'Суперлига Греции',
+  'Super League Greece':'Суперлига Греции',
+  'Jupiler Pro League':'Про Лига Бельгии',
+  'Pro League':'Про Лига Бельгии',
+  'First Division A':'Первый дивизион A (Бельгия)',
+  'Austrian Bundesliga':'Бундеслига Австрии',
+  'Super League':'Суперлига Швейцарии',
+  'Swiss Super League':'Суперлига Швейцарии',
+  'Ekstraklasa':'Экстракласса Польши',
+  'Ukrainian Premier League':'Премьер-Лига Украины',
+  'Eliteserien':'Элитсериен Норвегии',
+  'Allsvenskan':'Аллсвенскан Швеции',
+  'Superliga':'Суперлига Дании',
+  'Danish Superliga':'Суперлига Дании',
+  'Czech Liga':'Первая лига Чехии',
+  'Fortuna Liga':'Фортуна Лига',
+  '1. Liga':'Первая лига',
+  'HNL':'Хорватская HNL',
+  '1. HNL':'Хорватская 1. HNL',
+  'SuperLiga':'Суперлига Сербии',
+  'Liga I':'Лига I Румынии',
+  'Superliga':'Суперлига Румынии',
+  'NB I':'NB I Венгрии',
+  'PrvaLiga':'Первая лига Словении',
+  'First League':'Первая лига',
+  'Veikkausliiga':'Вейккауслига',
+  'Úrvalsdeild':'Урвалсдейд',
+  'Urvalsdeild':'Урвалсдейд',
+  'First Division':'Высший дивизион',
+  'Premier Division':'Премьер-дивизион',
+  'Cymru Premier':'Камри Премьер',
+  'Ligat ha\'Al':'Лигат ха-Аль',
+  'Liga Portugal 2':'Лига Португалии 2',
+  'Ligue 2':'Лига 2',
+  'Serie B':'Серия B',
+  '2. Bundesliga':'2-я Бундеслига',
+  'Eerste Divisie':'Эерсте Дивизи',
+
+  // Домашние кубки
+  'FA Cup':'Кубок Англии',
+  'EFL Cup':'Кубок Английской Лиги',
+  'Carabao Cup':'Кубок Английской Лиги',
+  'Community Shield':'Суперкубок Англии',
+  'Copa del Rey':'Кубок Испании',
+  'Supercopa':'Суперкубок Испании',
+  'Coppa Italia':'Кубок Италии',
+  'Supercoppa':'Суперкубок Италии',
+  'DFB-Pokal':'Кубок Германии',
+  'DFB Pokal':'Кубок Германии',
+  'DFB Supercup':'Суперкубок Германии',
+  'Coupe de France':'Кубок Франции',
+  'Trophée des Champions':'Суперкубок Франции',
+  'Trophee des Champions':'Суперкубок Франции',
+  'KNVB Beker':'Кубок Нидерландов',
+  'Johan Cruijff Schaal':'Суперкубок Нидерландов',
+  'Johan Cruijff Shield':'Суперкубок Нидерландов',
+  'Taça de Portugal':'Кубок Португалии',
+  'Taca de Portugal':'Кубок Португалии',
+  'Supertaça':'Суперкубок Португалии',
+  'Scottish Cup':'Кубок Шотландии',
+  'Scottish League Cup':'Кубок Лиги Шотландии',
+  'Austrian Cup':'Кубок Австрии',
+  'ÖFB-Cup':'Кубок Австрии',
+  'OFB-Cup':'Кубок Австрии',
+  'Swiss Cup':'Кубок Швейцарии',
+  'Schweizer Cup':'Кубок Швейцарии',
+  'Greek Cup':'Кубок Греции',
+  'Turkish Cup':'Кубок Турции',
+  'Belgian Cup':'Кубок Бельгии',
+  'Croatian Cup':'Кубок Хорватии',
+  'Romanian Cup':'Кубок Румынии',
+  'Hungarian Cup':'Кубок Венгрии',
+  'Polish Cup':'Кубок Польши',
+  'Czech Cup':'Кубок Чехии',
+  'Slovak Cup':'Кубок Словакии',
+  'Danish Cup':'Кубок Дании',
+  'Norwegian Cup':'Кубок Норвегии',
+  'Swedish Cup':'Кубок Швеции',
+  'Finnish Cup':'Кубок Финляндии',
+  'Ukrainian Cup':'Кубок Украины',
+  'Super Cup':'Суперкубок'
+};
+
 // Ключевые слова — еврокубки (клубные)
 const EURO_CUPS_KEYS = [
   'uefa champions league','champions league',
@@ -107,7 +231,6 @@ const EURO_DOMESTIC_CUPS_KEYS = [
   'scottish cup','scottish league cup',
   'austrian cup','öfb-cup','ofb-cup',
   'schweizer cup','swiss cup',
-  'copa portugal',
   'greek cup','turkish cup','belgian cup','croatian cup',
   'romanian cup','hungarian cup','polish cup','czech cup','slovak cup',
   'danish cup','norwegian cup','swedish cup','finnish cup',
@@ -583,6 +706,30 @@ function detectMarketAndOutcome(predText, homeName, awayName) {
   return { market:'1X2', outcome:'1' };
 }
 
+// ——— Переводы + формирование tournament ———
+function trCountry(country='') {
+  return COUNTRY_TR[country] || country || '';
+}
+function trLeague(name='') {
+  return LEAGUE_TR[name] || name || '';
+}
+function buildTournamentTitle(m) {
+  const datePart = ddmmyy(m.fixture.date);
+  const leagueName = m.league?.name || '';
+  const country = m.league?.country || '';
+
+  if (isEuroCups(leagueName)) {
+    // Еврокубки — без страны
+    return `Футбол.${datePart} ${trLeague(leagueName)}`;
+  }
+  if (isEuroDomesticCup(country, leagueName)) {
+    // Домашние кубки — страна + кубок
+    return `Футбол.${datePart} ${trCountry(country)} ${trLeague(leagueName)}`;
+  }
+  // Лиги — страна + лига
+  return `Футбол.${datePart} ${trCountry(country)} ${trLeague(leagueName)}`;
+}
+
 // ——— Сохранение в черновики ———
 async function saveToDraft(preds) {
   const client = new MongoClient(MONGODB_URI);
@@ -642,24 +789,6 @@ async function generatePredictions() {
   // Переводы команд
   const allTeams = matches.flatMap(m => [m.teams.home.name, m.teams.away.name]);
   const teamTranslations = await getTranslatedTeams(allTeams);
-
-  // === Формирование названия турнира с учётом КУБКОВ ===
-  function buildTournamentTitle(m) {
-    const datePart = ddmmyy(m.fixture.date);
-    const leagueName = m.league?.name || '';
-    const country = m.league?.country || '';
-
-    if (isEuroCups(leagueName)) {
-      // Еврокубки — страна не пишем
-      return `Футбол.${datePart} ${leagueName}`;
-    }
-    if (isEuroDomesticCup(country, leagueName)) {
-      // Национальные кубки — добавляем страну
-      return `Футбол.${datePart} ${country} ${leagueName}`;
-    }
-    // Остальные турниры — страна + лига (чтобы было однозначно)
-    return `Футбол.${datePart} ${country} ${leagueName}`;
-  }
 
   const predictions = cards.map(({ match, predText, odd }, idx) => ({
     id: Date.now() + idx,
