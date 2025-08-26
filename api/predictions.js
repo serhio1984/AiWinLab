@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const path = require('path');
@@ -80,6 +81,27 @@ if (ENABLE_AUTO_GEN) {
   );
 }
 
+// ======= Вспомогательный хелпер профиля (сохранение ника/имени) =======
+function normalizeProfile(raw = {}) {
+  // raw — это объект Telegram user из telegram.initDataUnsafe.user
+  const username = raw.username || null;
+  const firstName = raw.first_name || null;
+  const lastName = raw.last_name || null;
+  const fullName = [firstName, lastName].filter(Boolean).join(' ') || firstName || null;
+  const photoUrl = raw.photo_url || null;
+
+  return {
+    // плоские поля для удобного запроса
+    username,
+    firstName,
+    lastName,
+    fullName,
+    photoUrl,
+    // плюс сохраняем оригинал на всякий случай (необязательно)
+    tg: raw && Object.keys(raw).length ? raw : null
+  };
+}
+
 // ======= WEBHOOK =======
 app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
   console.log('📩 Вызван /webhook!');
@@ -114,9 +136,18 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
 
       const { userId, coins } = parsed;
       const users = db.collection('users');
+
+      // Попробуем взять профиль из сообщения (если Telegram прислал отправителя)
+      const from = body.message.from || {};
+      const profileData = normalizeProfile(from);
+
       await users.updateOne(
         { chatId: userId },
-        { $inc: { coins }, $setOnInsert: { chatId: userId } },
+        {
+          $inc: { coins },
+          $setOnInsert: { chatId: userId, coins: 0 },
+          $set: profileData // актуализируем ник/имя/фото, если есть
+        },
         { upsert: true }
       );
       console.log(`✅ Пользователь ${userId} получил ${coins} монет`);
@@ -138,26 +169,45 @@ app.post('/api/check-password', (req, res) => {
   res.json({ success: password === ADMIN_PASSWORD });
 });
 
-// Баланс
+// ======= Баланс + сохранение профиля пользователя =======
 app.post('/balance', async (req, res) => {
-  const { userId, action, amount } = req.body;
+  const { userId, action, amount, profile } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
 
   const users = db.collection('users');
+  const profileData = profile ? normalizeProfile(profile) : null;
 
   if (action === 'get') {
     let user = await users.findOne({ chatId: userId });
+
+    // если нет — создаём с 5 монетами и профилем (если есть)
     if (!user) {
-      await users.insertOne({ chatId: userId, coins: 5 });
-      user = { coins: 5 };
+      const doc = { chatId: userId, coins: 5 };
+      if (profileData) Object.assign(doc, profileData);
+      await users.insertOne(doc);
+      user = doc;
+    } else if (profileData) {
+      // если есть — актуализируем профиль
+      await users.updateOne(
+        { chatId: userId },
+        { $set: profileData }
+      );
+      user = await users.findOne({ chatId: userId });
     }
-    return res.json({ coins: user.coins });
+
+    return res.json({ coins: user.coins ?? 0 });
   }
 
   if (action === 'update') {
+    const update = {
+      $inc: { coins: amount || 0 },
+      $setOnInsert: { chatId: userId, coins: 0 }
+    };
+    if (profileData) update.$set = profileData;
+
     const result = await users.findOneAndUpdate(
       { chatId: userId },
-      { $inc: { coins: amount }, $setOnInsert: { chatId: userId, coins: 0 } },
+      update,
       { upsert: true, returnDocument: 'after' }
     );
     return res.json({ coins: result.value.coins });
@@ -166,7 +216,7 @@ app.post('/balance', async (req, res) => {
   res.status(400).json({ error: 'Invalid action' });
 });
 
-// Получение прогнозов (пользователи видят опубликованные)
+// ======= Получение прогнозов (пользователи видят опубликованные) =======
 app.get('/api/predictions', async (req, res) => {
   const userId = parseInt(req.query.userId, 10);
   const preds = await db.collection('predictions').find().toArray();
@@ -199,6 +249,7 @@ app.post('/api/predictions', async (req, res) => {
   if (!Array.isArray(arr)) return res.status(400).json({ success: false });
 
   const cleaned = arr.map(p => {
+    // теперь сохраняем и дополнительные поля, если они приходят (country/league/date)
     const { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date } = p;
     return { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date };
   });
@@ -233,7 +284,7 @@ app.post('/api/publish-next-day', async (req, res) => {
   res.json({ success: true, message: 'Прогнозы готовы к публикации завтра' });
 });
 
-// Разблокировка одного прогноза
+// Разблокировка прогноза
 app.post('/api/unlock', async (req, res) => {
   const { userId, predictionId } = req.body;
   if (!userId || predictionId == null) return res.status(400).json({ error: 'Missing data' });
@@ -255,61 +306,31 @@ app.post('/api/unlock', async (req, res) => {
   res.json({ success: true, coins: updated.coins });
 });
 
-// === Разблокировать ВСЁ за динамическую стоимость (с защитой от повторной покупки) ===
+// Массовая разблокировка (если у тебя уже есть этот эндпоинт — оставь свой)
 app.post('/api/unlock-all', async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) {
-    return res.status(400).json({ success: false, message: 'User ID required' });
-  }
+  const { userId, price } = req.body;
+  if (!userId || typeof price !== 'number') return res.status(400).json({ ok: false, error: 'Missing data' });
 
   const users = db.collection('users');
   const unlocks = db.collection('unlocks');
-  const predsColl = db.collection('predictions');
+  const preds = await db.collection('predictions').find().toArray();
 
   const user = await users.findOne({ chatId: userId });
-  if (!user) {
-    return res.json({ success: false, message: 'Пользователь не найден' });
-  }
+  if (!user || user.coins < price) return res.json({ ok: false, error: 'Недостаточно монет' });
 
-  // Берём список всех опубликованных прогнозов (id)
-  const allPreds = await predsColl.find({}, { projection: { id: 1 } }).toArray();
-  const totalCount = allPreds.length;
-  if (!totalCount) {
-    return res.json({ success: false, message: 'Нет прогнозов' });
-  }
+  await users.updateOne({ chatId: userId }, { $inc: { coins: -price } });
 
-  // Вычисляем, какие ещё закрыты
-  const already = await unlocks.find({ userId }, { projection: { predictionId: 1 } }).toArray();
-  const unlockedSet = new Set(already.map(u => u.predictionId));
-  const lockedIds = allPreds.map(p => p.id).filter(id => !unlockedSet.has(id));
-
-  if (lockedIds.length === 0) {
-    // Ничего не списываем — всё уже открыто
-    return res.json({ success: false, message: 'Все прогнозы уже открыты', coins: user.coins });
-  }
-
-  // Серверный расчёт цены (защита от подмены на клиенте)
-  const serverCost = Math.floor(totalCount / 1.3);
-
-  if (user.coins < serverCost) {
-    return res.json({ success: false, message: 'Недостаточно монет', coins: user.coins });
-  }
-
-  // Списываем монеты ОДИН раз
-  await users.updateOne({ chatId: userId }, { $inc: { coins: -serverCost } });
-
-  // Открываем только реально оставшиеся закрытые
-  const ops = lockedIds.map(id => ({
+  const ops = preds.map(p => ({
     updateOne: {
-      filter: { userId, predictionId: id },
-      update: { $set: { userId, predictionId: id } },
+      filter: { userId, predictionId: p.id },
+      update: { $set: { userId, predictionId: p.id } },
       upsert: true
     }
   }));
   if (ops.length) await unlocks.bulkWrite(ops);
 
   const updated = await users.findOne({ chatId: userId });
-  res.json({ success: true, coins: updated.coins, unlocked: lockedIds.length, charged: serverCost });
+  res.json({ ok: true, coins: updated.coins });
 });
 
 // Создание инвойса
