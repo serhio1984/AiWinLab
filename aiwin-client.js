@@ -45,20 +45,28 @@ const translations = {
   }
 };
 
+/** Нормализатор строк */
+const norm = (s) =>
+  String(s || '')
+    .replace(/[–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, ' - ')
+    .trim();
+
+/** Убираем ведущий префикс "Футбол." из названия турнира (если он пришёл из БД) */
+function cleanTournamentTitle(tournament) {
+  if (!tournament) return '';
+  // Сносим только самое начало строки: "Футбол." (с точкой/без и в любом регистре)
+  return tournament.replace(/^\s*футбол\.?\s*/i, '').trim();
+}
+
 /**
  * Визуальный перевод текста прогноза.
- * Оригинал НЕ модифицируем, только возвращаем строку для отображения.
+ * ОРИГИНАЛ из БД не меняем — возвращаем только строку для отображения.
  */
 function translatePredictionText(original, target) {
   try {
     if (!original || target === 'ru') return original;
-
-    // Нормализация: длинные тире → дефис, сжатие пробелов
-    const norm = (s) =>
-      s.replace(/[–—−]/g, '-')
-       .replace(/\s+/g, ' ')
-       .replace(/\s*-\s*/g, ' - ')
-       .trim();
 
     const t = norm(original);
 
@@ -81,19 +89,19 @@ function translatePredictionText(original, target) {
       },
 
       // ===== Тоталы =====
-      { // "Тотал больше X"
+      {
         re: new RegExp(`^Тотал\\s+больше\\s+${NUM}$`, 'i'),
         tr: (m) => target === 'en' ? `Over ${m[1].replace(',', '.')} goals` : `Тотал більше ${m[1].replace(',', '.')}`
       },
-      { // "Тотал меньше X"
+      {
         re: new RegExp(`^Тотал\\s+меньше\\s+${NUM}$`, 'i'),
         tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}`
       },
-      { // "ТБ X"
+      {
         re: new RegExp(`^ТБ\\s*${NUM}$`, 'i'),
         tr: (m) => target === 'en' ? `Over ${m[1].replace(',', '.')} goals` : `Тотал більше ${m[1].replace(',', '.')}`
       },
-      { // "ТМ X"
+      {
         re: new RegExp(`^ТМ\\s*${NUM}$`, 'i'),
         tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}`
       },
@@ -102,10 +110,10 @@ function translatePredictionText(original, target) {
       {
         re: new RegExp(`^${TEAM}\\s+Фора\\s*([\\+\\-]?${NUM})$`, 'i'),
         tr: (m) => {
-          const tm = m[1];
+          const team = m[1];
           const h = (m[2] || '').replace(',', '.');
-          if (target === 'en') return `${tm} Handicap ${h}`;
-          return `${tm} Фора ${h}`;
+          if (target === 'en') return `${team} Handicap ${h}`;
+          return `${team} Фора ${h}`; // укр. термин часто такой же
         }
       },
 
@@ -207,7 +215,7 @@ async function loadPredictions() {
 
     updateBalance();
     renderPredictions();
-    renderUnlockAllButton(); // ← ВАЖНО: после загрузки обновляем панель кнопки
+    renderUnlockAllButton();
   } catch (e) {
     console.error('Ошибка загрузки:', e);
   }
@@ -239,7 +247,9 @@ function updateBalance() {
 }
 
 /**
- * Рендер карточек (predictionText визуально переводим, БД не трогаем)
+ * Рендер карточек:
+ * - predictionText визуально переводим (если разблокирован)
+ * - из tournament убираем ведущий "Футбол."
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
@@ -255,9 +265,11 @@ function renderPredictions() {
       ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
 
+    const tourShown = cleanTournamentTitle(p.tournament);
+
     div.innerHTML = `
       <div class="teams">
-        <span class="tournament">${p.tournament}</span>
+        <span class="tournament">${tourShown}</span>
         <div class="team-row"><img src="${p.logo1}"> ${p.team1}</div>
         <div class="team-row"><img src="${p.logo2}"> ${p.team2}</div>
       </div>
@@ -277,25 +289,15 @@ function renderPredictions() {
   });
 }
 
-/**
- * Подсчёт цены «Открыть всё»: ceil(count / 1.3)
- */
+/** Цена «Открыть всё»: ceil(count / 1.3) */
 function calcUnlockAllPrice() {
   const count = Array.isArray(predictions) ? predictions.length : 0;
   if (count <= 0) return 0;
   return Math.ceil(count / 1.3);
 }
-
-/**
- * Проверка: есть ли хоть один закрытый прогноз
- */
 function hasLocked() {
   return predictions.some(p => !p.isUnlocked);
 }
-
-/**
- * Рендер нижней панели и текста кнопки
- */
 function renderUnlockAllButton() {
   const { unlockAllBar, unlockAllBtn } = getDOMElements();
   if (!unlockAllBar || !unlockAllBtn) return;
@@ -316,7 +318,6 @@ function renderUnlockAllButton() {
       const userId = getUserId();
       if (!userId) return;
 
-      // повторная проверка монет
       if (coins < price) {
         alert(translations[lang].notEnough);
         unlockAllBtn.disabled = false;
@@ -336,13 +337,12 @@ function renderUnlockAllButton() {
         return;
       }
 
-      // Успешно: обновляем баланс и помечаем все карточки как открытые
       coins = data.coins ?? coins;
       updateBalance();
 
       predictions = predictions.map(p => ({ ...p, isUnlocked: true }));
       renderPredictions();
-      renderUnlockAllButton(); // скроется сама, т.к. больше нет закрытых
+      renderUnlockAllButton();
     } catch (e) {
       console.error('Unlock-all error:', e);
       alert('Ошибка соединения');
