@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AiWinLab</title>
     <style>
@@ -21,6 +21,7 @@
             flex-shrink: 0;
             padding: 10px;
             box-sizing: border-box;
+            background: #000; /* чтобы шапка читалась поверх контента */
         }
 
         .header {
@@ -116,7 +117,7 @@
 
         .buy-btn:hover {
             background: #e05600;
-            transform: scale(1.1);
+            transform: scale(1.05);
             box-shadow: 0 0 20px rgba(255, 98, 0, 0.7);
         }
 
@@ -128,24 +129,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            position: relative;
-        }
-
-        /* Панель с динамической кнопкой — остается при скролле */
-        .unlock-all-bar {
-            position: sticky;
-            top: 0;
-            z-index: 5;
-            grid-column: 1 / -1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 8px 10px;
-            margin-bottom: 4px;
-            /* фон, чтобы не сливалась с карточками при прокрутке */
-            background: linear-gradient(#ffffff, #ffffff);
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            background: #000;
         }
 
         .prediction {
@@ -168,7 +152,7 @@
         }
 
         .prediction.locked {
-            opacity: 0.7;
+            opacity: 0.85;
             cursor: pointer;
         }
 
@@ -253,6 +237,43 @@
             display: block;
         }
 
+        /* ===== Нижняя панель с динамической кнопкой «Открыть всё» ===== */
+        .unlock-all-bar {
+            position: sticky; /* надёжно работает в WebApp; если нужно — можно заменить на fixed */
+            bottom: 0;
+            z-index: 100;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(6px);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding: 10px;
+            display: none; /* по умолчанию скрыта, покажем из JS при наличии закрытых */
+        }
+        .unlock-all-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+        }
+        .unlock-all-btn {
+            background: #ff6200;
+            color: #fff;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 18px rgba(255,98,0,0.35);
+            transition: transform 0.15s ease;
+        }
+        .unlock-all-btn:active {
+            transform: scale(0.98);
+        }
+        .unlock-all-btn[disabled] {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
         @media (max-width: 600px) {
             .predictions {
                 grid-template-columns: 1fr;
@@ -309,6 +330,12 @@
                 width: 18px;
                 height: 18px;
             }
+
+            .unlock-all-btn {
+                font-size: 14px;
+                padding: 10px 14px;
+                border-radius: 8px;
+            }
         }
     </style>
 </head>
@@ -320,7 +347,7 @@
                 <p>Умные ставки. Большие выигрыши.</p>
             </div>
             <div class="user-section">
-                <span class="user-greeting"><span id="userName"></span></span>
+                <span class="user-greeting">Привет, <span id="userName"></span></span>
                 <div class="user-photo">
                     <img id="userProfilePic" src="https://via.placeholder.com/50?text=User" alt="Фото пользователя">
                 </div>
@@ -336,6 +363,13 @@
     </div>
 
     <div class="predictions" id="predictions"></div>
+
+    <!-- Закреплённая внизу панель с динамической кнопкой -->
+    <div class="unlock-all-bar" id="unlockAllBar">
+        <div class="unlock-all-inner">
+            <button class="unlock-all-btn" id="unlockAllBtn">...</button>
+        </div>
+    </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/aiwin-client.js" defer></script>
