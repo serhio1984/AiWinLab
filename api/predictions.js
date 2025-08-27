@@ -9,21 +9,32 @@ const { generatePredictions } = require('./prediction-generator');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+// ======= Telegram Bot =======
 const TelegramBot = require('node-telegram-bot-api');
 const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) {
+  console.error('❌ BOT_TOKEN is required in environment');
+  process.exit(1);
+}
 const botApi = new TelegramBot(BOT_TOKEN, { polling: false });
 
+// Доп. защита webhook запросов
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || null;
+
+// ======= Admin / Flags =======
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const ENABLE_AUTO_GEN = process.env.ENABLE_AUTO_GEN === 'true'; // автогенерация черновиков по CRON (по умолчанию выкл)
 
 const rootDir = path.join(__dirname, '..');
 console.log('Root directory set to:', rootDir);
 
-// ======= MONGO DB =======
-const uri =
-  process.env.MONGODB_URI ||
-  'mongodb+srv://aiwinuser:aiwinsecure123@cluster0.detso80.mongodb.net/predictionsDB?retryWrites=true&w=majority&tls=true';
-const client = new MongoClient(uri);
+// ======= MongoDB =======
+const uri = process.env.MONGODB_URI;
+if (!uri) {
+  console.error('❌ MONGODB_URI is required in environment');
+  process.exit(1);
+}
+const client = new MongoClient(uri, { maxPoolSize: 10 });
 let db;
 
 async function connectDB() {
@@ -81,9 +92,8 @@ if (ENABLE_AUTO_GEN) {
   );
 }
 
-// ======= Вспомогательный хелпер профиля (сохранение ника/имени) =======
+// ======= Вспомогательный хелпер профиля (сохраняем ник/имя/фото) =======
 function normalizeProfile(raw = {}) {
-  // raw — это объект Telegram user из telegram.initDataUnsafe.user
   const username = raw.username || null;
   const firstName = raw.first_name || null;
   const lastName = raw.last_name || null;
@@ -91,20 +101,28 @@ function normalizeProfile(raw = {}) {
   const photoUrl = raw.photo_url || null;
 
   return {
-    // плоские поля для удобного запроса
     username,
     firstName,
     lastName,
     fullName,
     photoUrl,
-    // плюс сохраняем оригинал на всякий случай (необязательно)
     tg: raw && Object.keys(raw).length ? raw : null
   };
 }
 
-// ======= WEBHOOK =======
-app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
-  console.log('📩 Вызван /webhook!');
+// ======= WEBHOOK (с верификацией секрета) =======
+app.post('/webhook', async (req, res) => {
+  // Проверяем секрет, если настроен
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const incoming = req.get('x-telegram-bot-api-secret-token');
+    if (!incoming || incoming !== TELEGRAM_WEBHOOK_SECRET) {
+      console.warn('🚫 Webhook rejected: invalid secret token header');
+      return res.sendStatus(403);
+    }
+  }
+
+  // Тело запроса отдельно парсится без лимита выше
+  // (express.json уже подключён глобально)
   try {
     if (!db) return res.sendStatus(200);
 
@@ -137,7 +155,7 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
       const { userId, coins } = parsed;
       const users = db.collection('users');
 
-      // Попробуем взять профиль из сообщения (если Telegram прислал отправителя)
+      // профиль отправителя из апдейта
       const from = body.message.from || {};
       const profileData = normalizeProfile(from);
 
@@ -146,12 +164,13 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
         {
           $inc: { coins },
           $setOnInsert: { chatId: userId, coins: 0 },
-          $set: profileData // актуализируем ник/имя/фото, если есть
+          $set: profileData
         },
         { upsert: true }
       );
       console.log(`✅ Пользователь ${userId} получил ${coins} монет`);
     }
+
     res.sendStatus(200);
   } catch (e) {
     console.error('❌ Ошибка в webhook:', e.stack);
@@ -159,17 +178,17 @@ app.post('/webhook', express.json({ limit: '10mb' }), async (req, res) => {
   }
 });
 
-// ======= ROUTES =======
+// ======= STATIC / ROOT =======
 app.get('/', (req, res) => res.sendFile(path.join(rootDir, 'welcome.html')));
 app.use(express.static(path.join(__dirname, '../'), { index: 'welcome.html' }));
 
-// Проверка пароля
+// ======= Проверка пароля админки =======
 app.post('/api/check-password', (req, res) => {
   const { password } = req.body;
   res.json({ success: password === ADMIN_PASSWORD });
 });
 
-// ======= Баланс + сохранение профиля пользователя =======
+// ======= Баланс + сохранение профиля =======
 app.post('/balance', async (req, res) => {
   const { userId, action, amount, profile } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID required' });
@@ -180,18 +199,13 @@ app.post('/balance', async (req, res) => {
   if (action === 'get') {
     let user = await users.findOne({ chatId: userId });
 
-    // если нет — создаём с 5 монетами и профилем (если есть)
     if (!user) {
       const doc = { chatId: userId, coins: 5 };
       if (profileData) Object.assign(doc, profileData);
       await users.insertOne(doc);
       user = doc;
     } else if (profileData) {
-      // если есть — актуализируем профиль
-      await users.updateOne(
-        { chatId: userId },
-        { $set: profileData }
-      );
+      await users.updateOne({ chatId: userId }, { $set: profileData });
       user = await users.findOne({ chatId: userId });
     }
 
@@ -216,7 +230,7 @@ app.post('/balance', async (req, res) => {
   res.status(400).json({ error: 'Invalid action' });
 });
 
-// ======= Получение прогнозов (пользователи видят опубликованные) =======
+// ======= Публичные прогнозы =======
 app.get('/api/predictions', async (req, res) => {
   const userId = parseInt(req.query.userId, 10);
   const preds = await db.collection('predictions').find().toArray();
@@ -248,8 +262,8 @@ app.post('/api/predictions', async (req, res) => {
   const arr = req.body;
   if (!Array.isArray(arr)) return res.status(400).json({ success: false });
 
+  // сохраняем все поля, включая country/league/date, если приходят
   const cleaned = arr.map(p => {
-    // теперь сохраняем и дополнительные поля, если они приходят (country/league/date)
     const { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date } = p;
     return { id, tournament, team1, logo1, team2, logo2, odds, predictionText, country, league, date };
   });
@@ -261,7 +275,7 @@ app.post('/api/predictions', async (req, res) => {
   res.json({ success: true });
 });
 
-// Ручная генерация черновиков на завтра (по кнопке в админке)
+// Ручная генерация черновиков на завтра
 app.post('/api/generate-drafts-now', async (req, res) => {
   try {
     const predictions = await generatePredictions(); // генератор сам пишет в draft_predictions
@@ -284,7 +298,7 @@ app.post('/api/publish-next-day', async (req, res) => {
   res.json({ success: true, message: 'Прогнозы готовы к публикации завтра' });
 });
 
-// Разблокировка прогноза
+// Разблокировка отдельного прогноза
 app.post('/api/unlock', async (req, res) => {
   const { userId, predictionId } = req.body;
   if (!userId || predictionId == null) return res.status(400).json({ error: 'Missing data' });
@@ -306,7 +320,7 @@ app.post('/api/unlock', async (req, res) => {
   res.json({ success: true, coins: updated.coins });
 });
 
-// Массовая разблокировка (если у тебя уже есть этот эндпоинт — оставь свой)
+// Массовая разблокировка (динамическая цена приходит с клиента)
 app.post('/api/unlock-all', async (req, res) => {
   const { userId, price } = req.body;
   if (!userId || typeof price !== 'number') return res.status(400).json({ ok: false, error: 'Missing data' });
@@ -333,7 +347,7 @@ app.post('/api/unlock-all', async (req, res) => {
   res.json({ ok: true, coins: updated.coins });
 });
 
-// Создание инвойса
+// Создание инвойса (Telegram Stars)
 app.post('/create-invoice', async (req, res) => {
   if (!db) return res.status(503).json({ ok: false, error: 'DB unavailable' });
 
@@ -354,7 +368,7 @@ app.post('/create-invoice', async (req, res) => {
       prices
     );
 
-    console.log('📄 Invoice link created:', link);
+    console.log('📄 Invoice link created');
     res.json({ ok: true, url: link });
   } catch (e) {
     console.error('❌ Error creating invoice:', e);
@@ -362,6 +376,7 @@ app.post('/create-invoice', async (req, res) => {
   }
 });
 
-process.on('SIGTERM', () => client.close() && process.exit(0));
+process.on('SIGTERM', () => client.close().catch(()=>{}).finally(()=>process.exit(0)));
+process.on('SIGINT', () => client.close().catch(()=>{}).finally(()=>process.exit(0)));
 
 module.exports = app;
