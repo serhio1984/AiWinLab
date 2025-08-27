@@ -45,7 +45,7 @@ const translations = {
   }
 };
 
-/** Нормализатор строк */
+/** Нормализация строк */
 const norm = (s) =>
   String(s || '')
     .replace(/[–—−]/g, '-')
@@ -56,8 +56,138 @@ const norm = (s) =>
 /** Убираем ведущий префикс "Футбол." из названия турнира (если он пришёл из БД) */
 function cleanTournamentTitle(tournament) {
   if (!tournament) return '';
-  // Сносим только самое начало строки: "Футбол." (с точкой/без и в любом регистре)
   return tournament.replace(/^\s*футбол\.?\s*/i, '').trim();
+}
+
+/** Пытаемся вытащить дату ДД.ММ.ГГ из строки, если в поле date её нет */
+function extractDateFromString(s) {
+  const m = String(s || '').match(/\b(\d{2}\.\d{2}\.\d{2})\b/);
+  return m ? m[1] : '';
+}
+
+/** Международный турнир? */
+function isInternationalCountry(country) {
+  return /^(international|world|europe)$/i.test(String(country || ''));
+}
+
+/** Переводы стран */
+const countryMap = {
+  ru: {
+    England: 'Англия', Spain: 'Испания', Italy: 'Италия', Germany: 'Германия', France: 'Франция',
+    Netherlands: 'Нидерланды', Portugal: 'Португалия', Scotland: 'Шотландия', Belgium: 'Бельгия',
+    Austria: 'Австрия', Switzerland: 'Швейцария', Poland: 'Польша', Ukraine: 'Украина',
+    Norway: 'Норвегия', Sweden: 'Швеция', Denmark: 'Дания', 'Czech Republic': 'Чехия', Czechia: 'Чехия',
+    Croatia: 'Хорватия', Serbia: 'Сербия', Romania: 'Румыния', Hungary: 'Венгрия', Greece: 'Греция',
+    Turkey: 'Турция', Finland: 'Финляндия', Iceland: 'Исландия', Cyprus: 'Кипр', Ireland: 'Ирландия',
+    'Northern Ireland': 'Северная Ирландия', Wales: 'Уэльс', Israel: 'Израиль', Kazakhstan: 'Казахстан',
+    Georgia: 'Грузия', Armenia: 'Армения', Azerbaijan: 'Азербайджан', Moldova: 'Молдова',
+    'Bosnia and Herzegovina': 'Босния и Герцеговина', 'North Macedonia': 'Северная Македония',
+    Albania: 'Албания', Kosovo: 'Косово', Montenegro: 'Черногория', Luxembourg: 'Люксембург',
+    Andorra: 'Андорра', Malta: 'Мальта', Monaco: 'Монако', 'San Marino': 'Сан-Марино',
+    'Faroe Islands': 'Фарерские острова', Gibraltar: 'Гибралтар', Lithuania: 'Литва',
+    Latvia: 'Латвия', Estonia: 'Эстония'
+  },
+  uk: {
+    England: 'Англія', Spain: 'Іспанія', Italy: 'Італія', Germany: 'Німеччина', France: 'Франція',
+    Netherlands: 'Нідерланди', Portugal: 'Португалія', Scotland: 'Шотландія', Belgium: 'Бельгія',
+    Austria: 'Австрія', Switzerland: 'Швейцарія', Poland: 'Польща', Ukraine: 'Україна',
+    Norway: 'Норвегія', Sweden: 'Швеція', Denmark: 'Данія', 'Czech Republic': 'Чехія', Czechia: 'Чехія',
+    Croatia: 'Хорватія', Serbia: 'Сербія', Romania: 'Румунія', Hungary: 'Угорщина', Greece: 'Греція',
+    Turkey: 'Туреччина', Finland: 'Фінляндія', Iceland: 'Ісландія', Cyprus: 'Кіпр', Ireland: 'Ірландія',
+    'Northern Ireland': 'Північна Ірландія', Wales: 'Уельс', Israel: 'Ізраїль', Kazakhstan: 'Казахстан',
+    Georgia: 'Грузія', Armenia: 'Вірменія', Azerbaijan: 'Азербайджан', Moldova: 'Молдова',
+    'Bosnia and Herzegovina': 'Боснія і Герцеговина', 'North Macedonia': 'Північна Македонія',
+    Albania: 'Албанія', Kosovo: 'Косово', Montenegro: 'Чорногорія', Luxembourg: 'Люксембург',
+    Andorra: 'Андорра', Malta: 'Мальта', Monaco: 'Монако', 'San Marino': 'Сан-Марино',
+    'Faroe Islands': 'Фарерські острови', Gibraltar: 'Гібралтар', Lithuania: 'Литва',
+    Latvia: 'Латвія', Estonia: 'Естонія'
+  },
+  en: {} // в англ. оставляем оригинал, т.к. приходит из API уже на английском
+};
+
+/** Переводы лиг/турниров (популярные; остальные остаются как есть) */
+const leagueMap = {
+  ru: {
+    'Premier League': 'Премьер-лига',
+    'La Liga': 'Ла лига',
+    'Serie A': 'Серия A',
+    'Bundesliga': 'Бундеслига',
+    'Ligue 1': 'Лига 1',
+    'Eredivisie': 'Эредивизи',
+    'Primeira Liga': 'Примейра лига',
+
+    'UEFA Champions League': 'Лига чемпионов УЕФА',
+    'UEFA Europa League': 'Лига Европы УЕФА',
+    'UEFA Europa Conference League': 'Лига конференций УЕФА',
+    'UEFA Super Cup': 'Суперкубок УЕФА'
+  },
+  uk: {
+    'Premier League': 'Премʼєр-ліга',
+    'La Liga': 'Ла Ліга',
+    'Serie A': 'Серія A',
+    'Bundesliga': 'Бундесліга',
+    'Ligue 1': 'Ліга 1',
+    'Eredivisie': 'Ередивізі',
+    'Primeira Liga': 'Прімейра-ліга',
+
+    'UEFA Champions League': 'Ліга чемпіонів УЄФА',
+    'UEFA Europa League': 'Ліга Європи УЄФА',
+    'UEFA Europa Conference League': 'Ліга конференцій УЄФА',
+    'UEFA Super Cup': 'Суперкубок УЄФА'
+  },
+  en: {
+    // нормализуем капитализацию/названия при необходимости
+    'La Liga': 'La Liga',
+    'Serie A': 'Serie A',
+    'Bundesliga': 'Bundesliga',
+    'Ligue 1': 'Ligue 1',
+    'Eredivisie': 'Eredivisie',
+    'Primeira Liga': 'Primeira Liga',
+    'UEFA Champions League': 'UEFA Champions League',
+    'UEFA Europa League': 'UEFA Europa League',
+    'UEFA Europa Conference League': 'UEFA Europa Conference League',
+    'UEFA Super Cup': 'UEFA Super Cup'
+  }
+};
+
+function translateCountry(name, targetLang) {
+  if (!name) return '';
+  if (targetLang === 'en') return name;
+  const dict = countryMap[targetLang] || {};
+  return dict[name] || name;
+}
+function translateLeague(name, targetLang) {
+  if (!name) return '';
+  const dict = leagueMap[targetLang] || {};
+  return dict[name] || name;
+}
+
+/**
+ * Формируем заголовок турнира ДЛЯ ПОКАЗА:
+ * - убираем "Футбол."
+ * - предпочитаем поля country/league/date из БД (если есть)
+ * - международные турниры: без страны
+ * - локальные: "Страна. Дата Лига"
+ */
+function buildTournamentTitle(p, targetLang) {
+  const cleaned = cleanTournamentTitle(p.tournament);
+  const country = p.country || '';
+  const league = p.league || '';
+  // дата: приоритет p.date, иначе из строки
+  const date = p.date || extractDateFromString(cleaned);
+
+  const leagueT = translateLeague(league || cleaned.replace(/\d{2}\.\d{2}\.\d{2}\s*/,'').trim(), targetLang);
+
+  if (isInternationalCountry(country)) {
+    // международные — без страны
+    return [date, leagueT].filter(Boolean).join(' ');
+  }
+
+  const countryT = translateCountry(country, targetLang);
+  // Если по каким-то причинам нет country, просто вернём "дата + лига"
+  if (!countryT) return [date, leagueT].filter(Boolean).join(' ');
+  // Страна. Дата Лига
+  return `${countryT}.${date ? ' ' + date + ' ' : ' '}${leagueT}`;
 }
 
 /**
@@ -95,7 +225,7 @@ function translatePredictionText(original, target) {
       },
       {
         re: new RegExp(`^Тотал\\s+меньше\\s+${NUM}$`, 'i'),
-        tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${m[1].replace(',', '.')}`
+        tr: (m) => target === 'en' ? `Under ${m[1].replace(',', '.')} goals` : `Тотал менше ${м[1].replace(',', '.')}`
       },
       {
         re: new RegExp(`^ТБ\\s*${NUM}$`, 'i'),
@@ -249,7 +379,7 @@ function updateBalance() {
 /**
  * Рендер карточек:
  * - predictionText визуально переводим (если разблокирован)
- * - из tournament убираем ведущий "Футбол."
+ * - заголовок турнира строим из country/league/date и чистим "Футбол."
  */
 function renderPredictions() {
   const { predictionsContainer } = getDOMElements();
@@ -265,7 +395,15 @@ function renderPredictions() {
       ? translatePredictionText(textOriginal, lang)
       : translations[lang].locked;
 
-    const tourShown = cleanTournamentTitle(p.tournament);
+    const tourShown = buildTournamentTitle(
+      {
+        tournament: p.tournament,
+        country: p.country,
+        league: p.league,
+        date: p.date
+      },
+      lang
+    );
 
     div.innerHTML = `
       <div class="teams">
