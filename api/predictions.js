@@ -112,17 +112,16 @@ function normalizeProfile(raw = {}) {
 
 // ======= WEBHOOK (с верификацией секрета) =======
 app.post('/webhook', async (req, res) => {
-  // Проверяем секрет, если настроен
+  // Проверяем секрет, если настроен через setWebhook(secret_token=...)
   if (TELEGRAM_WEBHOOK_SECRET) {
-    const incoming = req.get('x-telegram-bot-api-secret-token');
+    // Telegram присылает именно этот заголовок:
+    const incoming = req.get('X-Telegram-Bot-Api-Secret-Token');
     if (!incoming || incoming !== TELEGRAM_WEBHOOK_SECRET) {
       console.warn('🚫 Webhook rejected: invalid secret token header');
       return res.sendStatus(403);
     }
   }
 
-  // Тело запроса отдельно парсится без лимита выше
-  // (express.json уже подключён глобально)
   try {
     if (!db) return res.sendStatus(200);
 
@@ -320,7 +319,7 @@ app.post('/api/unlock', async (req, res) => {
   res.json({ success: true, coins: updated.coins });
 });
 
-// Массовая разблокировка (динамическая цена приходит с клиента)
+// Массовая разблокировка (динамическая цена приходит с клиента — как у вас было)
 app.post('/api/unlock-all', async (req, res) => {
   const { userId, price } = req.body;
   if (!userId || typeof price !== 'number') return res.status(400).json({ ok: false, error: 'Missing data' });
